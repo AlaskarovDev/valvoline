@@ -19,7 +19,7 @@ check_body() { # url axtarılan
 }
 
 # Deploydan dərhal sonra LiteSpeed .htaccess-i yenidən oxuyana qədər 404 verə bilər: real 200 gözlə.
-for i in $(seq 1 18); do [ "$(status "$SITE/login")" = "200" ] && [ "$(status "$SITE/up")" = "200" ] && break; sleep 5; done
+for i in $(seq 1 48); do [ "$(status "$SITE/login")" = "200" ] && [ "$(status "$SITE/up")" = "200" ] && break; sleep 5; done
 check_status "$SITE/up" 200
 check_status "$SITE/login" 200
 check_body "$SITE/login" "Valvo Analitika"
