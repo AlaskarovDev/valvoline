@@ -26,9 +26,8 @@ check_body "$SITE/login" "Valvo Analitika"
 check_body "$SITE/login" "/build/assets/app-"
 
 css="$(grep -o '/build/assets/app-[A-Za-z0-9_-]*\.css' body.html | head -1)"
-js="$(grep -o '/build/assets/app-[A-Za-z0-9_-]*\.js' body.html | head -1)"
 [ -n "$css" ] && check_status "$SITE$css" 200 || { echo "FAIL css linki yoxdur"; fail=1; }
-[ -n "$js" ] && check_status "$SITE$js" 200 || { echo "FAIL js linki yoxdur"; fail=1; }
+# Giriş səhifəsi yalnız CSS yükləyir; JS (ApexCharts, Livewire) daxili səhifələrdədir.
 
 # Qonaq girişə yönləndirilir.
 check_status "$SITE/" 302
