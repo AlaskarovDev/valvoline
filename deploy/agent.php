@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Contracts\Console\Kernel;
+
 /*
  * Valvo Analitika deploy agent — uploaded to public_html/_deploy.php by CI on every deploy.
  *
@@ -13,7 +15,7 @@
  */
 
 const TOKEN_HASH = '__TOKEN_HASH__';
-const ARTISAN_ALLOWED = ['analytics:rebuild', 'migrate:status', 'about', 'db:seed', 'queue:work', 'optimize:clear'];
+const ARTISAN_ALLOWED = ['analytics:rebuild', 'db:copy-sqlite', 'migrate:status', 'about', 'db:seed', 'queue:work', 'optimize:clear'];
 
 /* Əl ilə public_html-ə tökülmüş köhnə layihə faylları (CI quruluşundan əvvəl) — silinmir, _legacy-yə köçürülür. */
 const LEGACY_ITEMS = ['app', 'bootstrap', 'config', 'database', 'node_modules', 'public', 'resources', 'routes', 'storage', 'tests', 'tools',
@@ -32,7 +34,7 @@ function reply(bool $ok, array $data = []): never
 }
 
 $given = (string) ($_SERVER['HTTP_X_DEPLOY_TOKEN'] ?? '');
-if (TOKEN_HASH === '__TOKEN_'.'HASH__' || $given === '' || ! hash_equals(TOKEN_HASH, hash('sha256', $given))) {
+if ('__TOKEN_'.'HASH__' === TOKEN_HASH || $given === '' || ! hash_equals(TOKEN_HASH, hash('sha256', $given))) {
     reply(false, ['error' => 'forbidden']);
 }
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -111,7 +113,7 @@ function artisan(string $dir, array $commands): array
 {
     require $dir.'/vendor/autoload.php';
     $app = require $dir.'/bootstrap/app.php';
-    $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+    $kernel = $app->make(Kernel::class);
     $kernel->bootstrap();
     $out = [];
     foreach ($commands as [$name, $args]) {
