@@ -16,37 +16,31 @@
     </section>
 
     <section class="card overflow-hidden">
-        <div class="tbl-wrap">
-            <table class="tbl">
-                <thead><tr><th>Ad</th><th>E-poçt</th><th>Rol · menecer · status · yeni parol</th></tr></thead>
-                <tbody>
-                @foreach ($users as $u)
-                    <tr>
-                        <td class="font-medium">{{ $u->name }}</td>
-                        <td>{{ $u->email }}</td>
-                        <td>
-                            <form method="POST" action="{{ route('users.update', $u) }}" class="flex flex-wrap items-center gap-2">
-                                @csrf @method('PUT')
-                                <select name="role" class="select h-[30px] w-28 text-xs" aria-label="Rol">
-                                    <option value="admin" @selected($u->role === 'admin')>Admin</option>
-                                    <option value="menecer" @selected($u->role === 'menecer')>Menecer</option>
-                                </select>
-                                <select name="manager_id" class="select h-[30px] w-44 text-xs" aria-label="Menecer">
-                                    <option value="">—</option>
-                                    @foreach ($managers as $m)<option value="{{ $m->id }}" @selected($u->manager_id === $m->id)>{{ $m->name }}</option>@endforeach
-                                </select>
-                                <select name="is_active" class="select h-[30px] w-24 text-xs" aria-label="Status">
-                                    <option value="1" @selected($u->is_active)>Aktiv</option>
-                                    <option value="0" @selected(! $u->is_active)>Bloklu</option>
-                                </select>
-                                <input name="password" type="password" placeholder="yeni parol (ixtiyari)" class="input h-[30px] w-44 text-xs" autocomplete="new-password" aria-label="Yeni parol">
-                                <button class="btn btn-sm">Yadda saxla</button>
-                            </form>
-                        </td>
-                    </tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
+        <div class="card-head"><h2 class="card-title">İstifadəçilər</h2><span class="card-sub">{{ $users->count() }}</span></div>
+        <ul class="divide-y divide-line">
+            @foreach ($users as $u)
+                <li class="grid grid-cols-1 gap-2 px-4 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,3fr)] lg:items-center lg:gap-4">
+                    <div class="font-medium">{{ $u->name }}</div>
+                    <div class="truncate text-muted">{{ $u->email }}</div>
+                    <form method="POST" action="{{ route('users.update', $u) }}" class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                        @csrf @method('PUT')
+                        <select name="role" class="select h-[34px] text-xs sm:w-28" aria-label="Rol">
+                            <option value="admin" @selected($u->role === 'admin')>Admin</option>
+                            <option value="menecer" @selected($u->role === 'menecer')>Menecer</option>
+                        </select>
+                        <select name="is_active" class="select h-[34px] text-xs sm:w-24" aria-label="Status">
+                            <option value="1" @selected($u->is_active)>Aktiv</option>
+                            <option value="0" @selected(! $u->is_active)>Bloklu</option>
+                        </select>
+                        <select name="manager_id" class="select col-span-2 h-[34px] text-xs sm:w-44" aria-label="Menecer">
+                            <option value="">— menecer —</option>
+                            @foreach ($managers as $m)<option value="{{ $m->id }}" @selected($u->manager_id === $m->id)>{{ $m->name }}</option>@endforeach
+                        </select>
+                        <input name="password" type="password" placeholder="yeni parol (ixtiyari)" class="input h-[34px] text-xs sm:w-44" autocomplete="new-password" aria-label="Yeni parol">
+                        <button class="btn btn-sm h-[34px]">Yadda saxla</button>
+                    </form>
+                </li>
+            @endforeach
+        </ul>
     </section>
 </x-layouts.app>

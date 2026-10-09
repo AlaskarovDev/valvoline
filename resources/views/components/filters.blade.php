@@ -10,18 +10,18 @@
 <form method="GET" class="card no-print" x-data="{ open: {{ $activeCount > 0 ? 'true' : 'false' }} }">
     <div class="flex flex-wrap items-center gap-2 p-3">
         @if ($dates)
-            <div class="flex flex-wrap gap-1.5">
+            <div class="-mx-1 flex w-[calc(100%+0.5rem)] gap-1.5 overflow-x-auto px-1 pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible">
                 @foreach (ReportFilters::PRESETS as $key => $label)
                     <a href="{{ request()->url().'?'.http_build_query($filters->query(['preset' => $key, 'from' => null, 'to' => null])) }}"
-                       @class(['chip', 'active' => $filters->preset === $key])>{{ $label }}</a>
+                       @class(['chip shrink-0', 'active' => $filters->preset === $key])>{{ $label }}</a>
                 @endforeach
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex w-full items-center gap-1.5 sm:w-auto">
                 <label class="sr-only" for="f-from">Başlanğıc tarix</label>
-                <input id="f-from" type="date" name="from" value="{{ $filters->fromDate() }}" class="input h-[30px] w-[140px] text-xs" @if($filters->preset === 'all') disabled @endif>
+                <input id="f-from" type="date" name="from" value="{{ $filters->fromDate() }}" class="input h-[34px] min-w-0 flex-1 text-xs sm:h-[30px] sm:w-[140px] sm:flex-none" @if($filters->preset === 'all') disabled @endif>
                 <span class="text-muted">–</span>
                 <label class="sr-only" for="f-to">Son tarix</label>
-                <input id="f-to" type="date" name="to" value="{{ $filters->toDate() }}" class="input h-[30px] w-[140px] text-xs" @if($filters->preset === 'all') disabled @endif>
+                <input id="f-to" type="date" name="to" value="{{ $filters->toDate() }}" class="input h-[34px] min-w-0 flex-1 text-xs sm:h-[30px] sm:w-[140px] sm:flex-none" @if($filters->preset === 'all') disabled @endif>
             </div>
         @endif
         {{ $slot }}

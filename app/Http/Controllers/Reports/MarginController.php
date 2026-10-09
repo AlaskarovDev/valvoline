@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Reports;
 use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
 use App\Reports\Table;
+use App\Support\Fmt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,27 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class MarginController extends ReportController
 {
+    public const CHART_ITEMS = 20;
+
+    /** Marja qrupları: rəng tokeni => [aşağı hədd, ad]. */
+    public const MARGIN_BANDS = [
+        '--positive' => [0.35, '35 %+'],
+        '--chart-2' => [0.20, '20–35 %'],
+        '--warning' => [0.0, '0–20 %'],
+        '--negative' => [-INF, 'zərər'],
+    ];
+
+    public static function marginColor(?float $margin): string
+    {
+        foreach (self::MARGIN_BANDS as $color => [$min]) {
+            if (($margin ?? 0) >= $min) {
+                return $color;
+            }
+        }
+
+        return '--negative';
+    }
+
     public const DIMENSIONS = ['product' => 'Mal (kod)', 'group' => 'Məhsul qrupu', 'category' => 'Kateqoriya', 'customer' => 'Müştəri', 'manager' => 'Menecer'];
 
     public function __invoke(Request $request): View|Response
@@ -52,13 +74,16 @@ class MarginController extends ReportController
             $table->footer($footer);
         }
 
-        $scatterRows = $rows->filter(fn ($r) => $r->net_sales > 0 && $r->margin !== null)->sortByDesc('net_sales')->take(150);
-        $scatter = [
-            'type' => 'scatter',
-            'xTitle' => 'Xalis satış, ₼',
-            'yTitle' => 'Marja',
-            'series' => [['name' => self::DIMENSIONS[$dimension], 'data' => $scatterRows->map(fn ($r) => ['x' => round($r->net_sales, 2), 'y' => round(max(min($r->margin, 1), -1), 4), 'name' => $r->name])->values()->all()]],
-            'links' => $scatterRows->map(fn ($r) => $r->link)->values()->all(),
+        $top = $rows->filter(fn ($r) => $r->net_sales > 0)->sortByDesc('net_sales')->take(self::CHART_ITEMS)->values();
+        $chart = [
+            'type' => 'bar',
+            'horizontal' => true,
+            'distributed' => true,
+            'categories' => $top->map(fn ($r) => mb_strimwidth($r->name, 0, 42, '…'))->all(),
+            'series' => [['name' => 'Xalis satış', 'data' => $top->map(fn ($r) => round($r->net_sales, 2))->all()]],
+            'colors' => $top->map(fn ($r) => self::marginColor($r->margin))->all(),
+            'barLabels' => $top->map(fn ($r) => Fmt::pct($r->margin))->all(),
+            'links' => $top->map(fn ($r) => $r->link)->all(),
         ];
 
         return view('reports.margin', [
@@ -67,7 +92,8 @@ class MarginController extends ReportController
             'dimension' => $dimension,
             'table' => $table,
             'rows' => $paginated,
-            'scatter' => $scatter,
+            'chart' => $chart,
+            'chartHeight' => max(220, 60 + $top->count() * 28),
         ]);
     }
 

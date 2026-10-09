@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class Table
 {
-    /** @var list<array{key: string, label: string, type: string, sortable: bool, searchable: bool, sql: string|null, link: Closure|null, format: Closure|null, class: Closure|null, export: bool, wrap: bool}> */
+    /** @var list<array{key: string, label: string, type: string, sortable: bool, searchable: bool, sql: string|null, link: Closure|null, format: Closure|null, class: Closure|null, export: bool, wrap: bool, mobile: bool}> */
     public array $columns = [];
 
     private Builder|Collection|null $source = null;
@@ -55,7 +55,7 @@ class Table
     }
 
     /**
-     * @param  array{sortable?: bool, searchable?: bool, sql?: string, link?: Closure, format?: Closure, class?: Closure, export?: bool, wrap?: bool}  $options
+     * @param  array{sortable?: bool, searchable?: bool, sql?: string, link?: Closure, format?: Closure, class?: Closure, export?: bool, wrap?: bool, mobile?: bool}  $options
      */
     public function column(string $key, string $label, string $type = 'text', array $options = []): self
     {
@@ -70,6 +70,7 @@ class Table
             'format' => $options['format'] ?? null,
             'class' => $options['class'] ?? null,
             'export' => $options['export'] ?? true,
+            'mobile' => $options['mobile'] ?? true,
             'wrap' => $options['wrap'] ?? in_array($key, ['description', 'note', 'reason'], true),
         ];
 

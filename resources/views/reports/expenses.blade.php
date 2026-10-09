@@ -18,7 +18,7 @@
         @endif
     </x-filters>
 
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <x-kpi label="Əməliyyat xərcləri" :value="Fmt::money($grand)" :meta="$filters->label()" tone="neg"/>
         <x-kpi label="İstiqamət" :value="$filters->direction && $filters->direction !== 'all' ? $filters->direction : 'Hamısı'" meta="TIR ayrıca biznes xəttidir"/>
         <x-kpi label="Kateqoriya sayı" :value="$pivotRows->total()" :href="route('categories.index')" meta="Bayraqları redaktə et →"/>

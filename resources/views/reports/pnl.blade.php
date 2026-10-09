@@ -25,7 +25,7 @@
             <table class="tbl">
                 <thead>
                 <tr>
-                    <th class="sticky left-0 z-[2] min-w-56 bg-surface-2">Göstərici</th>
+                    <th class="sticky left-0 z-[2] min-w-36 bg-surface-2 sm:min-w-56">Göstərici</th>
                     @foreach ($labels as $label)<th class="num">{{ $label }}</th>@endforeach
                     <th class="num">Cəmi</th>
                 </tr>
@@ -37,7 +37,7 @@
                         $expandable = $line['style'] === 'expand' && count($line['children']) > 0;
                     @endphp
                     <tr class="{{ $rowClass }}" @if($expandable) @click="open[{{ $i }}] = !open[{{ $i }}]" style="cursor: pointer" @endif>
-                        <td class="sticky left-0 z-[1] bg-surface {{ $line['style'] === 'total' ? 'border-t-2 border-line-strong' : '' }}">
+                        <td class="sticky left-0 z-[1] whitespace-normal bg-surface {{ $line['style'] === 'total' ? 'border-t-2 border-line-strong' : '' }}">
                             @if ($expandable)<span class="inline-block w-4 text-faint" x-text="open[{{ $i }}] ? '▾' : '▸'">▸</span>@endif
                             {{ $line['label'] }}
                         </td>

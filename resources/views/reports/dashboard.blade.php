@@ -4,7 +4,7 @@
 
     <div class="text-xs text-muted">{{ $filters->label() }} · müqayisə: keçən ilin eyni dövrü</div>
 
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <x-kpi label="Xalis satış" :value="Fmt::money($kpi['net_sales'][0])" :delta="$kpi['net_sales'][1]" :href="route('sales.index', $filters->query())"/>
         <x-kpi label="Brüt mənfəət" :value="Fmt::money($kpi['gross_profit'][0])" :delta="$kpi['gross_profit'][1]" :tone="$kpi['gross_profit'][0] < 0 ? 'neg' : null" :href="route('margin.index', $filters->query())"/>
         <x-kpi label="Marja" :value="Fmt::pct($kpi['margin'][0])"

@@ -322,6 +322,16 @@
         text-decoration: underline;
     }
 
+    .m-card.row-neg {
+        background: var(--negative-soft);
+        box-shadow: inset 3px 0 0 var(--negative);
+    }
+
+    .m-card.row-warn {
+        background: var(--warning-soft);
+        box-shadow: inset 3px 0 0 var(--warning);
+    }
+
     .pos {
         color: var(--positive);
     }
@@ -445,6 +455,45 @@
 .apexcharts-tooltip-title {
     background: var(--surface-2) !important;
     border-color: var(--border) !important;
+}
+
+/* Telefon: daha yığcam KPI kartları (iki sütun), cədvəl hüceyrələri və filtr düymələri */
+@media (max-width: 639px) {
+    .kpi {
+        padding: 12px;
+    }
+
+    .kpi-label {
+        font-size: 11px;
+    }
+
+    .kpi-value {
+        margin-top: 4px;
+        font-size: 17px;
+        overflow-wrap: anywhere;
+    }
+
+    .kpi-value.text-3xl {
+        font-size: 22px;
+    }
+
+    .kpi-meta {
+        font-size: 11px;
+    }
+
+    .chip {
+        height: 32px;
+    }
+
+    .card-head {
+        flex-wrap: wrap;
+        padding: 12px 14px;
+    }
+
+    .tbl th,
+    .tbl td {
+        padding: 8px 10px;
+    }
 }
 
 @media print {

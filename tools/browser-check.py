@@ -272,12 +272,12 @@ def main() -> int:
 
         # telefon eni
         viewport(390, 844, True)
-        for name, path in [("mobil-panel", "/?preset=last_12"), ("mobil-sifarisler", "/sifarisler?preset=last_12"), ("mobil-pnl", "/menfeet-zerer?preset=last_12"), ("mobil-anbar", "/anbar")]:
+        for name, path, _charts in PAGES:
             visit(path)
             time.sleep(1.0)
             overflow = js("document.documentElement.scrollWidth - document.documentElement.clientWidth")
-            ok(f"{name}: daşma yoxdur") if isinstance(overflow, (int, float)) and overflow <= 2 else bad(f"{name}: {overflow}px daşma")
-            shot("40-" + name)
+            ok(f"mobil {name}: daşma yoxdur") if isinstance(overflow, (int, float)) and overflow <= 2 else bad(f"mobil {name}: {overflow}px daşma")
+            shot("40-mobil-" + name, full=True)
         js("document.querySelector('[aria-label=\"Menyunu aç\"]').click()")
         time.sleep(0.6)
         nav_open = js("document.querySelector('aside').getBoundingClientRect().left >= 0")

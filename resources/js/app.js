@@ -28,7 +28,8 @@ const palette = () => ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--ch
 
 const charts = new Map();
 
-function buildOptions(spec) {
+function buildOptions(spec, width = 1000) {
+    const narrow = width < 560;
     const isDark = document.documentElement.classList.contains('dark');
     const text = cssVar('--muted');
     const grid = cssVar('--border');
@@ -113,15 +114,64 @@ function buildOptions(spec) {
         if (spec.markers) {
             options.markers = { size: 3, strokeWidth: 0 };
         }
+        if (spec.distributed) {
+            options.plotOptions.bar.distributed = true;
+            options.legend = { show: false };
+        }
+        if (spec.barLabels) {
+            options.plotOptions.bar.dataLabels = { position: 'top' };
+            options.dataLabels = {
+                enabled: true,
+                textAnchor: 'start',
+                offsetX: 8,
+                formatter: (v, { dataPointIndex }) => spec.barLabels[dataPointIndex],
+                style: { fontSize: '11px', fontWeight: 600, colors: [cssVar('--text')] },
+                background: { enabled: false },
+                dropShadow: { enabled: false },
+            };
+            options.grid.padding = { ...options.grid.padding, right: 16 };
+            const top = Math.max(...spec.series[0].data);
+            if (top > 0) options.xaxis.max = top * 1.1; // marja yazısı üçün yer
+            options.tooltip.y = { formatter: (v, { dataPointIndex }) => `${format(v)} · marja ${spec.barLabels[dataPointIndex]}` };
+        }
     }
 
+    if (narrow) applyNarrow(options, spec, width);
+
     return options;
+}
+
+/* Telefon eni: qısa etiketlər, kiçik şrift, oxlara az yer — qrafik sahəsi böyüsün */
+function applyNarrow(options, spec, width) {
+    const small = { fontSize: '10px' };
+    options.legend = { ...options.legend, fontSize: '11px', itemMargin: { horizontal: 6, vertical: 2 } };
+    if (spec.type === 'donut' || spec.type === 'pie' || spec.type === 'scatter') return;
+    if (spec.horizontal) {
+        const yl = Array.isArray(options.yaxis) ? options.yaxis[0] : options.yaxis;
+        yl.labels = { ...yl.labels, maxWidth: Math.round(width * 0.36), style: small };
+        options.xaxis.tickAmount = 3;
+        options.xaxis.labels = { ...options.xaxis.labels, style: small };
+        if (options.dataLabels?.enabled) options.dataLabels.style.fontSize = '10px';
+        return;
+    }
+    const many = (spec.categories || []).length > 8;
+    options.xaxis.labels = {
+        ...options.xaxis.labels,
+        rotate: -90,
+        rotateAlways: many,
+        style: { fontSize: '9px' },
+        formatter: many ? (v) => (typeof v === 'string' ? v.replace(/^(\S+) \d{2}(\d{2})$/, '$1 $2') : v) : options.xaxis.labels.formatter,
+    };
+    const axes = Array.isArray(options.yaxis) ? options.yaxis : [options.yaxis];
+    axes.forEach((a) => (a.labels = { ...a.labels, maxWidth: 56, style: small }));
+    options.grid.padding = { left: 0, right: 4 };
+    if (options.plotOptions?.bar) options.plotOptions.bar.columnWidth = '72%';
 }
 
 function renderChart(el) {
     const spec = JSON.parse(el.dataset.chart);
     if (charts.has(el)) charts.get(el).destroy();
-    const chart = new ApexCharts(el, buildOptions(spec));
+    const chart = new ApexCharts(el, buildOptions(spec, el.clientWidth || window.innerWidth));
     chart.render();
     charts.set(el, chart);
 }
@@ -147,3 +197,17 @@ window.toggleTheme = () => {
 
 document.addEventListener('DOMContentLoaded', () => renderAll());
 document.addEventListener('livewire:navigated', () => renderAll());
+
+/* Ekran dönəndə / eni dəyişəndə (telefon ↔ geniş) qrafikləri yenidən qur */
+let lastNarrow = window.innerWidth < 560;
+let resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+        const narrow = window.innerWidth < 560;
+        if (narrow !== lastNarrow) {
+            lastNarrow = narrow;
+            renderAll();
+        }
+    }, 250);
+});
