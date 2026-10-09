@@ -26,10 +26,16 @@ class AnalyticsRebuild extends Command
         $bar->setFormat(' %current%% [%bar%] %message%');
         $bar->setMessage('Başlanır');
         $bar->start();
-        $result = $rebuilder->run(function (string $step, float $pct) use ($bar) {
+        $result = $rebuilder->runExclusive(function (string $step, float $pct) use ($bar) {
             $bar->setMessage($step);
             $bar->setProgress((int) round($pct * 100));
         });
+        if ($result === null) {
+            $this->newLine();
+            $this->warn('Başqa hesablama artıq işləyir — o bitəndə bir tur da keçəcək.');
+
+            return self::SUCCESS;
+        }
         $bar->setMessage('Hazırdır');
         $bar->finish();
         $this->newLine(2);

@@ -15,12 +15,43 @@ class AnalyticsRebuilder
 {
     public const CACHE_KEY = 'analytics.rebuild';
 
+    public const LOCK_KEY = 'analytics.rebuild.lock';
+
+    public const AGAIN_KEY = 'analytics.rebuild.again';
+
     public function __construct(
         private ReferenceResolver $resolver,
         private CostingService $costing,
         private SummaryService $summary,
         private CustomerBalanceService $balances,
     ) {}
+
+    /**
+     * Eyni anda yalnız bir hesablama işləyir (SQLite bir yazıçıya icazə verir). Hesablama gedərkən
+     * gələn sorğular itmir: «yenidən» bayrağı qoyulur və işləyən proses bitəndə bir tur da keçir.
+     *
+     * @param  callable(string, float): void|null  $onProgress
+     * @return array<string, mixed>|null null — başqa proses artıq işləyir, sorğu ona birləşdirildi
+     */
+    public function runExclusive(?callable $onProgress = null): ?array
+    {
+        $lock = Cache::lock(self::LOCK_KEY, 3600);
+        if (! $lock->get()) {
+            Cache::put(self::AGAIN_KEY, true, 3600);
+
+            return null;
+        }
+        try {
+            do {
+                Cache::forget(self::AGAIN_KEY);
+                $result = $this->run($onProgress);
+            } while (Cache::pull(self::AGAIN_KEY));
+
+            return $result;
+        } finally {
+            $lock->release();
+        }
+    }
 
     /**
      * @param  callable(string, float): void|null  $onProgress
@@ -82,6 +113,11 @@ class AnalyticsRebuilder
 
     public static function markQueued(): void
     {
+        if ((self::status()['status'] ?? null) === 'running') {
+            Cache::put(self::AGAIN_KEY, true, 3600);
+
+            return;
+        }
         Cache::put(self::CACHE_KEY, ['status' => 'queued', 'step' => 'Növbədədir', 'pct' => 0], 3600);
     }
 }

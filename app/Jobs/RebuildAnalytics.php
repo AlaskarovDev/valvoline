@@ -17,6 +17,6 @@ class RebuildAnalytics implements ShouldBeUnique, ShouldQueue
 
     public function handle(AnalyticsRebuilder $rebuilder): void
     {
-        $rebuilder->run();
+        $rebuilder->runExclusive();
     }
 }

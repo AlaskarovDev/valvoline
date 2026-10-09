@@ -78,7 +78,7 @@ jobs:
             echo 'APP_FALLBACK_LOCALE=az'
             echo 'LOG_CHANNEL=daily'
             echo 'LOG_LEVEL=warning'
-            echo 'SESSION_DRIVER=database'
+            echo 'SESSION_DRIVER=file'
             echo 'SESSION_LIFETIME=480'
             echo 'SESSION_SECURE_COOKIE=true'
             echo 'CACHE_STORE=file'

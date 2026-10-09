@@ -12,7 +12,7 @@
     <div class="space-y-2 p-4 text-sm" role="status" aria-live="polite">
         @if ($status)
             <div class="flex items-center justify-between gap-3">
-                <span @class(['neg' => $status['status'] === 'failed', 'pos' => $status['status'] === 'done'])>{{ $status['step'] }}</span>
+                <span @class(['min-w-0 break-words', 'neg' => $status['status'] === 'failed', 'pos' => $status['status'] === 'done'])>{{ $status['step'] }}</span>
                 <span class="num text-muted">{{ $status['pct'] ?? 0 }}%</span>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-surface-2">
