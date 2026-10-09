@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class SalesOrder extends Model
+{
+    protected $table = 'sales_orders';
+
+    protected $guarded = ['id'];
+
+    protected function casts(): array
+    {
+        return ['date' => 'date'];
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(Manager::class);
+    }
+}

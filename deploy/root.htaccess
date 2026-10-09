@@ -1,0 +1,37 @@
+# Valvo Analitika — public_html/.htaccess (written by deploy/agent.php)
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Application internals are never served.
+    RewriteRule ^(_app|_app_shared|_app_storage|_app_staging|_app_prev|_app_failed|_releases|_legacy_[0-9_]+)(/|$) - [F,L,NC]
+    # Dotfiles (.env, .git ...) except ACME challenges.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # HTTPS is forced at the hosting edge (hPanel); a rule here could loop behind the CDN.
+
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+<FilesMatch "\.(env|log|sqlite|sqlite-wal|sqlite-shm|zip|lock|json|md|xlsx)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|woff2?|svg|png|ico)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>

@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Http\Controllers\Reports;
+
+use App\Reports\ReportFilters;
+use App\Reports\SalesSummaryQuery;
+use App\Reports\Table;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Marjinallıq: mal, məhsul qrupu, kateqoriya, müştəri, menecer üzrə satış, maya, brüt mənfəət, marja, orta endirim.
+ */
+class MarginController extends ReportController
+{
+    public const DIMENSIONS = ['product' => 'Mal (kod)', 'group' => 'Məhsul qrupu', 'category' => 'Kateqoriya', 'customer' => 'Müştəri', 'manager' => 'Menecer'];
+
+    public function __invoke(Request $request): View|Response
+    {
+        $filters = $this->filters($request);
+        $dimension = array_key_exists($request->query('dim'), self::DIMENSIONS) ? $request->query('dim') : 'product';
+        $rows = $this->rows($filters, $dimension);
+
+        $table = Table::make('margin', 'Marjinallıq — '.self::DIMENSIONS[$dimension])
+            ->column('name', self::DIMENSIONS[$dimension], 'text', ['link' => fn ($r) => $r->link, 'format' => fn ($v, $r) => e($v).($r->estimated ? ' <span class="warn" title="Maya təxminidir">⚠</span>' : '')]);
+        if ($dimension === 'product') {
+            $table->column('code', 'Kod');
+        }
+        $table->column('qty', 'Miqdar', 'qty')
+            ->column('liters', 'Litr', 'qty')
+            ->column('sales', 'Satış', 'money')
+            ->column('returns', 'Qaytarma', 'money')
+            ->column('net_sales', 'Xalis satış', 'money')
+            ->column('cogs', 'Maya', 'money')
+            ->column('gross_profit', 'Brüt mənfəət', 'money', ['class' => fn ($v) => $v < 0 ? 'neg' : ''])
+            ->column('margin', 'Marja', 'pct', ['class' => fn ($v) => $v !== null && $v < 0 ? 'neg font-semibold' : 'font-semibold'])
+            ->column('discount', 'Orta endirim', 'pct')
+            ->source($rows)->sortBy('net_sales')->perPage(100)->footer(auto: true)
+            ->rowClass(fn ($r) => $r->gross_profit < 0 ? 'row-neg' : '');
+
+        if ($response = $this->exportIfRequested($request, [$table], 'Marjinallıq', $filters)) {
+            return $response;
+        }
+        $paginated = $table->resolve($request);
+        $footer = $table->footerValues();
+        if ($footer !== null) {
+            $footer['margin'] = abs($footer['net_sales']) > 0.005 ? $footer['gross_profit'] / $footer['net_sales'] : null;
+            $footer['discount'] = null;
+            $table->footer($footer);
+        }
+
+        $scatterRows = $rows->filter(fn ($r) => $r->net_sales > 0 && $r->margin !== null)->sortByDesc('net_sales')->take(150);
+        $scatter = [
+            'type' => 'scatter',
+            'xTitle' => 'Xalis satış, ₼',
+            'yTitle' => 'Marja',
+            'series' => [['name' => self::DIMENSIONS[$dimension], 'data' => $scatterRows->map(fn ($r) => ['x' => round($r->net_sales, 2), 'y' => round(max(min($r->margin, 1), -1), 4), 'name' => $r->name])->values()->all()]],
+            'links' => $scatterRows->map(fn ($r) => $r->link)->values()->all(),
+        ];
+
+        return view('reports.margin', [
+            'title' => 'Marjinallıq',
+            'filters' => $filters,
+            'dimension' => $dimension,
+            'table' => $table,
+            'rows' => $paginated,
+            'scatter' => $scatter,
+        ]);
+    }
+
+    /**
+     * @return Collection<int, object>
+     */
+    private function rows(ReportFilters $filters, string $dimension): Collection
+    {
+        $query = SalesSummaryQuery::base($filters);
+        [$key, $name, $extra] = match ($dimension) {
+            'group' => ['p.product_group_id', 'g.name', ''],
+            'category' => ['p.category_id', 'cat.name', ''],
+            'customer' => ['s.customer_id', 'c.name', ''],
+            'manager' => ['s.manager_id', 'm.name', ''],
+            default => ['s.product_id', 'p.name', ', p.code AS code, p.cost_estimated AS estimated'],
+        };
+        match ($dimension) {
+            'group' => $query->leftJoin('product_groups as g', 'g.id', '=', 'p.product_group_id'),
+            'category' => $query->leftJoin('categories as cat', 'cat.id', '=', 'p.category_id'),
+            'customer' => $query->leftJoin('customers as c', 'c.id', '=', 's.customer_id'),
+            'manager' => $query->leftJoin('managers as m', 'm.id', '=', 's.manager_id'),
+            default => null,
+        };
+        $groupBy = [DB::raw($key), DB::raw($name)];
+        if ($dimension === 'product') {
+            $groupBy[] = 'p.code';
+            $groupBy[] = 'p.cost_estimated';
+        }
+
+        return $query->groupBy(...$groupBy)
+            ->selectRaw("{$key} AS id, {$name} AS name{$extra}, ".SalesSummaryQuery::METRICS)
+            ->get()
+            ->map(function ($r) use ($dimension, $filters) {
+                $r = SalesSummaryQuery::derive($r);
+                $r->name ??= '— (təyin edilməyib)';
+                $r->estimated = (bool) ($r->estimated ?? false);
+                $r->link = $r->id === null ? null : match ($dimension) {
+                    'product' => route('movements.product', $r->id),
+                    'customer' => route('customers.show', $r->id),
+                    'group' => route('margin.index', $filters->query(['group' => $r->id, 'dim' => 'product'])),
+                    'category' => route('margin.index', $filters->query(['category' => $r->id, 'dim' => 'product'])),
+                    'manager' => route('margin.index', $filters->query(['manager' => $r->id, 'dim' => 'customer'])),
+                };
+
+                return $r;
+            })
+            ->filter(fn ($r) => abs($r->sales) > 0.001 || abs($r->returns) > 0.001 || abs($r->cogs) > 0.001);
+    }
+}

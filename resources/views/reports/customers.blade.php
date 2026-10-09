@@ -1,0 +1,24 @@
+<x-layouts.app :title="$title">
+    <x-filters :filters="$filters" :show="['manager']" :dates="false" :own="['tab', 'days', 'type']">
+        <input type="hidden" name="tab" value="{{ $tab }}">
+        <select name="type" class="select h-[30px] w-auto text-xs" aria-label="Müştəri tipi" onchange="this.form.submit()">
+            <option value="" @selected(request('type') === null || request('type') === '')>Yalnız müştərilər</option>
+            <option value="internal" @selected(request('type') === 'internal')>Daxili (müştəri deyil)</option>
+            <option value="any" @selected(request('type') === 'any')>Hamısı</option>
+        </select>
+        @if ($tab === 'inactive')
+            <label class="flex items-center gap-1.5 text-xs text-muted">
+                Son alışdan
+                <input type="number" min="1" name="days" value="{{ $days }}" class="input h-[30px] w-20 text-xs">
+                gün keçib
+            </label>
+        @endif
+    </x-filters>
+
+    <nav class="tabs" aria-label="Görünüş">
+        <a href="{{ route('customers.index', request()->except(['tab', 'customers_page'])) }}" @class(['tab', 'active' => $tab === 'all'])>Bütün müştərilər ({{ number_format($counts['all'], 0, ',', ' ') }})</a>
+        <a href="{{ route('customers.index', array_merge(request()->except('customers_page'), ['tab' => 'inactive'])) }}" @class(['tab', 'active' => $tab === 'inactive'])>Uzun müddət alış etməyənlər</a>
+    </nav>
+
+    <x-table :table="$table" :rows="$rows"/>
+</x-layouts.app>

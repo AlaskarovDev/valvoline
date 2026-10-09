@@ -1,0 +1,141 @@
+name: Test & deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      artisan:
+        description: 'Deploydan sonra serverdə icazəli artisan əmri (məs. analytics:rebuild)'
+        required: false
+        default: ''
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_sqlite, sqlite3, zip, gd, bcmath
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: npm ci && npm run build
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ secrets.SITE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, zip, gd, bcmath
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Production paketi
+        run: |
+          composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+          npm ci && npm run build
+          rm -rf node_modules
+
+      - name: Buraxılış arxivi
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: bash deploy/package.sh "${GITHUB_SHA::12}" "$(printf '%s' "$DEPLOY_TOKEN" | sha256sum | cut -d' ' -f1)"
+
+      - name: Server .env
+        env:
+          APP_KEY: ${{ secrets.APP_KEY }}
+          DB_ENV: ${{ secrets.DB_ENV }}
+          ADMIN_ENV: ${{ secrets.ADMIN_ENV }}
+        run: |
+          {
+            echo 'APP_NAME="Valvo Analitika"'
+            echo 'APP_ENV=production'
+            echo "APP_KEY=${APP_KEY}"
+            echo 'APP_DEBUG=false'
+            echo "APP_URL=${SITE_URL}"
+            echo 'APP_TIMEZONE=Asia/Baku'
+            echo 'APP_LOCALE=az'
+            echo 'APP_FALLBACK_LOCALE=az'
+            echo 'LOG_CHANNEL=daily'
+            echo 'LOG_LEVEL=warning'
+            echo 'SESSION_DRIVER=database'
+            echo 'SESSION_LIFETIME=480'
+            echo 'SESSION_SECURE_COOKIE=true'
+            echo 'CACHE_STORE=file'
+            echo 'QUEUE_CONNECTION=database'
+            echo 'FILESYSTEM_DISK=local'
+            printf '%s\n' "${DB_ENV:-DB_CONNECTION=sqlite
+          DB_DATABASE=%STORAGE%/database.sqlite}"
+            printf '%s\n' "${ADMIN_ENV:-}"
+          } | sed 's/^ *//' > server.env
+          grep -c . server.env
+
+      # FTP-Deploy-Action serverdə sinxron vəziyyəti saxlayır və yalnız dəyişən faylları yükləyir.
+      # (lftp və curl GitHub runner-lərindən bu hosta qoşula bilmədi — Glaust MS təcrübəsi.)
+      - name: FTP ilə yükləmə
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./dist/upload/
+          server-dir: ./
+          timeout: 600000
+
+      - name: Serverdə quraşdırma
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -sS --max-time 900 -X POST "${SITE_URL}/_deploy.php" -H "X-Deploy-Token: ${DEPLOY_TOKEN}" \
+            --data-urlencode action=deploy \
+            --data-urlencode "release=$(cat dist/release.txt)" \
+            --data-urlencode "vendor=$(cat dist/vendor.txt)" \
+            --data-urlencode env@server.env -o deploy.json
+          jq 'del(.artisan[]?.output)' deploy.json || cat deploy.json
+          test "$(jq -r .ok deploy.json)" = "true"
+
+      - name: Canlı yoxlama
+        id: live
+        run: bash deploy/check.sh "${SITE_URL}"
+
+      - name: Uğursuz yoxlamada geri qaytar
+        if: failure() && steps.live.outcome == 'failure'
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          curl -sS -X POST "${SITE_URL}/_deploy.php" -H "X-Deploy-Token: ${DEPLOY_TOKEN}" --data-urlencode action=log | jq -r .tail | tail -n 40 || true
+          curl -sS -X POST "${SITE_URL}/_deploy.php" -H "X-Deploy-Token: ${DEPLOY_TOKEN}" --data-urlencode action=rollback
+
+      - name: İxtiyari artisan əmri
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.artisan != ''
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+          ARTISAN: ${{ github.event.inputs.artisan }}
+        run: |
+          set -euo pipefail
+          curl -sS --max-time 900 -X POST "${SITE_URL}/_deploy.php" -H "X-Deploy-Token: ${DEPLOY_TOKEN}" \
+            --data-urlencode action=artisan --data-urlencode "command=${ARTISAN}" --data-urlencode 'args={}' -o artisan.json
+          jq . artisan.json
+          test "$(jq -r .ok artisan.json)" = "true"
