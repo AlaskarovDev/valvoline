@@ -4,21 +4,25 @@
     $natureClass = ['A' => 'badge-primary', 'P' => 'badge-warn', 'K' => '', 'G' => 'badge-pos', 'X' => 'badge-neg', 'N' => '', 'B' => ''];
 @endphp
 <x-layouts.app :title="$title">
-    <div class="card px-4 py-3 text-sm text-muted">
+    <div class="card flex flex-wrap items-start gap-3 px-4 py-3 text-sm text-muted">
+        <div class="min-w-0 flex-1">
         {{ __('Azərbaycan Respublikasında kommersiya təşkilatları üçün Mühasibat uçotu hesablarının Hesablar Planı (bölmə → maddə → hesab). Adlar redaktə oluna, yeni hesab əlavə edilə bilər — mühasibinizlə tutuşdurun.') }}
         @if ($year)
-            {{ __('«Qalıq» sütunu :year balans faylındakı köhnə hesabların yeni plana uyğunluğu ilə hesablanır.', ['year' => $year]) }}
+            {{ __('Qalıqlar :date tarixinə balans faylından götürülür (köhnə hesablar yeni plana bağlanır). Məbləğə klik — necə yarandığını göstərir.', ['date' => $yearLabels[$year] ?? $year]) }}
         @endif
+        </div>
+        @if ($year)<div class="shrink-0">@include('accounting._year')</div>@endif
     </div>
 
     <form method="GET" class="card flex flex-wrap items-center gap-2 p-3">
         <div class="-mx-1 flex w-[calc(100%+0.5rem)] gap-1.5 overflow-x-auto px-1 pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible">
-            <a href="{{ route('accounting.chart', array_filter(['q' => $q])) }}" @class(['chip shrink-0', 'active' => $section === ''])>{{ __('Hamısı') }}</a>
+            <a href="{{ route('accounting.chart', array_filter(['q' => $q, 'year' => $year])) }}" @class(['chip shrink-0', 'active' => $section === ''])>{{ __('Hamısı') }}</a>
             @foreach ($sections as $no => $name)
-                <a href="{{ route('accounting.chart', array_filter(['section' => (string) $no, 'q' => $q], fn ($v) => $v !== '')) }}" @class(['chip shrink-0', 'active' => $section === (string) $no])>{{ $no }} · {{ $name }}</a>
+                <a href="{{ route('accounting.chart', array_filter(['section' => (string) $no, 'q' => $q, 'year' => (string) $year], fn ($v) => $v !== '')) }}" @class(['chip shrink-0', 'active' => $section === (string) $no])>{{ $no }} · {{ $name }}</a>
             @endforeach
         </div>
         <input type="hidden" name="section" value="{{ $section }}">
+        @if ($year)<input type="hidden" name="year" value="{{ $year }}">@endif
         <label class="sr-only" for="chart-q">{{ __('Axtarış') }}</label>
         <input id="chart-q" name="q" value="{{ $q }}" placeholder="{{ __('Hesab nömrəsi və ya adı…') }}" class="input h-[34px] min-w-0 flex-1 text-xs sm:h-[30px] sm:w-56 sm:flex-none">
         <button class="btn btn-sm btn-primary">{{ __('Tətbiq et') }}</button>
@@ -50,7 +54,10 @@
                             </form>
                             <span class="col-start-2 md:col-start-auto" x-show="!edit"><span class="badge {{ $natureClass[$a->nature] ?? '' }}">{{ $natureLabels[$a->nature] ?? $a->nature }}</span></span>
                             <span class="col-start-2 text-right tabular-nums md:col-start-auto {{ isset($balances[$a->code]) && $balances[$a->code] < 0 ? 'neg' : '' }}" x-show="!edit">
-                                {{ isset($balances[$a->code]) ? Fmt::money($balances[$a->code]) : '' }}
+                                @isset($balances[$a->code])
+                                    <a href="{{ route('accounting.chart.source', ['code' => $a->code, 'year' => $year]) }}" data-modal
+                                       class="underline decoration-dotted decoration-1 underline-offset-4 hover:text-primary">{{ Fmt::money($balances[$a->code]) }}</a>
+                                @endisset
                             </span>
                             <button type="button" class="btn btn-sm col-start-2 justify-self-start md:col-start-auto" x-show="!edit" @click="edit = true" aria-label="{{ __('Redaktə') }}"><x-icon name="edit" size="13"/></button>
                         </li>

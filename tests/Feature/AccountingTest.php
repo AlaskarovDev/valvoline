@@ -218,6 +218,35 @@ class AccountingTest extends TestCase
         $this->actingAs($manager)->get(route('accounting.cashflow'))->assertForbidden();
     }
 
+    public function test_chart_amount_source_and_years_overview(): void
+    {
+        $this->actingAs($this->admin);
+        $this->upload($this->workbook(2024, 800.0), '09_Balans_2024.xlsx');
+        $this->upload($this->workbook(2025));
+
+        // tarix seçimi və məbləğə klik → mənbə popup-u (41 → 205)
+        $this->get(route('accounting.chart', ['section' => '2', 'year' => 2024]))->assertOk()
+            ->assertSee('31.12.2024')->assertSee(route('accounting.chart.source', ['code' => '205', 'year' => 2024]), false);
+        $this->get(route('accounting.chart.source', ['code' => '205', 'year' => 2025]), ['X-Modal' => '1'])->assertOk()
+            ->assertSee('Mallar')->assertSee('41 → 205')->assertSee('31.12.2024')->assertDontSee('<html', false);
+        $this->get(route('accounting.chart.source', ['code' => '211', 'year' => 2025]))->assertOk()->assertSee('MILLA DAIRY');
+
+        $this->get(route('accounting.overview'))->assertOk()
+            ->assertSee('2024')->assertSee('2025')->assertSee('Aktivlər cəmi')->assertSee('Mal alışı / gömrük')->assertSee('Mallar');
+    }
+
+    public function test_dividends_taxes_and_foreign_companies_are_not_individual_expenses(): void
+    {
+        $c = new FlowClassifier;
+        $this->assertSame('financing', $c->classify('Təsisçiyə DİVİDEND', 'payment')['type']);
+        $this->assertSame('tax', $c->classify('Gəlir Vergisi', 'payment')['type']);
+        $this->assertSame('refund', $c->classify('OOO VALSAR Rus (qaytarma)', 'payment')['type']);
+        $this->assertSame('uncertain', $c->classify('OOO ORLAN, RUSIYA', 'payment')['type']);
+        $this->assertSame('Nəqliyyat və logistika', $c->classify('TIBER LOGISTIK', 'payment')['group']);
+        $this->assertSame('Reklam və marketinq', $c->classify('PROMOLINE ADVERTISING MMC', 'payment')['group']);
+        $this->assertSame('Bank xidməti', $c->classify('Konvertasiya komisyonu', 'payment')['group']);
+    }
+
     public function test_xls_upload_is_only_allowed_for_the_accounting_file(): void
     {
         $ole = "\xD0\xCF\x11\xE0".str_repeat("\0", 60);

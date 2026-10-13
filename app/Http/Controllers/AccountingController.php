@@ -8,6 +8,7 @@ use App\Services\FlowClassifier;
 use App\Services\ProfitLossService;
 use App\Support\ChartOfAccounts;
 use App\Support\Fmt;
+use App\Support\NameNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -51,6 +52,36 @@ class AccountingController extends Controller
             'section' => $section,
             'q' => $q,
             'year' => $year,
+            'years' => $this->years(),
+            'yearLabels' => $this->asOfLabels(),
+        ]);
+    }
+
+    /**
+     * Hesablar planındakı qalığın mənbəyi: hansı köhnə balans sətirlərindən və sənədlərdən yaranıb (popup).
+     */
+    public function accountSource(Request $request, string $code): View
+    {
+        $year = $this->year($request);
+        $account = DB::table('chart_accounts')->where('code', $code)->firstOrFail();
+        $legacy = DB::table('legacy_accounts')->where('chart_code', $code)->orderBy('code')->get();
+        $legacyCodes = $legacy->pluck('code')->all();
+
+        // bütün tarixlər üzrə (illərin müqayisəsi), seçilmiş il yuxarıda
+        $lines = DB::table('acc_balance_lines')->whereIn('legacy_code', $legacyCodes)
+            ->orderByDesc('year')->orderBy('row_no')->get();
+        $ledger = DB::table('acc_ledger_lines')->where('year', $year)->whereIn('legacy_code', $legacyCodes)
+            ->orderBy('legacy_code')->orderBy('row_no')->get()->groupBy('legacy_code');
+
+        return view($request->header('X-Modal') ? 'accounting.source' : 'accounting.source-page', [
+            'title' => __('Hesab :code — qalığın mənbəyi', ['code' => $code]),
+            'account' => $account,
+            'legacy' => $legacy,
+            'year' => $year,
+            'yearLabels' => $this->asOfLabels(),
+            'current' => $lines->where('year', $year)->values(),
+            'byYear' => $lines->groupBy('year')->map(fn (Collection $l) => (float) $l->sum('amount')),
+            'ledger' => $ledger,
         ]);
     }
 
@@ -146,6 +177,87 @@ class AccountingController extends Controller
             'expenses' => $lines->where('section', 'expense')->values(),
             'result' => $lines->firstWhere('section', 'result'),
             'comparison' => $comparison,
+        ]);
+    }
+
+    /**
+     * İllər üzrə müqayisə: balans, MZ və Cash Flow (növ üzrə) yan-yana.
+     */
+    public function overview(): View
+    {
+        $years = collect($this->years())->sort()->values()->all();
+        $classifier = new FlowClassifier;
+        $flow = [];
+        foreach (DB::table('bank_flow_lines')->whereIn('section', ['income', 'payment'])->get() as $f) {
+            $type = $classifier->classify($f->counterparty, $f->section)['type'];
+            $y = (int) $f->year;
+            $flow[$y][$f->section] = ($flow[$y][$f->section] ?? 0) + $f->amount;
+            $flow[$y][$f->section.'|'.$type] = ($flow[$y][$f->section.'|'.$type] ?? 0) + $f->amount;
+        }
+        $closing = DB::table('bank_flow_lines')->where('section', 'closing')->where('amount', '!=', 0)->orderBy('period')->get()
+            ->groupBy('year')->map(fn (Collection $g) => (float) $g->last()->amount);
+
+        $balance = DB::table('acc_balance_lines')->orderBy('row_no')->get();
+        $pl = DB::table('acc_pl_lines')->orderBy('row_no')->get();
+        $plTotals = fn (int $y, string $section) => (float) $pl->where('year', $y)->where('section', $section)->sum('amount');
+        $plResult = fn (int $y) => (float) ($pl->where('year', $y)->firstWhere('section', 'result')->amount ?? $plTotals($y, 'income') - $plTotals($y, 'expense'));
+
+        $metric = fn (string $label, callable $value, string $tone = '', bool $strong = false) => (object) [
+            'label' => $label, 'tone' => $tone, 'strong' => $strong,
+            'values' => collect($years)->mapWithKeys(fn ($y) => [$y => $value($y)])->all(),
+        ];
+        $f = fn (string $key) => fn (int $y) => (float) ($flow[$y][$key] ?? 0);
+        $groups = [
+            __('Balans') => [
+                $metric(__('Aktivlər cəmi (balans valyutası)'), fn ($y) => (float) $balance->where('year', $y)->where('side', 'asset')->sum('amount'), '', true),
+                $metric(__('Pul vəsaitləri (dövrün sonuna)'), fn ($y) => (float) ($closing[$y] ?? 0)),
+            ],
+            __('Mənfəət-zərər (vergi)') => [
+                $metric(__('Gəlirlər'), fn ($y) => $plTotals($y, 'income'), 'pos'),
+                $metric(__('Xərclər'), fn ($y) => $plTotals($y, 'expense'), 'neg'),
+                $metric(__('Hesabat dövründə mənfəət (zərər)'), $plResult, 'sign', true),
+            ],
+            __('Cash Flow (bank)') => [
+                $metric(__('Mədaxil'), $f('income'), 'pos', true),
+                $metric('· '.__('Satış gəliri'), $f('income|revenue')),
+                $metric('· '.__('Təsisçidən'), $f('income|financing')),
+                $metric(__('Ödənişlər'), $f('payment'), 'neg', true),
+                $metric('· '.__('Əməliyyat xərci'), $f('payment|expense'), 'neg'),
+                $metric('· '.__('Mal alışı / gömrük (maya dəyəri)'), $f('payment|cogs')),
+                $metric('· '.__('Vergi (xərc deyil)'), $f('payment|tax')),
+                $metric('· '.__('Təsisçiyə (dividend / borc qaytarılması)'), $f('payment|financing')),
+                $metric('· '.__('Əsas vəsait alışı'), $f('payment|capex')),
+                $metric('· '.__('Müştəriyə geri ödəniş'), $f('payment|refund')),
+                $metric('· '.__('Təsnif olunmayıb'), $f('payment|uncertain'), 'warn'),
+            ],
+        ];
+
+        // sətir-sətir müqayisə: eyni köhnə hesab / vergi kodu bütün illərdə bir sətirdə
+        $pivot = fn (Collection $lines, callable $key) => $lines->groupBy($key)->map(fn (Collection $g) => (object) [
+            'code' => $g->last()->legacy_code ?? $g->last()->tax_code ?? null,
+            'name' => $g->sortBy('year')->last()->name,
+            'section' => $g->first()->side ?? $g->first()->section,
+            'order' => $g->min('row_no'),
+            'values' => $g->groupBy('year')->map(fn ($l) => (float) $l->sum('amount'))->all(),
+        ])->sortBy('order')->values();
+
+        return view('accounting.overview', [
+            'title' => __('İllər üzrə müqayisə'),
+            'years' => $years,
+            'yearLabels' => $this->asOfLabels(),
+            'groups' => $groups,
+            'balanceRows' => $pivot($balance, fn ($l) => $l->side.'|'.($l->legacy_code ?: NameNormalizer::normalize($l->name))),
+            'plRows' => $pivot($pl->where('section', '!=', 'result'), fn ($l) => $l->section.'|'.($l->tax_code ?: NameNormalizer::normalize($l->name))),
+            'chart' => [
+                'type' => 'bar',
+                'categories' => array_map('strval', $years),
+                'series' => [
+                    ['name' => __('Gəlirlər'), 'data' => array_map(fn ($y) => round($plTotals($y, 'income'), 2), $years)],
+                    ['name' => __('Xərclər'), 'data' => array_map(fn ($y) => round($plTotals($y, 'expense'), 2), $years)],
+                    ['name' => __('Mənfəət (zərər)'), 'data' => array_map(fn ($y) => round($plResult($y), 2), $years)],
+                ],
+                'colors' => ['--chart-2', '--chart-6', '--chart-1'],
+            ],
         ]);
     }
 
@@ -247,6 +359,17 @@ class AccountingController extends Controller
         $year = (int) $request->query('year', 0);
 
         return in_array($year, $years, true) ? $year : ($years[0] ?? null);
+    }
+
+    /**
+     * Balans tarixləri: il → «31.12.2025».
+     *
+     * @return array<int, string>
+     */
+    private function asOfLabels(): array
+    {
+        return DB::table('acc_balance_lines')->groupBy('year')->selectRaw('year, MAX(as_of) AS as_of')->pluck('as_of', 'year')
+            ->mapWithKeys(fn ($date, $y) => [(int) $y => Fmt::date($date)])->all();
     }
 
     /**

@@ -1,11 +1,12 @@
-@if (count($years) > 1)
+@if (count($years) > 0)
+    @php $yearLabels ??= []; @endphp
     <form method="GET" class="flex items-center gap-2 text-xs text-muted">
         @foreach (request()->except(['year']) as $k => $v)
             @if (is_string($v))<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endif
         @endforeach
-        <label for="acc-year">{{ __('İl') }}</label>
+        <label for="acc-year">{{ $yearLabels ? __('Tarix') : __('İl') }}</label>
         <select id="acc-year" name="year" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()">
-            @foreach ($years as $y)<option value="{{ $y }}" @selected($y === $year)>{{ $y }}</option>@endforeach
+            @foreach ($years as $y)<option value="{{ $y }}" @selected($y === $year)>{{ isset($yearLabels[$y]) ? $yearLabels[$y] : $y }}</option>@endforeach
         </select>
     </form>
 @endif

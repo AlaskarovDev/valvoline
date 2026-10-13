@@ -250,6 +250,7 @@
     }
 
     .tbl-wrap {
+        position: relative; /* sr-only etiketlər (position: absolute) cədvəldən kənara daşmasın */
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }

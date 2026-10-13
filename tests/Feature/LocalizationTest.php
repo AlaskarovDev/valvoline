@@ -68,7 +68,7 @@ class LocalizationTest extends TestCase
 
         $routes = ['dashboard', 'orders.index', 'sales.index', 'margin.index', 'returns.index', 'customers.index', 'debts.index', 'payments.index',
             'stock.index', 'movements.index', 'purchases.index', 'expenses.index', 'pnl.index', 'cash.index', 'quality.index', 'import.index',
-            'aliases.index', 'categories.index', 'users.index', 'accounting.balance', 'accounting.pl', 'accounting.cashflow'];
+            'aliases.index', 'categories.index', 'users.index', 'accounting.balance', 'accounting.pl', 'accounting.cashflow', 'accounting.overview'];
         $leftovers = [];
         foreach ($routes as $route) {
             $html = $this->get(route($route))->assertOk()->getContent();

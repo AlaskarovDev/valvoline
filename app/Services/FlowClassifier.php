@@ -95,8 +95,10 @@ class FlowClassifier
             ['/^ygb$/', 'cogs', null, __('YGB — yük gömrük bəyannaməsi (gömrük rüsumu + idxal ƏDV-si): malın maya dəyərinə / əvəzləşdirilən vergiyə aiddir'), $low],
             ['/^mv$/', 'tax', null, __('MV — vergi ödənişi (ehtimal: mənfəət vergisi / ƏDV); əməliyyat xərci deyil'), $low],
             ['/^edv\b|\bedv depozit/', 'tax', null, __('ƏDV — əvəzləşdirilən vergi, xərc deyil'), $high],
+            ['/dividend/', 'financing', null, __('Təsisçiyə dividend — xalis mənfəətin bölüşdürülməsi, xərc deyil'), $high],
+            ['/^(gelir|menfeet) vergisi/', 'tax', null, __('Gəlir / mənfəət vergisi ödənişi — əməliyyat xərci deyil'), $high],
             ['/tesisci/', 'financing', null, __('Təsisçidən alınan borc (balansda 76 «təsisçi borc müqaviləsi») — gəlir deyil'), $high],
-            ['/geri qaytarilib/', 'refund', null, __('Müştəriyə pulun qaytarılması — satışın / debitor borcun azalması, xərc deyil'), $high],
+            ['/geri qaytarilib|\bqaytarma\b/', 'refund', null, __('Müştəriyə pulun qaytarılması — satışın / debitor borcun azalması, xərc deyil'), $high],
             ['/azerbaijan technologies/', 'capex', null, __('Texnika alışı ehtimalı — əsas vəsaitdirsə amortizasiya yolu ilə xərcə düşür'), $low],
             ['/yeniden qiymetlendirme/', 'fx', null, __('Valyuta qalığının yenidən qiymətləndirilməsi — pul hərəkəti deyil'), $high],
             // əməliyyat xərcləri
@@ -106,18 +108,18 @@ class FlowClassifier
             ['/^its$/', 'expense', 'İcbari tibbi sığorta', __('İcbari tibbi sığorta haqları'), $high],
             ['/icare|team project/', 'expense', 'İcarə', __('Ofis / anbar icarəsi'), $high],
             ['/^\d{2}[a-z]{2}\d{3}\b/', 'expense', 'İcarə', __('Avtomobil (nömrə nişanı) — fiziki şəxsdən nəqliyyat vasitəsi icarəsi'), $high],
-            ['/sarr logist|ramal trans|caspian logistics|ground services/', 'expense', 'Nəqliyyat və logistika', __('Daşınma / logistika xidməti'), $high],
-            ['/avtomaster|fill service|master truck/', 'expense', 'Nəqliyyat və logistika', __('Avtomobil xidməti / təmir'), $low],
-            ['/socar petroleum/', 'expense', 'Yanacaq', __('Yanacaq'), $high],
-            ['/azercell|aztelecom|abc telecom|telecom/', 'expense', 'Rabitə', __('Mobil / internet rabitəsi'), $high],
-            ['/hosting|domein|gps solutions|ram solution|caspos|galaxy/', 'expense', 'IT və proqram təminatı', __('IT xidməti, hosting, kassa / GPS sistemi'), $low],
-            ['/express print|design street|push 30|digiboom/', 'expense', 'Reklam və marketinq', __('Çap, dizayn, SMS / push, təlim-marketinq'), $low],
-            ['/audit|financial reporting|bukhalternative|mühasib|muhasib/', 'expense', 'Audit, mühasibat və məsləhət', __('Audit və mühasibat xidməti'), $high],
+            ['/sarr logist|ramal trans|caspian logistics|ground services|logistik|orientloq/', 'expense', 'Nəqliyyat və logistika', __('Daşınma / logistika xidməti'), $high],
+            ['/avtomaster|fill service|master truck|autoparts|forsage/', 'expense', 'Nəqliyyat və logistika', __('Avtomobil xidməti / təmir'), $low],
+            ['/socar petroleum|azpetrol/', 'expense', 'Yanacaq', __('Yanacaq'), $high],
+            ['/azercell|aztelecom|abc telecom|telecom|^rabite/', 'expense', 'Rabitə', __('Mobil / internet rabitəsi'), $high],
+            ['/hosting|domein|gps solutions|ram solution|caspos|galaxy|netcon/', 'expense', 'IT və proqram təminatı', __('IT xidməti, hosting, kassa / GPS sistemi'), $low],
+            ['/express print|design street|push 30|digiboom|reklam|advert|trendmedia|creaproje/', 'expense', 'Reklam və marketinq', __('Çap, dizayn, SMS / push, təlim-marketinq'), $low],
+            ['/audit|financial reporting|bukhalternative|mühasib|muhasib|taxcellent/', 'expense', 'Audit, mühasibat və məsləhət', __('Audit və mühasibat xidməti'), $high],
             ['/pasha heyat|sigorta/', 'expense', 'Sığorta', __('Sığorta haqqı'), $high],
             ['/ezamiyye/', 'expense', 'Ezamiyyə', __('Ezamiyyə xərci'), $high],
-            ['/bank komissiyon|kocurme komisyon|komissiya/', 'expense', 'Bank xidməti', __('Bank və valyuta köçürmə komissiyaları'), $high],
+            ['/bank komissiyon|komisyon|komissiya/', 'expense', 'Bank xidməti', __('Bank və valyuta köçürmə komissiyaları'), $high],
             ['/kurs ferqi/', 'expense', 'Maliyyə xərcləri (kurs fərqi)', __('Valyuta mübadiləsində reallaşmış kurs fərqi'), $high],
-            ['/protecpro|kale tekstil|sirab|rif group|bi servis|alman texnikalari|rumpel|antaris|competto|masal trade|asbc/', 'expense', 'Ofis və təsərrüfat', __('Ofis, iş forması, su, kiçik avadanlıq və xidmətlər — yoxlayın'), $low],
+            ['/protecpro|kale tekstil|sirab|rif group|bi servis|alman texnikalari|rumpel|antaris|competto|masal trade|asbc|your safety|mep fire/', 'expense', 'Ofis və təsərrüfat', __('Ofis, iş forması, su, kiçik avadanlıq və xidmətlər — yoxlayın'), $low],
             ['/diger xercler|restoran/', 'expense', 'Sair xərclər', __('Nümayəndəlik və sair xərclər'), $high],
         ];
     }
@@ -164,7 +166,7 @@ class FlowClassifier
         if (isset($this->incomeNames[$key])) {
             return ['type' => 'uncertain', 'group' => null, 'note' => __('Bu şəxs alıcı kimi də ödəniş edib — geri qaytarma və ya alış ola bilər; yoxlayın'), 'confidence' => 'low', 'source' => 'rule'];
         }
-        $isCompany = (bool) preg_match('/\b(mmc|asc|qsc|ltd|llc|bv|group|company|service|servis|trade|firma|firmasi|market|bank|telecom|solution|center|academy|logistics)\b/', $key);
+        $isCompany = (bool) preg_match('/\b(mmc|asc|qsc|ooo|oao|zao|ltd|llc|bv|gmbh|group|company|service|servis|trade|firma|firmasi|market|bank|telecom|solution|center|academy|logistics)\b/', $key);
         if (! $isCompany && preg_match('/\b(oglu|qizi)\b|^[a-z]+ [a-z]+ [a-z]+$/', $key)) {
             return ['type' => 'expense', 'group' => 'Fiziki şəxslərə xidmət haqqı', 'note' => __('Fiziki şəxsə ödəniş (xidmət / iş haqqı ehtimalı) — yoxlayın'), 'confidence' => 'low', 'source' => 'rule'];
         }
