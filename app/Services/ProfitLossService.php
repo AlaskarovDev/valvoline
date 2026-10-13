@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Mənfəət-zərər (P&L):
- * Satış → Qaytarma → Xalis satış → Maya → Brüt mənfəət → Xərclər (kateqoriya üzrə) → Digər gəlirlər → Xalis mənfəət.
+ * Satış → Qaytarma → Xalis satış → Maya → Brüt mənfəət → Xərclər (kateqoriya üzrə) → Digər gəlirlər → Xalis mənfəət
+ * → Təsisçiyə ödənişlər → Bölüşdürülməmiş mənfəət.
+ *
+ * Təsisçiyə ödənişlər (Emeliyyat_Tipi = «Təsisçiyə ödəniş») xərc deyil — mənfəətin bölüşdürülməsidir.
  *
  * Əməliyyat xərcləri  = kassa: Emeliyyat_Tipi = Xərc  və effektiv Mənfəətə təsir = Bəli (istiqamət filtri ilə).
  * Digər gəlirlər      = kassa: Emeliyyat_Tipi = Mədaxil və effektiv Mənfəətə təsir = Bəli.
@@ -19,7 +22,7 @@ class ProfitLossService
 {
     /**
      * @param  'month'|'year'  $granularity
-     * @return array{columns: list<string>, lines: array<string, array<string, float>>, expenses: array<string, array<string, float>>, other_income: array<string, array<string, float>>}
+     * @return array{columns: list<string>, lines: array<string, array<string, float>>, expenses: array<string, array<string, float>>, other_income: array<string, array<string, float>>, founder: array<string, array<string, float>>}
      */
     public function build(ReportFilters $filters, string $granularity = 'month'): array
     {
@@ -30,11 +33,13 @@ class ProfitLossService
 
         $expenses = $this->cashByCategory($filters, $granularity, 'expense');
         $otherIncome = $this->cashByCategory($filters, $granularity, 'income');
+        $founder = $this->cashByCategory($filters, $granularity, 'founder');
 
         $columns = array_unique(array_merge(
             $sales->keys()->map(fn ($k) => (string) $k)->all(),
             array_merge(...array_map('array_keys', array_values($expenses) ?: [[]])),
             array_merge(...array_map('array_keys', array_values($otherIncome) ?: [[]])),
+            array_merge(...array_map('array_keys', array_values($founder) ?: [[]])),
         ));
         sort($columns);
 
@@ -55,20 +60,23 @@ class ProfitLossService
             $lines['other_income'][$column] = $incomeTotal;
             $lines['net_profit'][$column] = $row->gross_profit + $incomeTotal - $expenseTotal;
             $lines['net_margin'][$column] = abs($row->net_sales) > 0.005 ? ($row->gross_profit + $incomeTotal - $expenseTotal) / $row->net_sales : 0;
+            $founderTotal = array_sum(array_map(fn ($c) => $c[$column] ?? 0, $founder));
+            $lines['founder'][$column] = $founderTotal;
+            $lines['retained'][$column] = $lines['net_profit'][$column] - $founderTotal;
         }
 
-        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome];
+        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome, 'founder' => $founder];
     }
 
     /**
      * @param  'month'|'year'  $granularity
-     * @param  'expense'|'income'  $kind
+     * @param  'expense'|'income'|'founder'  $kind
      * @return array<string, array<string, float>> kateqoriya => sütun => məbləğ
      */
     public function cashByCategory(ReportFilters $filters, string $granularity, string $kind): array
     {
         $column = $granularity === 'year' ? 'SUBSTR(c.period, 1, 4)' : 'c.period';
-        $amount = $kind === 'expense' ? 'SUM(c.expense - c.income)' : 'SUM(c.income - c.expense)';
+        $amount = $kind === 'income' ? 'SUM(c.income - c.expense)' : 'SUM(c.expense - c.income)';
         $rows = self::profitCash($filters, $kind)
             ->groupBy(DB::raw($column), 'c.category_name')
             ->selectRaw("{$column} AS col, c.category_name AS category, {$amount} AS amount")
@@ -83,17 +91,18 @@ class ProfitLossService
     }
 
     /**
-     * Mənfəətə təsir edən kassa əməliyyatları (xərc və ya digər gəlir).
+     * Mənfəətə təsir edən kassa əməliyyatları (xərc və ya digər gəlir) və ya təsisçiyə ödənişlər.
      *
-     * @param  'expense'|'income'  $kind
+     * @param  'expense'|'income'|'founder'  $kind
      */
     public static function profitCash(ReportFilters $filters, string $kind): Builder
     {
         $query = DB::table('cash_transactions as c')
-            ->where('c.affects_profit', true)
             ->whereBetween('c.date', [$filters->fromDate(), $filters->toDate()]);
-        $types = self::opTypes();
-        $query->whereIn('c.op_type', $kind === 'expense' ? $types['expense'] : $types['income']);
+        if ($kind !== 'founder') {
+            $query->where('c.affects_profit', true);
+        }
+        $query->whereIn('c.op_type', self::opTypes()[$kind]);
         if ($filters->direction !== null && $filters->direction !== 'all') {
             $query->where('c.direction', $filters->direction);
         }
@@ -104,14 +113,16 @@ class ProfitLossService
     /**
      * Fayldakı Emeliyyat_Tipi yazılışlarını «xərc» və «mədaxil» qruplarına bölür.
      *
-     * @return array{expense: list<string>, income: list<string>}
+     * @return array{expense: list<string>, income: list<string>, founder: list<string>}
      */
     public static function opTypes(): array
     {
-        $result = ['expense' => ['__none__'], 'income' => ['__none__']];
-        foreach (DB::table('cash_transactions')->distinct()->pluck('op_type') as $type) {
+        $result = ['expense' => ['__none__'], 'income' => ['__none__'], 'founder' => ['__none__']];
+        foreach (DB::table('cash_transactions')->whereNotNull('op_type')->distinct()->pluck('op_type') as $type) {
             $key = NameNormalizer::normalize($type);
-            if (str_starts_with($key, 'xerc')) {
+            if (str_starts_with($key, 'tesisci') || str_starts_with($key, 'dividend')) {
+                $result['founder'][] = $type;
+            } elseif (str_starts_with($key, 'xerc')) {
                 $result['expense'][] = $type;
             } elseif (str_starts_with($key, 'medaxil') || str_starts_with($key, 'gelir')) {
                 $result['income'][] = $type;

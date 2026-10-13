@@ -76,6 +76,11 @@ class ProfitLossController extends ReportController
             ['label' => 'Xalis mənfəət', 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
             ['label' => 'Xalis marja', 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];
+        if (array_sum($l['founder'] ?? []) != 0.0) {
+            $lines[] = ['label' => '− Təsisçiyə ödənişlər', 'values' => array_map(fn ($v) => -$v, $l['founder']), 'style' => 'expand', 'type' => 'money',
+                'children' => array_map(fn ($c) => ['label' => $c['label'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['founder']))];
+            $lines[] = ['label' => 'Bölüşdürülməmiş mənfəət', 'values' => $l['retained'], 'style' => 'subtotal', 'type' => 'money', 'children' => []];
+        }
         foreach ($lines as &$line) {
             $line['total'] = $line['type'] === 'money' ? array_sum($line['values']) : null;
         }

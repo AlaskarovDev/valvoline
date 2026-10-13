@@ -78,9 +78,10 @@ class CostingAndBalancesTest extends TestCase
             ['07.03.2024', 'Satış pulunun kassaya təhvili', 300, 0, 'Mədaxil', 'Xeyr', 'VALVO'],
             ['08.03.2024', 'Depozit faizi', 15, 0, 'Mədaxil', 'Bəli', 'VALVO'],
             ['09.03.2024', 'İdxal mal ödənişi', 0, 120, 'Xərc', 'Xeyr', 'VALVO'],
+            ['10.03.2024', 'Ferhad (aylıq ödəniş)', 0, 50, 'Xərc', 'Bəli', 'VALVO'],
         ], [
             ['Əmək haqqı', 'Xərc', 'Bəli'], ['TIR xərcləri', 'Xərc', 'Bəli'], ['Satış pulunun kassaya təhvili', 'Mədaxil', 'Xeyr'],
-            ['Depozit faizi', 'Mədaxil', 'Bəli'], ['İdxal mal ödənişi', 'Xərc', 'Xeyr'],
+            ['Depozit faizi', 'Mədaxil', 'Bəli'], ['İdxal mal ödənişi', 'Xərc', 'Xeyr'], ['Ferhad (aylıq ödəniş)', 'Xərc', 'Bəli'],
         ], [['08.03.2024', 215]]));
 
         $this->rebuild();
@@ -214,25 +215,49 @@ class CostingAndBalancesTest extends TestCase
     {
         $filters = new ReportFilters(Carbon::parse('2024-01-01'), Carbon::parse('2024-12-31')->endOfDay(), 'this_year', direction: 'VALVO');
         $report = app(ProfitLossService::class)->build($filters, 'year');
-        $this->assertEqualsWithDelta(100.0, $report['lines']['expenses']['2024'], 0.001);
+        $this->assertEqualsWithDelta(150.0, $report['lines']['expenses']['2024'], 0.001);
         $this->assertEqualsWithDelta(15.0, $report['lines']['other_income']['2024'], 0.001);
-        $this->assertEqualsWithDelta(337.0, $report['lines']['net_profit']['2024'], 0.001);
+        $this->assertEqualsWithDelta(287.0, $report['lines']['net_profit']['2024'], 0.001);
         $this->assertEqualsWithDelta(13.75, $report['lines']['gift_cogs']['2024'], 0.001);
 
         $all = clone $filters;
         $all->direction = 'all';
-        $this->assertEqualsWithDelta(297.0, app(ProfitLossService::class)->build($all, 'year')['lines']['net_profit']['2024'], 0.001);
+        $this->assertEqualsWithDelta(247.0, app(ProfitLossService::class)->build($all, 'year')['lines']['net_profit']['2024'], 0.001);
 
         // UI-dan bayraq dəyişəndə hesabat dərhal dəyişir
         $admin = User::factory()->create(['role' => 'admin']);
         $category = ExpenseCategory::query()->where('name', 'Əmək haqqı')->firstOrFail();
         $this->actingAs($admin)->put(route('categories.update', $category), ['affects_profit' => 0, 'op_type' => 'Xərc'])->assertRedirect();
-        $this->assertEqualsWithDelta(437.0, app(ProfitLossService::class)->build($filters, 'year')['lines']['net_profit']['2024'], 0.001);
+        $this->assertEqualsWithDelta(387.0, app(ProfitLossService::class)->build($filters, 'year')['lines']['net_profit']['2024'], 0.001);
 
         // təkrar import istifadəçinin bayrağını ezmir
         $this->importFile('cash', $this->fixtureDir().DIRECTORY_SEPARATOR.'08_Xercler.xlsx');
         $this->assertFalse(ExpenseCategory::query()->where('name', 'Əmək haqqı')->value('affects_profit'));
-        $this->assertEqualsWithDelta(437.0, app(ProfitLossService::class)->build($filters, 'year')['lines']['net_profit']['2024'], 0.001);
+        $this->assertEqualsWithDelta(387.0, app(ProfitLossService::class)->build($filters, 'year')['lines']['net_profit']['2024'], 0.001);
+    }
+
+    public function test_founder_payments_are_not_expenses_but_shown_below_net_profit(): void
+    {
+        $filters = new ReportFilters(Carbon::parse('2024-01-01'), Carbon::parse('2024-12-31')->endOfDay(), 'this_year', direction: 'VALVO');
+        $this->artisan('category:set', ['name' => 'Ferhad', '--type' => 'Təsisçiyə ödəniş', '--profit' => 0])->assertSuccessful();
+
+        $report = app(ProfitLossService::class)->build($filters, 'year');
+        $this->assertEqualsWithDelta(100.0, $report['lines']['expenses']['2024'], 0.001, 'təsisçi ödənişi xərcdən çıxdı');
+        $this->assertEqualsWithDelta(337.0, $report['lines']['net_profit']['2024'], 0.001);
+        $this->assertEqualsWithDelta(50.0, $report['lines']['founder']['2024'], 0.001);
+        $this->assertEqualsWithDelta(287.0, $report['lines']['retained']['2024'], 0.001, 'bölüşdürülməmiş mənfəət');
+        $this->assertArrayHasKey('Ferhad (aylıq ödəniş)', $report['founder']);
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin)->get(route('pnl.index', ['from' => '2024-01-01', 'to' => '2024-12-31', 'direction' => 'VALVO']))
+            ->assertOk()->assertSee('Təsisçiyə ödənişlər')->assertSee('Bölüşdürülməmiş mənfəət');
+        $pivot = $this->get(route('expenses.index', ['from' => '2024-01-01', 'to' => '2024-12-31', 'direction' => 'VALVO']));
+        $this->assertNull($pivot->viewData('pivotRows')->firstWhere('category', 'Ferhad (aylıq ödəniş)'), 'Xərclər səhifəsində görünmür');
+
+        // təkrar import (faylda yenə «Xərc / Bəli») istifadəçinin seçimini ezmir
+        $this->importFile('cash', $this->fixtureDir().DIRECTORY_SEPARATOR.'08_Xercler.xlsx');
+        $this->assertEqualsWithDelta(50.0, app(ProfitLossService::class)->build($filters, 'year')['lines']['founder']['2024'], 0.001);
+        $this->assertEqualsWithDelta(100.0, app(ProfitLossService::class)->build($filters, 'year')['lines']['expenses']['2024'], 0.001);
     }
 
     public function test_expense_cell_drilldown_matches_pivot(): void

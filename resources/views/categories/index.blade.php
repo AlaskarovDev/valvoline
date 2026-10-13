@@ -22,7 +22,7 @@
                         @csrf @method('PUT')
                         <label class="sr-only" for="op-{{ $c->id }}">Tip</label>
                         <select id="op-{{ $c->id }}" name="op_type" class="select h-[34px] min-w-0 flex-1 text-xs lg:h-[30px]">
-                            @foreach (array_unique(array_merge(['Xərc', 'Mədaxil', 'Köçürmə'], [$c->op_type])) as $op)
+                            @foreach (array_unique(array_merge(['Xərc', 'Mədaxil', 'Təsisçiyə ödəniş', 'Köçürmə'], [$c->op_type])) as $op)
                                 <option value="{{ $op }}" @selected($c->op_type === $op)>{{ $op }}</option>
                             @endforeach
                         </select>

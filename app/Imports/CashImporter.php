@@ -138,6 +138,9 @@ class CashImporter extends Importer
             }
             $row['expense_category_id'] = $category->id;
             $row['affects_profit'] = $category->user_edited ? $category->affects_profit : $row['affects_profit_raw'];
+            if ($category->user_edited) {
+                $row['op_type'] = $category->op_type; // UI-da dəyişdirilmiş tip (məs. «Təsisçiyə ödəniş») təkrar importda da qalır
+            }
             $row['import_batch_id'] = $batch->id;
         }
         unset($row);

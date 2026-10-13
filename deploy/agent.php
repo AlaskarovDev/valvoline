@@ -15,7 +15,7 @@ use Illuminate\Contracts\Console\Kernel;
  */
 
 const TOKEN_HASH = '__TOKEN_HASH__';
-const ARTISAN_ALLOWED = ['analytics:rebuild', 'db:copy-sqlite', 'user:password', 'migrate:status', 'about', 'db:seed', 'queue:work', 'optimize:clear'];
+const ARTISAN_ALLOWED = ['analytics:rebuild', 'db:copy-sqlite', 'user:password', 'category:set', 'migrate:status', 'about', 'db:seed', 'queue:work', 'optimize:clear'];
 
 /* Əl ilə public_html-ə tökülmüş köhnə layihə faylları (CI quruluşundan əvvəl) — silinmir, _legacy-yə köçürülür. */
 const LEGACY_ITEMS = ['app', 'bootstrap', 'config', 'database', 'node_modules', 'public', 'resources', 'routes', 'storage', 'tests', 'tools',
