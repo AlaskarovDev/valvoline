@@ -22,6 +22,15 @@
             <x-kpi :label="__('Dövrün sonuna qalıq')" :value="Fmt::money($closing)"/>
         </div>
 
+        <nav class="flex gap-1.5" aria-label="{{ __('Görünüş') }}">
+            <a href="{{ route('accounting.cashflow', ['year' => $year]) }}" @class(['chip', 'active' => $view === 'analysis'])>{{ __('Təhlil və təsnifat') }}</a>
+            <a href="{{ route('accounting.cashflow', ['year' => $year, 'view' => 'sheet']) }}" @class(['chip', 'active' => $view === 'sheet'])>{{ __('Cədvəl (Excel görünüşü)') }}</a>
+        </nav>
+
+        @if ($view === 'sheet')
+            @include('accounting._cf-sheet')
+        @else
+
         <section class="card overflow-hidden">
             <div class="card-head">
                 <div>
@@ -132,6 +141,8 @@
                 </table>
             </div>
         </section>
+
+        @endif
 
         @if ($balances->isNotEmpty())
             <section class="card overflow-hidden">

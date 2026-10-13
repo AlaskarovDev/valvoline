@@ -235,4 +235,11 @@ T = {
     'Təsisçiyə dividend — xalis mənfəətin bölüşdürülməsi, xərc deyil': ('Дивиденды учредителю — распределение чистой прибыли, не расход', 'Dividend to the founder — distribution of net profit, not an expense'),
     '«Dəyişmə» — :to ilinin :from ilinə nisbətən (yalnız tam illər).': ('«Изменение» — :to по сравнению с :from (только полные годы).', '"Change" — :to compared with :from (full years only).'),
     'İllər üzrə müqayisə': ('Сравнение по годам', 'Year-on-year comparison'),
+    # Cash Flow cədvəl görünüşü
+    'Görünüş': ('Вид', 'View'),
+    'Təhlil və təsnifat': ('Анализ и классификация', 'Analysis & classification'),
+    'Cədvəl (Excel görünüşü)': ('Таблица (как в Excel)', 'Sheet (Excel layout)'),
+    'Digər əməliyyat gəlir / xərcləri': ('Прочие операционные доходы / расходы', 'Other operating income / expenses'),
+    'Xalis pul axını': ('Чистый денежный поток', 'Net cash flow'),
+    'Mühasibat faylındakı görünüş. Rəngli nöqtə — ödənişin növü (üstünə gəlin); yalnız «Əməliyyat xərci» P&L-ə düşür.': ('Вид как в бухгалтерском файле. Цветная точка — тип платежа (наведите курсор); в P&L попадают только «Операционные расходы».', 'Layout as in the accounting file. The coloured dot is the payment type (hover for details); only "Operating expense" reaches the P&L.'),
 }

@@ -33,6 +33,13 @@
     --chart-5: #8a5cc2;
     --chart-6: #c2475b;
     --shadow: 0 1px 2px rgb(15 27 45 / 0.05), 0 2px 8px rgb(15 27 45 / 0.04);
+    /* Cash Flow «Excel» görünüşü (mühasibat faylının rəngləri) */
+    --cf-head: #9c4a14;
+    --cf-head-text: #ffffff;
+    --cf-band: #f8a35e;
+    --cf-band-text: #1f1206;
+    --cf-grid: #f6c9a0;
+    --cf-section: #fff4ea;
 }
 
 .dark {
@@ -61,6 +68,12 @@
     --chart-5: #b794f4;
     --chart-6: #f87171;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    --cf-head: #6e3410;
+    --cf-head-text: #fbe7d6;
+    --cf-band: #7a4518;
+    --cf-band-text: #fde9d6;
+    --cf-grid: #3a2a1f;
+    --cf-section: #1d1712;
     color-scheme: dark;
 }
 
@@ -253,6 +266,89 @@
         position: relative; /* sr-only etiketlər (position: absolute) cədvəldən kənara daşmasın */
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+
+    .cf-sheet {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.8125rem;
+        font-variant-numeric: tabular-nums;
+    }
+    .cf-sheet th,
+    .cf-sheet td {
+        padding: 0.3rem 0.6rem;
+        text-align: right;
+        white-space: nowrap;
+        border-right: 1px solid var(--cf-grid);
+        border-bottom: 1px solid var(--cf-grid);
+    }
+    .cf-sheet thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: var(--cf-head);
+        color: var(--cf-head-text);
+        font-weight: 600;
+        text-align: center;
+        min-width: 6.5rem;
+    }
+    .cf-sheet .cf-name {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: var(--surface);
+        text-align: left;
+        min-width: 15rem;
+        max-width: 22rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .cf-sheet thead th.cf-name {
+        z-index: 4;
+        background: var(--cf-head);
+        text-align: center;
+    }
+    .cf-sheet .cf-band td {
+        background: var(--cf-band);
+        color: var(--cf-band-text);
+        font-weight: 700;
+    }
+    .cf-sheet .cf-band .cf-name {
+        text-align: center;
+    }
+    .cf-sheet .cf-section td {
+        background: var(--cf-section);
+        font-weight: 700;
+        text-transform: uppercase;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+    .cf-sheet .cf-section .cf-name {
+        background: var(--cf-section);
+        padding-left: 6rem;
+    }
+    .cf-sheet .cf-sum td {
+        background: var(--surface-2);
+        font-weight: 600;
+    }
+    .cf-sheet .cf-net td {
+        border-top: 2px solid var(--cf-head);
+    }
+    .cf-sheet .cf-total {
+        font-weight: 600;
+    }
+    .cf-sheet tbody tr:not(.cf-band):not(.cf-section):not(.cf-sum):hover td {
+        background: var(--primary-soft);
+    }
+    .cf-dot {
+        display: inline-block;
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 999px;
+        margin-right: 0.45rem;
+        vertical-align: 0.05em;
+        flex-shrink: 0;
     }
 
     .tbl {

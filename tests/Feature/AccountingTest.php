@@ -210,6 +210,8 @@ class AccountingTest extends TestCase
         $this->get(route('accounting.pl'))->assertOk()->assertSee('Topdansatışdan gəlir');
         $this->get(route('accounting.cashflow'))->assertOk()->assertSee('Mal alışı / gömrük')->assertSee('ELLIS');
         $this->get(route('accounting.cashflow', ['section' => 'income']))->assertOk()->assertSee('Təsisçidən');
+        $this->get(route('accounting.cashflow', ['view' => 'sheet']))->assertOk()
+            ->assertSee('cf-sheet', false)->assertSee('Dövrün əvvəlinə qalıq')->assertSee('Xalis pul axını')->assertSee('ELLIS');
 
         $this->post(route('accounting.chart.store'), ['code' => '2051', 'name' => 'Mallar — anbar 2', 'nature' => 'A'])->assertRedirect();
         $this->assertSame('20', DB::table('chart_accounts')->where('code', '2051')->value('group_code'));

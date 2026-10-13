@@ -265,6 +265,7 @@ class AccountingController extends Controller
     {
         $year = $this->year($request);
         $typeFilter = (string) $request->query('type', '');
+        $view = $request->query('view') === 'sheet' ? 'sheet' : 'analysis';
         $sectionFilter = in_array($request->query('section'), ['income', 'payment', 'other', 'all'], true) ? (string) $request->query('section') : ($typeFilter !== '' ? 'all' : 'payment');
         $flows = DB::table('bank_flow_lines')->where('year', $year)->orderBy('row_no')->get();
         $months = $flows->pluck('period')->unique()->sort()->values()->all();
@@ -321,6 +322,10 @@ class AccountingController extends Controller
             'closing' => $flows->where('section', 'closing')->sortBy('period')->last()?->amount,
             'balances' => DB::table('bank_flow_balances')->where('year', $year)->get()->groupBy('account'),
             'paymentChart' => $paymentChart,
+            'view' => $view,
+            'sheetRows' => $rows->groupBy('section'),
+            'openingByMonth' => $flows->where('section', 'opening')->groupBy('period')->map(fn ($g) => (float) $g->sum('amount')),
+            'closingByMonth' => $flows->where('section', 'closing')->groupBy('period')->map(fn ($g) => (float) $g->sum('amount')),
             'typeLabels' => FlowClassifier::typeLabels(),
             'groups' => FlowClassifier::expenseGroups(),
             'uncertainTotal' => $rows->where('section', 'payment')->where('type', 'uncertain')->sum('total'),

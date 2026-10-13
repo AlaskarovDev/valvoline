@@ -61,6 +61,7 @@ PAGES = [
     ("mz", "/muhasibat/menfeet-zerer", 0),
     ("cash-flow", "/muhasibat/cash-flow", 1),
     ("iller", "/muhasibat/iller", 1),
+    ("cash-flow-cedvel", "/muhasibat/cash-flow?view=sheet", 0),
 ]
 
 PASS: list[str] = []
