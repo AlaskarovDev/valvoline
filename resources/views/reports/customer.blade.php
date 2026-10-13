@@ -28,6 +28,11 @@
                     </div>
                 @endforeach
             </div>
+            @php $minPayment = (float) $balance->aging_31_60 + (float) $balance->aging_61_90 + (float) $balance->aging_90_plus; @endphp
+            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-sm" style="background: var({{ $minPayment > 0.005 ? '--warning-soft' : '--positive-soft' }})">
+                <span>0–30 gün qrupuna düşmək üçün minimal ödəniş</span>
+                <span class="text-lg font-bold tabular-nums {{ $minPayment > 0.005 ? 'warn' : 'pos' }}">{{ Fmt::money($minPayment) }}</span>
+            </div>
         </section>
     @endif
 

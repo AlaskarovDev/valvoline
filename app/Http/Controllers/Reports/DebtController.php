@@ -36,6 +36,7 @@ class DebtController extends ReportController
             ->when($tab === 'debtors', fn ($q) => $q->where('b.balance', '>', 0.005), fn ($q) => $q->where('b.balance', '<', -0.005))
             ->select('c.id', 'c.code', 'c.name', 'm.name as manager', 'b.balance', 'b.aging_0_30', 'b.aging_31_60', 'b.aging_61_90', 'b.aging_90_plus',
                 'b.oldest_unpaid_date', 'b.last_payment_date', 'b.last_sale_date', 'b.sales_total', 'b.payments_total',
+                DB::raw('b.aging_31_60 + b.aging_61_90 + b.aging_90_plus AS min_payment'),
                 DB::raw('-b.balance AS advance'));
         $table = Table::make('debts', $tab === 'debtors' ? 'Borclular' : 'Avans / artıq ödəyənlər')
             ->column('code', 'Kod', 'text', ['sql' => 'c.code'])
@@ -43,6 +44,10 @@ class DebtController extends ReportController
             ->column('manager', 'Menecer', 'text', ['sql' => 'm.name']);
         if ($tab === 'debtors') {
             $table->column('balance', 'Borc', 'money', ['sql' => 'b.balance', 'class' => fn () => 'font-semibold'])
+                ->column('min_payment', '0–30-a düşmək üçün min. ödəniş', 'money', [
+                    'sql' => '(b.aging_31_60 + b.aging_61_90 + b.aging_90_plus)',
+                    'class' => fn ($v) => $v > 0.005 ? 'warn font-semibold' : 'pos',
+                ])
                 ->column('aging_0_30', '0–30 gün', 'money', ['sql' => 'b.aging_0_30'])
                 ->column('aging_31_60', '31–60 gün', 'money', ['sql' => 'b.aging_31_60'])
                 ->column('aging_61_90', '61–90 gün', 'money', ['sql' => 'b.aging_61_90', 'class' => fn ($v) => $v > 0 ? 'warn' : ''])
@@ -61,12 +66,14 @@ class DebtController extends ReportController
                 SUM(CASE WHEN b.balance > 0 THEN b.balance ELSE 0 END) AS debt,
                 SUM(CASE WHEN b.balance < 0 THEN -b.balance ELSE 0 END) AS advances,
                 SUM(CASE WHEN b.balance > 0.005 THEN 1 ELSE 0 END) AS debtors,
-                SUM(b.aging_0_30) AS a0, SUM(b.aging_31_60) AS a31, SUM(b.aging_61_90) AS a61, SUM(b.aging_90_plus) AS a90')
+                SUM(b.aging_0_30) AS a0, SUM(b.aging_31_60) AS a31, SUM(b.aging_61_90) AS a61, SUM(b.aging_90_plus) AS a90,
+                SUM(b.aging_31_60 + b.aging_61_90 + b.aging_90_plus) AS min_payment')
             ->get();
         $managerTable = Table::make('mgr', 'Menecer üzrə cəmlər')
             ->column('manager', 'Menecer', 'text', ['link' => fn ($r) => $r->manager_id && ! $filters->managerLocked ? route('debts.index', ['manager' => $r->manager_id]) : null, 'format' => fn ($v) => e($v ?? '—')])
             ->column('debtors', 'Borclu sayı', 'int')
             ->column('debt', 'Borc', 'money')
+            ->column('min_payment', 'Min. ödəniş (0–30-a)', 'money', ['class' => fn ($v) => $v > 0.005 ? 'warn' : ''])
             ->column('a0', '0–30', 'money')
             ->column('a31', '31–60', 'money')
             ->column('a61', '61–90', 'money')

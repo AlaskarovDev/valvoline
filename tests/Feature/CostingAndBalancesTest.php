@@ -198,6 +198,13 @@ class CostingAndBalancesTest extends TestCase
         $this->assertEqualsWithDelta(80.0, (float) $one->aging_61_90, 0.001);
         $this->assertEqualsWithDelta(10.0, (float) $one->aging_31_60, 0.001);
 
+        // 0–30 gün qrupuna düşmək üçün minimal ödəniş = 31+ gün qruplarının cəmi (FIFO ən köhnəni bağlayır)
+        $admin = User::factory()->create(['role' => 'admin']);
+        $page = $this->actingAs($admin)->get(route('debts.index', ['debts_q' => 'Müştəri Bir']));
+        $page->assertOk()->assertSee('0–30-a düşmək üçün min. ödəniş');
+        $minPayment = (float) $page->viewData('rows')->first()->min_payment;
+        $this->assertEqualsWithDelta(90.0, $minPayment, 0.001);
+
         $two = CustomerBalance::query()->whereHas('customer', fn ($q) => $q->where('code', '885853'))->firstOrFail();
         // 100 + 10 (hədiyyə gəlir deyil) − (−20 geri ödəniş) = 130
         $this->assertEqualsWithDelta(130.0, (float) $two->balance, 0.001);
