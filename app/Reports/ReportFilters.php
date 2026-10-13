@@ -12,14 +12,22 @@ use Illuminate\Support\Carbon;
  */
 class ReportFilters
 {
-    public const PRESETS = [
-        'this_month' => 'Bu ay',
-        'last_month' => 'Keçən ay',
-        'this_year' => 'Bu il',
-        'last_year' => 'Keçən il',
-        'last_12' => 'Son 12 ay',
-        'all' => 'Bütün dövr',
-    ];
+    public const PRESETS = ['this_month', 'last_month', 'this_year', 'last_year', 'last_12', 'all'];
+
+    /**
+     * @return array<string, string>
+     */
+    public static function presets(): array
+    {
+        return [
+            'this_month' => __('Bu ay'),
+            'last_month' => __('Keçən ay'),
+            'this_year' => __('Bu il'),
+            'last_year' => __('Keçən il'),
+            'last_12' => __('Son 12 ay'),
+            'all' => __('Bütün dövr'),
+        ];
+    }
 
     public function __construct(
         public Carbon $from,
@@ -55,7 +63,7 @@ class ReportFilters
         return new self(
             from: $from->startOfDay(),
             to: $to->endOfDay(),
-            preset: array_key_exists($preset, self::PRESETS) ? $preset : 'custom',
+            preset: in_array($preset, self::PRESETS, true) ? $preset : 'custom',
             managerId: $restricted ?? self::intOrNull($request->query('manager')),
             customerId: self::intOrNull($request->query('customer')),
             productId: self::intOrNull($request->query('product')),
@@ -155,8 +163,8 @@ class ReportFilters
 
     public function label(): string
     {
-        return $this->preset !== 'custom' && isset(self::PRESETS[$this->preset])
-            ? self::PRESETS[$this->preset].' ('.$this->from->format('d.m.Y').' – '.$this->to->format('d.m.Y').')'
+        return $this->preset !== 'custom' && isset(self::presets()[$this->preset])
+            ? self::presets()[$this->preset].' ('.$this->from->format('d.m.Y').' – '.$this->to->format('d.m.Y').')'
             : $this->from->format('d.m.Y').' – '.$this->to->format('d.m.Y');
     }
 

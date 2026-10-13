@@ -132,18 +132,18 @@ class CustomerBalanceService
             ->selectRaw('date, order_no, invoice_no, SUM(net_amount) AS amount, COUNT(*) AS line_cnt')->get();
         foreach ($orders as $o) {
             $entries[] = ['date' => (string) $o->date, 'order' => 1, 'type' => 'Satış', 'doc' => $o->order_no,
-                'description' => ($o->invoice_no ? "Qaimə {$o->invoice_no} · " : '').$o->line_cnt.' sətir', 'debit' => (float) $o->amount, 'credit' => 0.0];
+                'description' => ($o->invoice_no ? __('Qaimə').' '.$o->invoice_no.' · ' : '').__(':n sətir', ['n' => $o->line_cnt]), 'debit' => (float) $o->amount, 'credit' => 0.0];
         }
         $returns = DB::table('sales_returns')->where('customer_id', $customerId)->where('op_type', 'customer')
             ->groupBy('date', 'return_no')
             ->selectRaw('date, return_no, SUM(net_amount) AS amount, COUNT(*) AS line_cnt')->get();
         foreach ($returns as $r) {
             $entries[] = ['date' => (string) $r->date, 'order' => 2, 'type' => 'Qaytarma', 'doc' => $r->return_no,
-                'description' => $r->line_cnt.' sətir', 'debit' => 0.0, 'credit' => (float) $r->amount];
+                'description' => __(':n sətir', ['n' => $r->line_cnt]), 'debit' => 0.0, 'credit' => (float) $r->amount];
         }
         foreach (DB::table('payments')->where('customer_id', $customerId)->orderBy('date')->get() as $p) {
             $total = (float) $p->total;
-            $how = trim(((float) $p->cash != 0 ? 'nağd' : '').((float) $p->cash != 0 && (float) $p->bank != 0 ? ' + ' : '').((float) $p->bank != 0 ? 'bank' : ''));
+            $how = trim(((float) $p->cash != 0 ? __('nağd') : '').((float) $p->cash != 0 && (float) $p->bank != 0 ? ' + ' : '').((float) $p->bank != 0 ? __('bank') : ''));
             $entries[] = ['date' => (string) $p->date, 'order' => 3, 'type' => $total < 0 ? 'Geri ödəniş' : 'Ödəniş', 'doc' => null,
                 'description' => trim($how.($p->note ? ' · '.$p->note : '')), 'debit' => $total < 0 ? -$total : 0.0, 'credit' => $total > 0 ? $total : 0.0];
         }

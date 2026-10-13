@@ -20,7 +20,7 @@ class ProductsImporter extends Importer
 
     public function title(): string
     {
-        return 'Mallar';
+        return __('Mallar');
     }
 
     public function fileHint(): string
@@ -48,7 +48,7 @@ class ProductsImporter extends Importer
         $code = Spreadsheet::code($row['Mal_Kodu'] ?? null);
         $name = Spreadsheet::text($row['Mal_Adi'] ?? null);
         if ($code === null) {
-            return self::result(null, ['Mal_Kodu boşdur']);
+            return self::result(null, [__(':column boşdur', ['column' => 'Mal_Kodu'])]);
         }
 
         return self::result([

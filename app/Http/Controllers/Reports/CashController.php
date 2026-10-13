@@ -48,33 +48,33 @@ class CashController extends ReportController
 
             return $c;
         });
-        $checkpointTable = Table::make('cp', 'Kassa yoxlama nöqtələri')
-            ->column('date', 'Tarix', 'date')
-            ->column('description', 'Təsvir')
-            ->column('balance', 'Sayım qalığı', 'money')
-            ->column('computed', 'Hesablanmış qalıq', 'money')
-            ->column('diff', 'Fərq', 'money', ['class' => fn ($v) => abs($v) >= 1 ? 'neg font-semibold' : 'pos'])
+        $checkpointTable = Table::make('cp', __('Kassa yoxlama nöqtələri'))
+            ->column('date', __('Tarix'), 'date')
+            ->column('description', __('Təsvir'))
+            ->column('balance', __('Sayım qalığı'), 'money')
+            ->column('computed', __('Hesablanmış qalıq'), 'money')
+            ->column('diff', __('Fərq'), 'money', ['class' => fn ($v) => abs($v) >= 1 ? 'neg font-semibold' : 'pos'])
             ->source($checkpoints)->sortBy('date')->perPage(50)->withoutSearch()
             ->rowClass(fn ($r) => abs($r->diff) >= 1 ? 'row-warn' : '')
-            ->subtitle('Fərq = sayım − hesablanmış (|fərq| ≥ 1 ₼ sarı)');
+            ->subtitle(__('Fərq = sayım − hesablanmış (|fərq| ≥ 1 ₼ sarı)'));
 
         $inRange = $all->filter(fn ($r) => (string) $r->date >= $filters->fromDate() && (string) $r->date <= $filters->toDate()
             && ($direction === null || $r->direction === $direction))->values();
-        $listTable = Table::make('kassa', 'Kassa hərəkətləri')
-            ->column('date', 'Tarix', 'date')
-            ->column('category_name', 'Kateqoriya')
-            ->column('description', 'Təsvir')
-            ->column('income', 'Mədaxil', 'money', ['class' => fn ($v) => $v > 0 ? 'pos' : ''])
-            ->column('expense', 'Məxaric', 'money', ['class' => fn ($v) => $v > 0 ? 'neg' : ''])
-            ->column('balance', 'Qalıq', 'money', ['class' => fn () => 'font-semibold'])
-            ->column('op_type', 'Tip')
-            ->column('affects_profit', 'Mənfəətə təsir', 'text', ['format' => fn ($v) => $v ? '<span class="badge badge-primary">Bəli</span>' : '<span class="badge">Xeyr</span>'])
-            ->column('direction', 'İstiqamət')
+        $listTable = Table::make('kassa', __('Kassa hərəkətləri'))
+            ->column('date', __('Tarix'), 'date')
+            ->column('category_name', __('Kateqoriya'))
+            ->column('description', __('Təsvir'))
+            ->column('income', __('Mədaxil'), 'money', ['class' => fn ($v) => $v > 0 ? 'pos' : ''])
+            ->column('expense', __('Məxaric'), 'money', ['class' => fn ($v) => $v > 0 ? 'neg' : ''])
+            ->column('balance', __('Qalıq'), 'money', ['class' => fn () => 'font-semibold'])
+            ->column('op_type', __('Tip'))
+            ->column('affects_profit', __('Mənfəətə təsir'), 'text', ['format' => fn ($v) => $v ? '<span class="badge badge-primary">'.e(__('Bəli')).'</span>' : '<span class="badge">'.e(__('Xeyr')).'</span>'])
+            ->column('direction', __('İstiqamət'))
             ->source($inRange)->sortBy('date')->perPage(100)
             ->footer(['income' => $inRange->sum('income'), 'expense' => $inRange->sum('expense')])
-            ->subtitle($direction ? "Qalıq sütunu bütün istiqamətlər üzrə kassa qalığıdır; siyahı «{$direction}» ilə filtrlənib" : null);
+            ->subtitle($direction ? __('Qalıq sütunu bütün istiqamətlər üzrə kassa qalığıdır; siyahı «:direction» ilə filtrlənib', ['direction' => $direction]) : null);
 
-        if ($response = $this->exportIfRequested($request, [$checkpointTable, $listTable], 'Kassa', $filters)) {
+        if ($response = $this->exportIfRequested($request, [$checkpointTable, $listTable], __('Kassa'), $filters)) {
             return $response;
         }
 
@@ -90,8 +90,8 @@ class CashController extends ReportController
             'type' => 'line',
             'categories' => array_map(fn ($p) => Fmt::period($p), array_keys($monthEnd)),
             'series' => [
-                ['name' => 'Hesablanmış qalıq (ay sonu)', 'type' => 'area', 'data' => array_map(fn ($v) => round($v, 2), array_values($monthEnd))],
-                ['name' => 'Sayım qalığı', 'type' => 'line', 'data' => array_map(fn ($p) => isset($cpByMonth[$p]) ? round($cpByMonth[$p], 2) : null, array_keys($monthEnd))],
+                ['name' => __('Hesablanmış qalıq (ay sonu)'), 'type' => 'area', 'data' => array_map(fn ($v) => round($v, 2), array_values($monthEnd))],
+                ['name' => __('Sayım qalığı'), 'type' => 'line', 'data' => array_map(fn ($p) => isset($cpByMonth[$p]) ? round($cpByMonth[$p], 2) : null, array_keys($monthEnd))],
             ],
             'strokeWidths' => [2, 0],
             'markers' => true,
@@ -100,7 +100,7 @@ class CashController extends ReportController
         $last = $checkpoints->last();
 
         return view('reports.cash', [
-            'title' => 'Kassa',
+            'title' => __('Kassa'),
             'filters' => $filters,
             'kpi' => [
                 'balance' => $balance,

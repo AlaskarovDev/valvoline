@@ -19,7 +19,7 @@ class CashImporter extends Importer
 
     public function title(): string
     {
-        return 'Kassa / xərclər';
+        return __('Kassa / xərclər');
     }
 
     public function fileHint(): string
@@ -46,7 +46,7 @@ class CashImporter extends Importer
         if ($sheet === 'Kateqoriyalar') {
             $name = Spreadsheet::text($row['Kateqoriya'] ?? null);
             if ($name === null) {
-                return self::result(null, ['Kateqoriya boşdur']);
+                return self::result(null, [__(':column boşdur', ['column' => 'Kateqoriya'])]);
             }
 
             return self::result([
@@ -60,13 +60,13 @@ class CashImporter extends Importer
 
         $date = Spreadsheet::date($row['Tarix'] ?? null);
         if ($date === null) {
-            return self::result(null, ['Tarix oxunmadı: '.Spreadsheet::text($row['Tarix'] ?? null)]);
+            return self::result(null, [__('Tarix oxunmadı: :value', ['value' => (string) Spreadsheet::text($row['Tarix'] ?? null)])]);
         }
 
         if ($sheet === 'Kassa_Qaliqlari') {
             $balance = Spreadsheet::number($row['Kassa_Qaligi'] ?? null);
             if ($balance === null) {
-                return self::result(null, ['Kassa_Qaligi rəqəm deyil']);
+                return self::result(null, [__(':column rəqəm deyil', ['column' => 'Kassa_Qaligi'])]);
             }
 
             return self::result([

@@ -19,7 +19,7 @@ class CustomersImporter extends Importer
 
     public function title(): string
     {
-        return 'Müştərilər';
+        return __('Müştərilər');
     }
 
     public function fileHint(): string
@@ -50,7 +50,7 @@ class CustomersImporter extends Importer
         if ($sheet === 'Musteriler') {
             $code = Spreadsheet::code($row['Musteri_Kodu'] ?? null);
             if ($code === null) {
-                return self::result(null, ['Musteri_Kodu boşdur']);
+                return self::result(null, [__(':column boşdur', ['column' => 'Musteri_Kodu'])]);
             }
             $type = NameNormalizer::normalize(Spreadsheet::text($row['Musteri_Tipi'] ?? null));
 
@@ -68,7 +68,7 @@ class CustomersImporter extends Importer
 
         $original = Spreadsheet::text($row['Orijinal_Ad'] ?? null);
         if ($original === null) {
-            return self::result(null, ['Orijinal_Ad boşdur']);
+            return self::result(null, [__(':column boşdur', ['column' => 'Orijinal_Ad'])]);
         }
         $code = Spreadsheet::code($row['Musteri_Kodu'] ?? null);
 
@@ -79,7 +79,7 @@ class CustomersImporter extends Importer
             'customer_code' => $code,
             'main_name' => Spreadsheet::text($row['Esas_Ad'] ?? null),
             'method' => Spreadsheet::text($row['Uygunlasdirma_Usulu'] ?? null),
-        ], [], $code === null ? ['Alias üçün Musteri_Kodu yoxdur'] : []);
+        ], [], $code === null ? [__('Alias üçün Musteri_Kodu yoxdur')] : []);
     }
 
     protected function persist(string $sheet, array $rows, ImportBatch $batch): void

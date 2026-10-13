@@ -17,7 +17,11 @@ class FilterOptions
      */
     public static function get(string $type, ?int $managerId = null): array
     {
-        $key = $type.':'.$managerId;
+        // keş yalnız cari sorğu üçündür (uzunömürlü prosesdə köhnə siyahı qalmasın)
+        $key = spl_object_id(request()).':'.$type.':'.$managerId;
+        if (count(self::$cache) > 50) {
+            self::$cache = [];
+        }
 
         return self::$cache[$key] ??= match ($type) {
             'manager' => DB::table('managers')->orderBy('name')->pluck('name', 'id')->all(),

@@ -39,8 +39,8 @@ class ExpenseController extends ReportController
             $row->share = $grand != 0 ? $row->total / $grand : null;
         }
 
-        $pivot = Table::make('pivot', 'Kateqoriya × '.($granularity === 'year' ? 'il' : 'ay'))
-            ->column('category', 'Kateqoriya', 'text', ['link' => fn ($r) => route('expenses.index', $filters->query(['cat' => $r->category_id, 'gran' => $granularity === 'year' ? 'year' : null]))]);
+        $pivot = Table::make('pivot', ($granularity === 'year' ? __('Kateqoriya × il') : __('Kateqoriya × ay')))
+            ->column('category', __('Kateqoriya'), 'text', ['link' => fn ($r) => route('expenses.index', $filters->query(['cat' => $r->category_id, 'gran' => $granularity === 'year' ? 'year' : null]))]);
         // Xanaya klik → həmin rəqəmi yaradan kassa əməliyyatları (popup)
         $detail = fn (object $r, string $col) => abs((float) ($col === 'total' ? $r->total : $r->{'c'.array_search($col, $columns, true)})) > 0.004
             ? route('expenses.detail', $filters->query(['name' => $r->category, 'col' => $col, 'gran' => $granularity]))
@@ -48,10 +48,10 @@ class ExpenseController extends ReportController
         foreach ($columns as $i => $col) {
             $pivot->column('c'.$i, $granularity === 'year' ? $col : Fmt::period($col), 'money', ['link' => fn ($r) => $detail($r, $col), 'modal' => true]);
         }
-        $pivot->column('total', 'Cəmi', 'money', ['class' => fn () => 'font-semibold', 'link' => fn ($r) => $detail($r, 'total'), 'modal' => true])
-            ->column('share', 'Pay', 'pct')
+        $pivot->column('total', __('Cəmi'), 'money', ['class' => fn () => 'font-semibold', 'link' => fn ($r) => $detail($r, 'total'), 'modal' => true])
+            ->column('share', __('Pay'), 'pct')
             ->source(collect($pivotRows))->sortBy('total')->perPage(100)->footer(auto: true)
-            ->subtitle('Yalnız «Xərc» tipli və mənfəətə təsir edən əməliyyatlar · istiqamət: '.($filters->direction ?? 'hamısı').' · rəqəmə klik → əməliyyatlar');
+            ->subtitle(__('Yalnız «Xərc» tipli və mənfəətə təsir edən əməliyyatlar · istiqamət: :direction · rəqəmə klik → əməliyyatlar', ['direction' => $filters->direction && $filters->direction !== 'all' ? $filters->direction : __('hamısı')]));
 
         $category = is_numeric($request->query('cat')) ? (int) $request->query('cat') : null;
         $list = DB::table('cash_transactions as c')
@@ -62,19 +62,19 @@ class ExpenseController extends ReportController
             ->when($request->query('profit') === 'yes', fn ($q) => $q->where('c.affects_profit', true))
             ->when($request->query('profit') === 'no', fn ($q) => $q->where('c.affects_profit', false))
             ->select('c.id', 'c.date', 'c.category_name', 'c.subcategory', 'c.description', 'c.income', 'c.expense', 'c.op_type', 'c.affects_profit', 'c.direction', 'c.note');
-        $listTable = Table::make('cash', 'Kassa əməliyyatları')
-            ->column('date', 'Tarix', 'date', ['sql' => 'c.date'])
-            ->column('category_name', 'Kateqoriya', 'text', ['sql' => 'c.category_name'])
-            ->column('subcategory', 'Alt kateqoriya', 'text', ['sql' => 'c.subcategory'])
-            ->column('description', 'Təsvir', 'text', ['sql' => 'c.description'])
-            ->column('income', 'Mədaxil', 'money', ['sql' => 'c.income', 'class' => fn ($v) => $v > 0 ? 'pos' : ''])
-            ->column('expense', 'Məxaric', 'money', ['sql' => 'c.expense', 'class' => fn ($v) => $v > 0 ? 'neg' : ''])
-            ->column('op_type', 'Tip', 'text', ['sql' => 'c.op_type'])
-            ->column('affects_profit', 'Mənfəətə təsir', 'text', ['sql' => 'c.affects_profit', 'searchable' => false, 'format' => fn ($v) => $v ? '<span class="badge badge-primary">Bəli</span>' : '<span class="badge">Xeyr</span>'])
-            ->column('direction', 'İstiqamət', 'text', ['sql' => 'c.direction'])
+        $listTable = Table::make('cash', __('Kassa əməliyyatları'))
+            ->column('date', __('Tarix'), 'date', ['sql' => 'c.date'])
+            ->column('category_name', __('Kateqoriya'), 'text', ['sql' => 'c.category_name'])
+            ->column('subcategory', __('Alt kateqoriya'), 'text', ['sql' => 'c.subcategory'])
+            ->column('description', __('Təsvir'), 'text', ['sql' => 'c.description'])
+            ->column('income', __('Mədaxil'), 'money', ['sql' => 'c.income', 'class' => fn ($v) => $v > 0 ? 'pos' : ''])
+            ->column('expense', __('Məxaric'), 'money', ['sql' => 'c.expense', 'class' => fn ($v) => $v > 0 ? 'neg' : ''])
+            ->column('op_type', __('Tip'), 'text', ['sql' => 'c.op_type'])
+            ->column('affects_profit', __('Mənfəətə təsir'), 'text', ['sql' => 'c.affects_profit', 'searchable' => false, 'format' => fn ($v) => $v ? '<span class="badge badge-primary">'.e(__('Bəli')).'</span>' : '<span class="badge">'.e(__('Xeyr')).'</span>'])
+            ->column('direction', __('İstiqamət'), 'text', ['sql' => 'c.direction'])
             ->source($list)->sortBy('date')->footer(auto: true);
 
-        if ($response = $this->exportIfRequested($request, [$pivot, $listTable], 'Xərclər', $filters)) {
+        if ($response = $this->exportIfRequested($request, [$pivot, $listTable], __('Xərclər'), $filters)) {
             return $response;
         }
 
@@ -85,12 +85,12 @@ class ExpenseController extends ReportController
             'categories' => array_map(fn ($c) => $granularity === 'year' ? $c : Fmt::period($c), $columns),
             'series' => array_merge(
                 array_map(fn ($cat) => ['name' => $cat, 'data' => array_map(fn ($c) => round($byCategory[$cat][$c] ?? 0, 2), $columns)], $top),
-                count($byCategory) > 6 ? [['name' => 'Digər', 'data' => array_map(fn ($c) => round(array_sum(array_map(fn ($cat) => $byCategory[$cat][$c] ?? 0, array_slice(array_keys($byCategory), 6))), 2), $columns)]] : [],
+                count($byCategory) > 6 ? [['name' => __('Digər'), 'data' => array_map(fn ($c) => round(array_sum(array_map(fn ($cat) => $byCategory[$cat][$c] ?? 0, array_slice(array_keys($byCategory), 6))), 2), $columns)]] : [],
             ),
         ];
 
         return view('reports.expenses', [
-            'title' => 'Xərclər',
+            'title' => __('Xərclər'),
             'filters' => $filters,
             'granularity' => $granularity,
             'category' => $category,

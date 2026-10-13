@@ -1,6 +1,6 @@
 @php use App\Support\Fmt; @endphp
 <!DOCTYPE html>
-<html lang="az">
+<html lang="{{ app()->getLocale() }}">
 <head>
     <meta charset="utf-8">
     <style>
@@ -20,8 +20,8 @@
     </style>
 </head>
 <body>
-<h1>Mənfəət-zərər (P&amp;L)</h1>
-<div class="meta">{{ $filterLabel }} · Hazırlanıb: {{ now()->format('d.m.Y H:i') }} · AZN</div>
+<h1>{{ __('Mənfəət-zərər (P&L)') }}</h1>
+<div class="meta">{{ $filterLabel }} · {{ __('Hazırlanıb') }}: {{ now()->format('d.m.Y H:i') }} · AZN</div>
 <table>
     <thead><tr>@foreach ($headers as $h)<th>{{ $h }}</th>@endforeach</tr></thead>
     <tbody>

@@ -25,7 +25,7 @@ class ExpenseCategoryController extends Controller
                 COUNT(c.id) AS rows_count, SUM(c.income) AS income, SUM(c.expense) AS expense')
             ->orderBy('expense_categories.op_type')->orderBy('expense_categories.name')->get();
 
-        return view('categories.index', ['title' => 'Xərc kateqoriyaları', 'categories' => $categories]);
+        return view('categories.index', ['title' => __('Xərc kateqoriyaları'), 'categories' => $categories]);
     }
 
     public function update(Request $request, ExpenseCategory $category): RedirectResponse
@@ -42,6 +42,6 @@ class ExpenseCategoryController extends Controller
             ]);
         });
 
-        return back()->with('status', "«{$category->name}» yeniləndi — P&L və xərc hesabatları dərhal dəyişdi.");
+        return back()->with('status', __('«:name» yeniləndi — P&L və xərc hesabatları dərhal dəyişdi.', ['name' => $category->name]));
     }
 }

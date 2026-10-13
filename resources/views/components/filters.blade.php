@@ -2,7 +2,7 @@
 @php
     use App\Reports\FilterOptions;
     use App\Reports\ReportFilters;
-    $labels = ['manager' => 'Menecer', 'customer' => 'Müştəri', 'product' => 'Mal', 'group' => 'Məhsul qrupu', 'category' => 'Kateqoriya', 'series' => 'Seriya', 'direction' => 'İstiqamət'];
+    $labels = ['manager' => __('Menecer'), 'customer' => __('Müştəri'), 'product' => __('Mal'), 'group' => __('Məhsul qrupu'), 'category' => __('Kateqoriya'), 'series' => __('Seriya'), 'direction' => __('İstiqamət')];
     $values = ['manager' => $filters->managerId, 'customer' => $filters->customerId, 'product' => $filters->productId, 'group' => $filters->groupId, 'category' => $filters->categoryId, 'series' => $filters->series, 'direction' => $filters->direction];
     $show = array_values(array_filter($show, fn ($f) => ! ($f === 'manager' && $filters->managerLocked)));
     $activeCount = count(array_filter(array_intersect_key($values, array_flip($show)), fn ($v) => $v !== null && $v !== 'all'));
@@ -11,16 +11,16 @@
     <div class="flex flex-wrap items-center gap-2 p-3">
         @if ($dates)
             <div class="-mx-1 flex w-[calc(100%+0.5rem)] gap-1.5 overflow-x-auto px-1 pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible">
-                @foreach (ReportFilters::PRESETS as $key => $label)
+                @foreach (ReportFilters::presets() as $key => $label)
                     <a href="{{ request()->url().'?'.http_build_query($filters->query(['preset' => $key, 'from' => null, 'to' => null])) }}"
                        @class(['chip shrink-0', 'active' => $filters->preset === $key])>{{ $label }}</a>
                 @endforeach
             </div>
             <div class="flex w-full items-center gap-1.5 sm:w-auto">
-                <label class="sr-only" for="f-from">Başlanğıc tarix</label>
+                <label class="sr-only" for="f-from">{{ __('Başlanğıc tarix') }}</label>
                 <input id="f-from" type="date" name="from" value="{{ $filters->fromDate() }}" class="input h-[34px] min-w-0 flex-1 text-xs sm:h-[30px] sm:w-[140px] sm:flex-none" @if($filters->preset === 'all') disabled @endif>
                 <span class="text-muted">–</span>
-                <label class="sr-only" for="f-to">Son tarix</label>
+                <label class="sr-only" for="f-to">{{ __('Son tarix') }}</label>
                 <input id="f-to" type="date" name="to" value="{{ $filters->toDate() }}" class="input h-[34px] min-w-0 flex-1 text-xs sm:h-[30px] sm:w-[140px] sm:flex-none" @if($filters->preset === 'all') disabled @endif>
             </div>
         @endif
@@ -28,11 +28,11 @@
         <div class="ml-auto flex items-center gap-1.5">
             @if ($show)
                 <button type="button" class="btn btn-sm" @click="open = !open" :aria-expanded="open">
-                    <x-icon name="filter" size="14"/> Filtrlər @if($activeCount)<span class="badge badge-primary">{{ $activeCount }}</span>@endif
+                    <x-icon name="filter" size="14"/> {{ __('Filtrlər') }} @if($activeCount)<span class="badge badge-primary">{{ $activeCount }}</span>@endif
                 </button>
             @endif
-            <button class="btn btn-sm btn-primary">Tətbiq et</button>
-            <a href="{{ request()->url() }}" class="btn btn-sm">Sıfırla</a>
+            <button class="btn btn-sm btn-primary">{{ __('Tətbiq et') }}</button>
+            <a href="{{ request()->url() }}" class="btn btn-sm">{{ __('Sıfırla') }}</a>
         </div>
     </div>
     @if ($show)
@@ -42,9 +42,9 @@
                     <label class="label" for="f-{{ $field }}">{{ $labels[$field] }}</label>
                     <select id="f-{{ $field }}" name="{{ $field }}" class="select">
                         @if ($field === 'direction')
-                            <option value="all" @selected($values[$field] === 'all' || $values[$field] === null)>Hamısı</option>
+                            <option value="all" @selected($values[$field] === 'all' || $values[$field] === null)>{{ __('Hamısı') }}</option>
                         @else
-                            <option value="">Hamısı</option>
+                            <option value="">{{ __('Hamısı') }}</option>
                         @endif
                         @foreach (FilterOptions::get($field, $filters->managerLocked ? $filters->managerId : null) as $id => $text)
                             <option value="{{ $id }}" @selected((string) $values[$field] === (string) $id)>{{ $text }}</option>

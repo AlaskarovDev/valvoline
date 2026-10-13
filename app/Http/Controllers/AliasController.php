@@ -12,16 +12,16 @@ class AliasController extends Controller
 {
     public function index(): View
     {
-        return view('aliases.index', ['title' => 'Ad uyğunlaşdırma']);
+        return view('aliases.index', ['title' => __('Ad uyğunlaşdırma')]);
     }
 
     public function destroy(CustomerAlias $alias): RedirectResponse
     {
-        abort_if($alias->import_batch_id !== null, 403, 'Fayldan gələn alias yalnız yenidən import ilə dəyişir.');
+        abort_if($alias->import_batch_id !== null, 403, __('Fayldan gələn alias yalnız yenidən import ilə dəyişir.'));
         $alias->delete();
         AnalyticsRebuilder::markQueued();
         RebuildAnalytics::dispatchAfterResponse();
 
-        return back()->with('status', 'Alias silindi. Hesablamalar yenilənir.');
+        return back()->with('status', __('Alias silindi. Hesablamalar yenilənir.'));
     }
 }

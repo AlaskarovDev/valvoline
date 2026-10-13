@@ -28,11 +28,12 @@ try:
 except Exception:
     pass
 
-args = [a for a in sys.argv[1:] if not a.startswith("--")]
+args = [a for i, a in enumerate(sys.argv[1:], 1) if not a.startswith("--") and sys.argv[i - 1] not in ("--shots", "--locale")]
 BASE = (args[0] if args else "http://127.0.0.1:8099").rstrip("/")
 EMAIL = args[1] if len(args) > 1 else ""
 PASSWORD = args[2] if len(args) > 2 else ""
 SHOTS = sys.argv[sys.argv.index("--shots") + 1] if "--shots" in sys.argv else ""
+LOCALE = sys.argv[sys.argv.index("--locale") + 1] if "--locale" in sys.argv else ""
 
 # (ad, yol, gözlənilən minimum qrafik sayı)
 PAGES = [
@@ -199,6 +200,10 @@ def main() -> int:
             return 1
         ok("giriş edildi")
         ok("Alpine (Livewire) işə düşdü") if wait_for("!!window.Alpine && !!window.Livewire") else bad("Alpine/Livewire yoxdur")
+        if LOCALE:
+            visit("/dil/" + LOCALE)
+            lang = js("document.documentElement.lang")
+            ok(f"dil: {lang}") if lang == LOCALE else bad(f"dil dəyişmədi: {lang}")
 
         for name, path, charts in PAGES:
             visit(path)
@@ -254,7 +259,7 @@ def main() -> int:
             if not cell:
                 bad(f"{label}: klik ediləcək xana tapılmadı")
                 return
-            loaded = wait_for("document.getElementById('detail-modal').open && document.querySelector('[data-modal-body]').innerText.includes('əməliyyat')", 10)
+            loaded = wait_for("document.getElementById('detail-modal').open && !!document.querySelector('[data-modal-body] [data-modal-title]')", 10)
             popup_total = js("(document.querySelector('[data-modal-body] .text-lg') || {}).textContent || ''").strip()
             if loaded and popup_total.replace(' ₼', '').replace(' ₼', '').strip() == cell.replace(' ₼', '').replace(' ₼', '').strip():
                 ok(f"{label}: popup açıldı, cəm xana ilə eynidir ({cell})")
@@ -300,7 +305,7 @@ def main() -> int:
             ok(f"mobil {name}: daşma yoxdur") if isinstance(overflow, (int, float)) and overflow <= 2 else bad(f"mobil {name}: {overflow}px daşma")
             shot("40-mobil-" + name, full=True)
         popup_check("telefon")
-        js("document.querySelector('[aria-label=\"Menyunu aç\"]').click()")
+        js("document.querySelector('[data-nav-open]').click()")
         time.sleep(0.6)
         nav_open = js("document.querySelector('aside').getBoundingClientRect().left >= 0")
         ok("mobil menyu açılır") if nav_open else bad("mobil menyu açılmadı")

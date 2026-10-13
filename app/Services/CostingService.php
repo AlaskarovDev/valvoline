@@ -54,12 +54,12 @@ class CostingService
         $this->reset();
         $mainWarehouse = (int) Warehouse::query()->where('is_main', true)->value('id');
 
-        $progress('Hərəkətlər toplanır', 0.05);
+        $progress(__('Hərəkətlər toplanır'), 0.05);
         $events = $this->collectEvents($mainWarehouse);
         usort($events, fn ($a, $b) => [$a['date'], $a['priority'], $a['source_order'], $a['source_id'], $a['leg']]
             <=> [$b['date'], $b['priority'], $b['source_order'], $b['source_id'], $b['leg']]);
 
-        $progress('Orta maya hesablanır', 0.25);
+        $progress(__('Orta maya hesablanır'), 0.25);
         $movements = [];
         $salesCosts = [];
         $returnCosts = [];
@@ -124,17 +124,17 @@ class CostingService
             }
         }
 
-        $progress('Anbar jurnalı yazılır', 0.45);
+        $progress(__('Anbar jurnalı yazılır'), 0.45);
         DB::table('stock_movements')->delete();
         foreach (array_chunk($movements, 500) as $chunk) {
             DB::table('stock_movements')->insert($chunk);
         }
 
-        $progress('Satış sətirlərinin mayası yazılır', 0.6);
+        $progress(__('Satış sətirlərinin mayası yazılır'), 0.6);
         $this->writeSalesCosts($salesCosts);
         $this->writeReturnCosts($returnCosts);
 
-        $progress('Anbar qalıqları yazılır', 0.7);
+        $progress(__('Anbar qalıqları yazılır'), 0.7);
         $this->writeProductState($lastDate);
 
         $negative = count(array_filter($this->qty, fn ($q) => $q < -0.0001));

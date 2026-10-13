@@ -30,53 +30,53 @@ class PaymentController extends ReportController
             'stacked' => true,
             'categories' => $monthly->map(fn ($r) => Fmt::period($r->period))->all(),
             'series' => [
-                ['name' => 'Nağd', 'data' => $monthly->map(fn ($r) => round((float) $r->cash, 2))->all()],
-                ['name' => 'Bank', 'data' => $monthly->map(fn ($r) => round((float) $r->bank, 2))->all()],
+                ['name' => __('Nağd'), 'data' => $monthly->map(fn ($r) => round((float) $r->cash, 2))->all()],
+                ['name' => __('Bank'), 'data' => $monthly->map(fn ($r) => round((float) $r->bank, 2))->all()],
             ],
             'colors' => ['--chart-3', '--chart-2'],
         ];
 
         $receivers = $base()->groupBy('py.received_by')
             ->selectRaw("COALESCE(py.received_by, '—') AS received_by, COUNT(*) AS cnt, SUM(py.cash) AS cash, SUM(py.bank) AS bank, SUM(py.total) AS total")->get();
-        $receiverTable = Table::make('rcv', 'Təhvil alan üzrə')
-            ->column('received_by', 'Təhvil alan')
-            ->column('cnt', 'Say', 'int')
-            ->column('cash', 'Nağd', 'money')
-            ->column('bank', 'Bank', 'money')
-            ->column('total', 'Cəmi', 'money')
+        $receiverTable = Table::make('rcv', __('Təhvil alan üzrə'))
+            ->column('received_by', __('Təhvil alan'))
+            ->column('cnt', __('Say'), 'int')
+            ->column('cash', __('Nağd'), 'money')
+            ->column('bank', __('Bank'), 'money')
+            ->column('total', __('Cəmi'), 'money')
             ->source($receivers)->sortBy('total')->footer(auto: true)->withoutSearch();
 
         $managers = $base()->groupBy('py.manager_id', 'm.name')
             ->selectRaw("py.manager_id, COALESCE(m.name, '—') AS manager, COUNT(*) AS cnt, SUM(py.cash) AS cash, SUM(py.bank) AS bank, SUM(py.total) AS total")->get();
-        $managerTable = Table::make('mgr', 'Menecer üzrə')
-            ->column('manager', 'Menecer')
-            ->column('cnt', 'Say', 'int')
-            ->column('cash', 'Nağd', 'money')
-            ->column('bank', 'Bank', 'money')
-            ->column('total', 'Cəmi', 'money')
+        $managerTable = Table::make('mgr', __('Menecer üzrə'))
+            ->column('manager', __('Menecer'))
+            ->column('cnt', __('Say'), 'int')
+            ->column('cash', __('Nağd'), 'money')
+            ->column('bank', __('Bank'), 'money')
+            ->column('total', __('Cəmi'), 'money')
             ->source($managers)->sortBy('total')->footer(auto: true)->withoutSearch();
 
-        $listTable = Table::make('pay', 'Ödənişlər')
-            ->column('date', 'Tarix', 'date', ['sql' => 'py.date'])
-            ->column('customer', 'Müştəri', 'text', ['sql' => 'COALESCE(c.name, py.customer_name)', 'link' => fn ($r) => $r->customer_id ? route('customers.show', $r->customer_id) : null])
-            ->column('manager', 'Menecer', 'text', ['sql' => 'm.name'])
-            ->column('cash', 'Nağd', 'money', ['sql' => 'py.cash'])
-            ->column('bank', 'Bank', 'money', ['sql' => 'py.bank'])
-            ->column('total', 'Cəmi', 'money', ['sql' => 'py.total', 'class' => fn ($v) => $v < 0 ? 'neg' : 'font-semibold'])
-            ->column('received_by', 'Təhvil alan', 'text', ['sql' => 'py.received_by'])
-            ->column('note', 'Qeyd', 'text', ['sql' => 'py.note'])
+        $listTable = Table::make('pay', __('Ödənişlər'))
+            ->column('date', __('Tarix'), 'date', ['sql' => 'py.date'])
+            ->column('customer', __('Müştəri'), 'text', ['sql' => 'COALESCE(c.name, py.customer_name)', 'link' => fn ($r) => $r->customer_id ? route('customers.show', $r->customer_id) : null])
+            ->column('manager', __('Menecer'), 'text', ['sql' => 'm.name'])
+            ->column('cash', __('Nağd'), 'money', ['sql' => 'py.cash'])
+            ->column('bank', __('Bank'), 'money', ['sql' => 'py.bank'])
+            ->column('total', __('Cəmi'), 'money', ['sql' => 'py.total', 'class' => fn ($v) => $v < 0 ? 'neg' : 'font-semibold'])
+            ->column('received_by', __('Təhvil alan'), 'text', ['sql' => 'py.received_by'])
+            ->column('note', __('Qeyd'), 'text', ['sql' => 'py.note'])
             ->source($base()->select('py.date', 'py.customer_id', 'py.cash', 'py.bank', 'py.total', 'py.received_by', 'py.note',
                 DB::raw('COALESCE(c.name, py.customer_name) AS customer'), 'm.name as manager'))
             ->sortBy('date')->footer(auto: true)
             ->rowClass(fn ($r) => $r->total < 0 ? 'row-neg' : '')
-            ->subtitle('Mənfi məbləğ — müştəriyə geri ödəniş');
+            ->subtitle(__('Mənfi məbləğ — müştəriyə geri ödəniş'));
 
-        if ($response = $this->exportIfRequested($request, [$receiverTable, $managerTable, $listTable], 'Ödənişlər', $filters)) {
+        if ($response = $this->exportIfRequested($request, [$receiverTable, $managerTable, $listTable], __('Ödənişlər'), $filters)) {
             return $response;
         }
 
         return view('reports.payments', [
-            'title' => 'Ödənişlər',
+            'title' => __('Ödənişlər'),
             'filters' => $filters,
             'totals' => $totals,
             'chart' => $chart,

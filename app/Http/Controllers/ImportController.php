@@ -31,7 +31,7 @@ class ImportController extends Controller
         }
 
         return view('import.index', [
-            'title' => 'Import',
+            'title' => __('Import'),
             'importers' => $importers,
             'last' => $last,
             'history' => ImportBatch::query()->with('user')->whereIn('status', ['done', 'rolled_back', 'replaced', 'failed'])->latest()->limit(60)->get(),
@@ -53,11 +53,11 @@ class ImportController extends Controller
         }
         // mimes:xlsx WPS / yenidən saxlanılmış faylları rədd edə bilir — uzantı + ZIP imzası yoxlanılır
         if ($extension !== 'xlsx' || $signature !== 'PK') {
-            throw ValidationException::withMessages(['file' => 'Yalnız .xlsx (Excel 2007+) faylı qəbul olunur.']);
+            throw ValidationException::withMessages(['file' => __('Yalnız .xlsx (Excel 2007+) faylı qəbul olunur.')]);
         }
         $type = $request->input('type') ?: ImporterRegistry::guess($file->getClientOriginalName());
         if ($type === null || ! array_key_exists($type, ImporterRegistry::all())) {
-            throw ValidationException::withMessages(['type' => 'Fayl tipini seçin (fayl adından təyin olunmadı).']);
+            throw ValidationException::withMessages(['type' => __('Fayl tipini seçin (fayl adından təyin olunmadı).')]);
         }
         $path = $file->storeAs('imports', now()->format('Ymd_His').'_'.Str::random(6).'.xlsx', 'local');
         $batch = ImportBatch::query()->create([
@@ -82,11 +82,11 @@ class ImportController extends Controller
         } catch (Throwable $e) {
             report($e);
 
-            return redirect()->route('import.index')->with('error', 'Fayl oxunmadı: '.$e->getMessage());
+            return redirect()->route('import.index')->with('error', __('Fayl oxunmadı: ').$e->getMessage());
         }
 
         return view('import.preview', [
-            'title' => 'Önizləmə: '.$batch->file_name,
+            'title' => __('Önizləmə: ').$batch->file_name,
             'batch' => $batch,
             'importer' => $importer,
             'preview' => $preview,
@@ -105,16 +105,15 @@ class ImportController extends Controller
             report($e);
             $batch->fill(['status' => 'failed', 'errors' => [['sheet' => '', 'row' => 0, 'message' => $e->getMessage()]]])->save();
 
-            return redirect()->route('import.index')->with('error', 'Import alınmadı: '.$e->getMessage());
+            return redirect()->route('import.index')->with('error', __('Import alınmadı: ').$e->getMessage());
         }
         Cache::forget('import.preview.'.$batch->id);
         AnalyticsRebuilder::markQueued();
         RebuildAnalytics::dispatchAfterResponse();
 
-        return redirect()->route('import.index')->with('status', sprintf(
-            '%s import edildi: %s sətir, %s gözləmədə, %s xəta. Hesablamalar yenilənir…',
-            $batch->file_name, number_format($batch->rows_total, 0, ',', ' '), $batch->rows_pending, $batch->rows_error,
-        ));
+        return redirect()->route('import.index')->with('status', __(':file import edildi: :rows sətir, :pending gözləmədə, :errors xəta. Hesablamalar yenilənir…', [
+            'file' => $batch->file_name, 'rows' => number_format($batch->rows_total, 0, ',', ' '), 'pending' => $batch->rows_pending, 'errors' => $batch->rows_error,
+        ]));
     }
 
     public function cancel(ImportBatch $batch): RedirectResponse
@@ -124,7 +123,7 @@ class ImportController extends Controller
         Cache::forget('import.preview.'.$batch->id);
         $batch->delete();
 
-        return redirect()->route('import.index')->with('status', 'Import ləğv edildi.');
+        return redirect()->route('import.index')->with('status', __('Import ləğv edildi.'));
     }
 
     public function rollback(ImportBatch $batch): RedirectResponse
@@ -134,7 +133,7 @@ class ImportController extends Controller
         AnalyticsRebuilder::markQueued();
         RebuildAnalytics::dispatchAfterResponse();
 
-        return redirect()->route('import.index')->with('status', "«{$batch->file_name}» importu geri qaytarıldı. Hesablamalar yenilənir…");
+        return redirect()->route('import.index')->with('status', __('«:file» importu geri qaytarıldı. Hesablamalar yenilənir…', ['file' => $batch->file_name]));
     }
 
     public function rebuild(): RedirectResponse
@@ -142,7 +141,7 @@ class ImportController extends Controller
         AnalyticsRebuilder::markQueued();
         RebuildAnalytics::dispatchAfterResponse();
 
-        return back()->with('status', 'Yenidən hesablama başladı.');
+        return back()->with('status', __('Yenidən hesablama başladı.'));
     }
 
     public function status(): JsonResponse

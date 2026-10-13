@@ -32,6 +32,6 @@ class ProductCostController extends Controller
         AnalyticsRebuilder::markQueued();
         RebuildAnalytics::dispatchAfterResponse();
 
-        return back()->with('status', 'Maya yeniləndi. Bütün maya, mənfəət və anbar dəyəri yenidən hesablanır.');
+        return back()->with('status', __(__('Maya yeniləndi. Bütün maya, mənfəət və anbar dəyəri yenidən hesablanır.')));
     }
 }

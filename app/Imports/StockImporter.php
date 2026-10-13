@@ -19,7 +19,7 @@ class StockImporter extends Importer
 
     public function title(): string
     {
-        return 'Anbar (sayım, transfer)';
+        return __('Anbar (sayım, transfer)');
     }
 
     public function fileHint(): string
@@ -47,19 +47,19 @@ class StockImporter extends Importer
         $code = Spreadsheet::code($row['Mal_Kodu'] ?? null);
         $qty = Spreadsheet::number($row[$sheet === 'Sayim_Duzelisleri' ? 'Duzelis_Miqdari' : 'Miqdar'] ?? null);
         if ($date === null) {
-            $errors[] = 'Tarix oxunmadı: '.Spreadsheet::text($row['Tarix'] ?? null);
+            $errors[] = __('Tarix oxunmadı: :value', ['value' => (string) Spreadsheet::text($row['Tarix'] ?? null)]);
         }
         if ($code === null) {
-            $errors[] = 'Mal_Kodu boşdur';
+            $errors[] = __(':column boşdur', ['column' => 'Mal_Kodu']);
         }
         if ($qty === null) {
-            $errors[] = 'Miqdar rəqəm deyil';
+            $errors[] = __(':column rəqəm deyil', ['column' => 'Miqdar']);
         }
         if ($errors !== []) {
             return self::result(null, $errors);
         }
         $productId = $this->context()->productId($code);
-        $pending = $productId === null ? ["Tanınmayan mal kodu: {$code}"] : [];
+        $pending = $productId === null ? [__('Tanınmayan mal kodu: :code', ['code' => $code])] : [];
         $common = [
             'date' => $date->toDateString(),
             'period' => self::period($date),

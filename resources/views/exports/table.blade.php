@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="az">
+<html lang="{{ app()->getLocale() }}">
 <head>
     <meta charset="utf-8">
     <style>
@@ -16,7 +16,7 @@
 </head>
 <body>
 <h1>{{ $title }}</h1>
-<div class="meta">{{ $filterLabel }} · Hazırlanıb: {{ now()->format('d.m.Y H:i') }} · {{ count($rows) }} sətir</div>
+<div class="meta">{{ $filterLabel }} · {{ __('Hazırlanıb') }}: {{ now()->format('d.m.Y H:i') }} · {{ __(':n sətir', ['n' => count($rows)]) }}</div>
 <table>
     <thead>
     <tr>
@@ -42,7 +42,7 @@
                     @if (isset($footer[$column['key']]))
                         {{ \App\Reports\Table::formatValue($footer[$column['key']], $column['type']) }}
                     @elseif ($i === 0)
-                        Cəmi
+                        {{ __('Cəmi') }}
                     @endif
                 </td>
             @endforeach

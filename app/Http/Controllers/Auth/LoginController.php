@@ -23,7 +23,7 @@ class LoginController extends Controller
         ]);
 
         if (! Auth::attempt($credentials + ['is_active' => true], $request->boolean('remember'))) {
-            return back()->withErrors(['email' => 'E-poçt və ya parol yanlışdır.'])->onlyInput('email');
+            return back()->withErrors(['email' => __('E-poçt və ya parol yanlışdır.')])->onlyInput('email');
         }
         $request->session()->regenerate();
 

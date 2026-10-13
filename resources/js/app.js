@@ -1,6 +1,7 @@
 import ApexCharts from 'apexcharts';
 
 /* Formatlar: 1 234,56 ₼ · 35,5 % (Intl-dən asılı deyil — bəzi brauzerlərdə az lokalı yoxdur) */
+const t = (key, fallback) => (window.i18n && window.i18n[key]) || fallback;
 const THIN = ' ';
 function group(value, digits) {
     const fixed = Math.abs(value).toFixed(digits);
@@ -14,8 +15,8 @@ const fmt = {
     moneyShort: (v) => {
         if (v == null) return '—';
         const a = Math.abs(v);
-        if (a >= 1e6) return group(v / 1e6, 1) + ' mln';
-        if (a >= 1e3) return group(v / 1e3, 0) + ' min';
+        if (a >= 1e6) return group(v / 1e6, 1) + ' ' + t('million', 'mln');
+        if (a >= 1e3) return group(v / 1e3, 0) + ' ' + t('thousand', 'min');
         return group(Number(v), 0);
     },
     number: (v) => (v == null ? '—' : group(Number(v), 0)),
@@ -67,7 +68,7 @@ function buildOptions(spec, width = 1000) {
         tooltip: { theme: isDark ? 'dark' : 'light', y: { formatter: (v) => format(v) } },
         plotOptions: {
             bar: { borderRadius: 3, columnWidth: spec.columnWidth || '60%', horizontal: !!spec.horizontal, barHeight: '70%' },
-            pie: { donut: { size: '70%', labels: { show: true, name: { fontSize: '12px' }, total: { show: true, label: spec.totalLabel || 'Cəmi', fontSize: '12px', formatter: (w) => fmt.moneyShort(w.globals.seriesTotals.reduce((a, b) => a + b, 0)) + ' ₼' }, value: { fontSize: '17px', fontWeight: 700, formatter: (v) => fmt.moneyShort(Number(v)) + ' ₼' } } } },
+            pie: { donut: { size: '70%', labels: { show: true, name: { fontSize: '12px' }, total: { show: true, label: spec.totalLabel || t('total', 'Cəmi'), fontSize: '12px', formatter: (w) => fmt.moneyShort(w.globals.seriesTotals.reduce((a, b) => a + b, 0)) + ' ₼' }, value: { fontSize: '17px', fontWeight: 700, formatter: (v) => fmt.moneyShort(Number(v)) + ' ₼' } } } },
         },
         states: { hover: { filter: { type: 'darken', value: 0.9 } } },
     };
@@ -132,7 +133,7 @@ function buildOptions(spec, width = 1000) {
             options.grid.padding = { ...options.grid.padding, right: 16 };
             const top = Math.max(...spec.series[0].data);
             if (top > 0) options.xaxis.max = top * 1.1; // marja yazısı üçün yer
-            options.tooltip.y = { formatter: (v, { dataPointIndex }) => `${format(v)} · marja ${spec.barLabels[dataPointIndex]}` };
+            options.tooltip.y = { formatter: (v, { dataPointIndex }) => `${format(v)} · ${t('margin', 'marja')} ${spec.barLabels[dataPointIndex]}` };
         }
     }
 
@@ -220,14 +221,14 @@ document.addEventListener('click', async (event) => {
     event.preventDefault();
     const body = dialog.querySelector('[data-modal-body]');
     dialog.querySelector('[data-modal-open-page]').href = link.href;
-    body.innerHTML = '<div class="p-10 text-center text-sm text-muted">Yüklənir…</div>';
+    body.innerHTML = `<div class="p-10 text-center text-sm text-muted">${t('loading', 'Yüklənir…')}</div>`;
     if (!dialog.open) dialog.showModal();
     try {
         const response = await fetch(link.href, { headers: { 'X-Modal': '1', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
         if (!response.ok) throw new Error(response.status);
         body.innerHTML = await response.text();
     } catch (e) {
-        body.innerHTML = '<div class="p-10 text-center text-sm neg">Məlumat yüklənmədi. «Ayrıca səhifədə aç» ilə yoxlayın.</div>';
+        body.innerHTML = `<div class="p-10 text-center text-sm neg">${t('loadError', 'Error')}</div>`;
     }
 });
 document.addEventListener('click', (event) => {

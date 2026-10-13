@@ -84,7 +84,7 @@ class Spreadsheet
 
                 return;
             }
-            throw new RuntimeException("«{$sheetName}» vərəqi faylda tapılmadı.");
+            throw new RuntimeException(__('«:sheet» vərəqi tapılmadı.', ['sheet' => $sheetName]));
         } finally {
             $reader->close();
         }
@@ -211,7 +211,7 @@ class Spreadsheet
     private static function open(string $path): Reader
     {
         if (! is_file($path)) {
-            throw new RuntimeException("Fayl tapılmadı: {$path}");
+            throw new RuntimeException(__('Fayl tapılmadı').': '.$path);
         }
         $reader = new Reader(new ReaderOptions(SHOULD_FORMAT_DATES: false));
         $reader->open($path);
@@ -253,7 +253,7 @@ class Spreadsheet
             return $value->format('d.m.Y');
         }
         if (is_bool($value)) {
-            return $value ? 'Bəli' : 'Xeyr';
+            return $value ? __('Bəli') : __('Xeyr');
         }
 
         return $value;

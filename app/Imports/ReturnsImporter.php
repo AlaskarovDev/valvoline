@@ -18,7 +18,7 @@ class ReturnsImporter extends Importer
 
     public function title(): string
     {
-        return 'Qaytarmalar';
+        return __('Qaytarmalar');
     }
 
     public function fileHint(): string
@@ -48,13 +48,13 @@ class ReturnsImporter extends Importer
         $productCode = Spreadsheet::code($row['Mal_Kodu'] ?? null);
         $qty = Spreadsheet::number($row['Miqdar'] ?? null);
         if ($date === null) {
-            $errors[] = 'Tarix oxunmadı: '.Spreadsheet::text($row['Tarix'] ?? null);
+            $errors[] = __('Tarix oxunmadı: :value', ['value' => (string) Spreadsheet::text($row['Tarix'] ?? null)]);
         }
         if ($productCode === null) {
-            $errors[] = 'Mal_Kodu boşdur';
+            $errors[] = __(':column boşdur', ['column' => 'Mal_Kodu']);
         }
         if ($qty === null) {
-            $errors[] = 'Miqdar rəqəm deyil';
+            $errors[] = __(':column rəqəm deyil', ['column' => 'Miqdar']);
         }
         if ($errors !== []) {
             return self::result(null, $errors);
@@ -68,10 +68,10 @@ class ReturnsImporter extends Importer
         $customerId = $this->context()->customerId($customerCode, [$customerName, $originalName]);
         $pending = [];
         if ($productId === null) {
-            $pending[] = "Tanınmayan mal kodu: {$productCode}";
+            $pending[] = __('Tanınmayan mal kodu: :code', ['code' => $productCode]);
         }
         if ($customerId === null && $opType === 'customer') {
-            $pending[] = 'Tanınmayan müştəri: '.($customerCode ?? $customerName ?? $originalName ?? '—');
+            $pending[] = __('Tanınmayan müştəri: :name', ['name' => $customerCode ?? $customerName ?? $originalName ?? '—']);
         }
 
         return self::result([

@@ -36,7 +36,7 @@ class DashboardController extends ReportController
         $stock = DB::table('products')->selectRaw('SUM(CASE WHEN stock_qty > 0 THEN stock_qty * COALESCE(current_avg_cost, 0) ELSE 0 END) AS value, SUM(CASE WHEN stock_qty > 0 THEN stock_qty ELSE 0 END) AS qty')->first();
 
         return view('reports.dashboard', [
-            'title' => 'İdarə paneli',
+            'title' => __('İdarə paneli'),
             'filters' => $filters,
             'isAdmin' => $isAdmin,
             'kpi' => [
@@ -98,9 +98,9 @@ class DashboardController extends ReportController
             'type' => 'line',
             'categories' => array_map(fn ($p) => Fmt::period($p), $periods),
             'series' => [
-                ['name' => 'Xalis satış', 'type' => 'column', 'data' => $sales],
-                ['name' => 'Brüt mənfəət', 'type' => 'column', 'data' => $profit],
-                ['name' => 'Marja %', 'type' => 'line', 'data' => $margin],
+                ['name' => __('Xalis satış'), 'type' => 'column', 'data' => $sales],
+                ['name' => __('Brüt mənfəət'), 'type' => 'column', 'data' => $profit],
+                ['name' => __('Marja %'), 'type' => 'line', 'data' => $margin],
             ],
             'dualAxis' => true,
             'secondFormat' => 'pct',
@@ -124,7 +124,7 @@ class DashboardController extends ReportController
 
         return [
             'type' => 'donut',
-            'labels' => $rows->map(fn ($r) => $r->name ?? 'Təyin edilməyib')->all(),
+            'labels' => $rows->map(fn ($r) => $r->name ?? __('Təyin edilməyib'))->all(),
             'series' => $rows->map(fn ($r) => round($r->net_sales, 2))->all(),
             'links' => $rows->map(fn ($r) => $r->id ? route('margin.index', $filters->query(['category' => $r->id, 'dim' => 'product'])) : null)->all(),
         ];
@@ -145,7 +145,7 @@ class DashboardController extends ReportController
             'type' => 'bar',
             'horizontal' => true,
             'categories' => $rows->map(fn ($r) => mb_strimwidth($r->name ?? $r->code, 0, 38, '…'))->all(),
-            'series' => [['name' => 'Xalis satış', 'data' => $rows->map(fn ($r) => round($r->net_sales, 2))->all()]],
+            'series' => [['name' => __('Xalis satış'), 'data' => $rows->map(fn ($r) => round($r->net_sales, 2))->all()]],
             'links' => $rows->map(fn ($r) => route('movements.product', $r->product_id))->all(),
         ];
     }
@@ -165,7 +165,7 @@ class DashboardController extends ReportController
             'horizontal' => true,
             'colors' => ['--chart-6'],
             'categories' => $rows->map(fn ($r) => mb_strimwidth($r->name, 0, 38, '…'))->all(),
-            'series' => [['name' => 'Borc', 'data' => $rows->map(fn ($r) => round((float) $r->balance, 2))->all()]],
+            'series' => [['name' => __('Borc'), 'data' => $rows->map(fn ($r) => round((float) $r->balance, 2))->all()]],
             'links' => $rows->map(fn ($r) => route('customers.show', $r->id))->all(),
         ];
     }
@@ -185,8 +185,8 @@ class DashboardController extends ReportController
             'type' => 'bar',
             'categories' => $rows->map(fn ($r) => $r->name ?? '—')->all(),
             'series' => [
-                ['name' => 'Xalis satış', 'data' => $rows->map(fn ($r) => round($r->net_sales, 2))->all()],
-                ['name' => 'Brüt mənfəət', 'data' => $rows->map(fn ($r) => round($r->gross_profit, 2))->all()],
+                ['name' => __('Xalis satış'), 'data' => $rows->map(fn ($r) => round($r->net_sales, 2))->all()],
+                ['name' => __('Brüt mənfəət'), 'data' => $rows->map(fn ($r) => round($r->gross_profit, 2))->all()],
             ],
             'columnWidth' => '50%',
         ];

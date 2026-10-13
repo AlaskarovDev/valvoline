@@ -4,6 +4,7 @@ use App\Http\Controllers\AliasController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProductCostController;
 use App\Http\Controllers\Reports\CashController;
 use App\Http\Controllers\Reports\CustomerController;
@@ -23,6 +24,8 @@ use App\Http\Controllers\Reports\SalesController;
 use App\Http\Controllers\Reports\StockController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/dil/{locale}', LocaleController::class)->name('locale');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');

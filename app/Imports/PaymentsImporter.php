@@ -22,7 +22,7 @@ class PaymentsImporter extends Importer
 
     public function title(): string
     {
-        return 'Ödənişlər';
+        return __('Ödənişlər');
     }
 
     public function fileHint(): string
@@ -61,7 +61,7 @@ class PaymentsImporter extends Importer
         $bank = Spreadsheet::number($row['Bank'] ?? null) ?? 0;
         $total = Spreadsheet::number($row['Cem_Odenis'] ?? null) ?? ($cash + $bank);
         if ($date === null) {
-            return self::result(null, ['Tarix oxunmadı: '.Spreadsheet::text($row['Tarix'] ?? null)]);
+            return self::result(null, [__('Tarix oxunmadı: :value', ['value' => (string) Spreadsheet::text($row['Tarix'] ?? null)])]);
         }
 
         $customerCode = Spreadsheet::code($row['Musteri_Kodu'] ?? null);
@@ -69,7 +69,7 @@ class PaymentsImporter extends Importer
         $originalName = Spreadsheet::text($row['Orijinal_Musteri_Adi'] ?? null);
         $note = Spreadsheet::text($row['Qeyd'] ?? null);
         $customerId = $this->context()->customerId($customerCode, [$customerName, $originalName]);
-        $pending = $customerId === null ? ['Tanınmayan müştəri: '.($customerCode ?? $customerName ?? $originalName ?? '—')] : [];
+        $pending = $customerId === null ? [__('Tanınmayan müştəri: :name', ['name' => $customerCode ?? $customerName ?? $originalName ?? '—'])] : [];
         $hashKey = implode('|', [$date->toDateString(), $customerCode ?? $customerName, round($total, 2), $note]);
         $occurrence = $this->occurrences[$hashKey] = ($this->occurrences[$hashKey] ?? 0) + 1;
 

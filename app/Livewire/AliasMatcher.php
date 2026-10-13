@@ -51,7 +51,7 @@ class AliasMatcher extends Component
         AnalyticsRebuilder::markQueued();
         RebuildAnalytics::dispatchAfterResponse();
 
-        $this->message = "«{$this->selected}» → {$customer->name} ({$customer->code}) uyğunlaşdırıldı. Hesablamalar yenilənir.";
+        $this->message = __('«:name» → :customer (:code) uyğunlaşdırıldı. Hesablamalar yenilənir.', ['name' => $this->selected, 'customer' => $customer->name, 'code' => $customer->code]);
         $this->selected = null;
     }
 

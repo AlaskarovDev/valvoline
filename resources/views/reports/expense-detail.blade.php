@@ -2,11 +2,11 @@
 <div class="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
     <div class="min-w-0">
         <h2 class="text-base font-semibold" data-modal-title>{{ $name }}</h2>
-        <div class="text-xs text-muted">{{ $periodLabel }} · {{ $direction }} · yalnız «Xərc» tipli, mənfəətə təsir edən əməliyyatlar</div>
+        <div class="text-xs text-muted">{{ $periodLabel }} · {{ $direction }} · {{ __('yalnız «Xərc» tipli, mənfəətə təsir edən əməliyyatlar') }}</div>
     </div>
     <div class="shrink-0 text-right">
         <div class="text-lg font-bold tabular-nums">{{ Fmt::money($total) }}</div>
-        <div class="text-xs text-muted">{{ $rows->count() }} əməliyyat</div>
+        <div class="text-xs text-muted">{{ __(':n əməliyyat', ['n' => $rows->count()]) }}</div>
     </div>
 </div>
 
@@ -32,7 +32,7 @@
                     @if ((float) $r->income != 0)<div class="pos font-semibold">+{{ Fmt::money($r->income) }}</div>@endif
                 </div>
             </div>
-            @if ($r->note)<div class="mt-1 text-xs text-muted">Qeyd: {{ $r->note }}</div>@endif
+            @if ($r->note)<div class="mt-1 text-xs text-muted">{{ __('Qeyd') }}: {{ $r->note }}</div>@endif
             @if ($r->original_row && $r->original_row !== $r->description)<div class="mt-1 text-xs text-faint">Excel: {{ $r->original_row }}</div>@endif
         </li>
     @endforeach
@@ -43,7 +43,7 @@
     <table class="tbl">
         <thead>
         <tr>
-            <th>Tarix</th><th>Alt kateqoriya</th><th>Təsvir</th><th class="num">Məxaric</th><th class="num">Mədaxil</th><th>İstiqamət</th><th>Qeyd / orijinal sətir</th>
+            <th>{{ __('Tarix') }}</th><th>{{ __('Alt kateqoriya') }}</th><th>{{ __('Təsvir') }}</th><th class="num">{{ __('Məxaric') }}</th><th class="num">{{ __('Mədaxil') }}</th><th>{{ __('İstiqamət') }}</th><th>{{ __('Qeyd / orijinal sətir') }}</th>
         </tr>
         </thead>
         <tbody>
@@ -61,12 +61,12 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="7" class="py-8 text-center text-muted">Əməliyyat yoxdur</td></tr>
+            <tr><td colspan="7" class="py-8 text-center text-muted">{{ __('Əməliyyat yoxdur') }}</td></tr>
         @endforelse
         </tbody>
         <tfoot>
         <tr>
-            <td colspan="3">Cəmi (məxaric − mədaxil)</td>
+            <td colspan="3">{{ __('Cəmi (məxaric − mədaxil)') }}</td>
             <td class="num">{{ Fmt::money($rows->sum('expense')) }}</td>
             <td class="num">{{ Fmt::money($rows->sum('income')) }}</td>
             <td colspan="2" class="num">{{ Fmt::money($total) }}</td>
@@ -75,5 +75,5 @@
     </table>
 </div>
 <div class="border-t border-line bg-surface-2 px-5 py-3 text-xs text-muted md:hidden">
-    Cəmi (məxaric − mədaxil): <b class="tabular-nums text-ink">{{ Fmt::money($total) }}</b>
+    {{ __('Cəmi (məxaric − mədaxil)') }}: <b class="tabular-nums text-ink">{{ Fmt::money($total) }}</b>
 </div>

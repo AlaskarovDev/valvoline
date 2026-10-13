@@ -15,24 +15,36 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SalesController extends ReportController
 {
-    public const DIMENSIONS = ['manager' => 'Menecer', 'category' => 'Kateqoriya', 'series' => 'Seriya', 'none' => 'Yalnız cəmi'];
+    /**
+     * @return array<string, string>
+     */
+    public static function dimensions(): array
+    {
+        return ['manager' => __('Menecer'), 'category' => __('Kateqoriya'), 'series' => __('Seriya'), 'none' => __('Yalnız cəmi')];
+    }
 
-    public const MEASURES = ['net_sales' => 'Xalis satış, ₼', 'gross_profit' => 'Brüt mənfəət, ₼', 'liters' => 'Həcm, litr', 'qty' => 'Miqdar, ədəd'];
+    /**
+     * @return array<string, string>
+     */
+    public static function measures(): array
+    {
+        return ['net_sales' => __('Xalis satış, ₼'), 'gross_profit' => __('Brüt mənfəət, ₼'), 'liters' => __('Həcm, litr'), 'qty' => __('Miqdar, ədəd')];
+    }
 
     public function __invoke(Request $request): View|Response
     {
         $filters = $this->filters($request, 'this_year');
         $granularity = $request->query('gran') === 'year' ? 'year' : 'month';
-        $dimension = array_key_exists($request->query('dim'), self::DIMENSIONS) ? $request->query('dim') : 'manager';
-        $measure = array_key_exists($request->query('measure'), self::MEASURES) ? $request->query('measure') : 'net_sales';
+        $dimension = array_key_exists((string) $request->query('dim'), self::dimensions()) ? $request->query('dim') : 'manager';
+        $measure = array_key_exists((string) $request->query('measure'), self::measures()) ? $request->query('measure') : 'net_sales';
 
         $periodExpr = $granularity === 'year' ? 'SUBSTR(s.period, 1, 4)' : 's.period';
         $query = SalesSummaryQuery::base($filters);
         [$dimExpr, $dimLabel] = match ($dimension) {
-            'manager' => ['COALESCE(m.name, \'—\')', 'Menecer'],
-            'category' => ['COALESCE(cat.name, \'Təyin edilməyib\')', 'Kateqoriya'],
-            'series' => ['COALESCE(p.series, \'—\')', 'Seriya'],
-            default => ["'Cəmi'", ''],
+            'manager' => ['COALESCE(m.name, \'—\')', __('Menecer')],
+            'category' => ['COALESCE(cat.name, \'—\')', __('Kateqoriya')],
+            'series' => ['COALESCE(p.series, \'—\')', __('Seriya')],
+            default => ["'∑'", ''],
         };
         if ($dimension === 'manager') {
             $query->leftJoin('managers as m', 'm.id', '=', 's.manager_id');
@@ -64,22 +76,22 @@ class SalesController extends ReportController
         }
 
         $type = in_array($measure, ['liters', 'qty'], true) ? 'qty' : 'money';
-        $table = Table::make('pivot', ($granularity === 'year' ? 'İllik' : 'Aylıq').' — '.self::MEASURES[$measure])
-            ->column('label', $granularity === 'year' ? 'İl' : 'Ay', 'text', ['sortable' => false, 'searchable' => false, 'link' => fn ($r) => $granularity === 'month'
+        $table = Table::make('pivot', ($granularity === 'year' ? __('İllik') : __('Aylıq')).' — '.self::measures()[$measure])
+            ->column('label', $granularity === 'year' ? __('İl') : __('Ay'), 'text', ['sortable' => false, 'searchable' => false, 'link' => fn ($r) => $granularity === 'month'
                 ? route('orders.index', $filters->query(['preset' => null, 'from' => $r->period.'-01', 'to' => date('Y-m-t', strtotime($r->period.'-01'))])) : null]);
         foreach ($dims as $i => $dim) {
-            $table->column('d'.$i, (string) $dim, $type, ['sortable' => false]);
+            $table->column('d'.$i, $dim === '∑' ? __('Cəmi') : (string) $dim, $type, ['sortable' => false]);
         }
-        $table->column('total', 'Cəmi', $type, ['sortable' => false, 'class' => fn () => 'font-semibold']);
+        $table->column('total', __('Cəmi'), $type, ['sortable' => false, 'class' => fn () => 'font-semibold']);
         if ($measure === 'net_sales' || $measure === 'gross_profit') {
-            $table->column('margin', 'Marja', 'pct', ['sortable' => false]);
+            $table->column('margin', __('Marja'), 'pct', ['sortable' => false]);
         }
         $table->source(collect($pivot))->perPage(120)->footer(auto: true)->withoutSearch();
         if ($dimLabel !== '') {
-            $table->subtitle('Sütunlar: '.$dimLabel);
+            $table->subtitle(__('Sütunlar: ').$dimLabel);
         }
 
-        if ($response = $this->exportIfRequested($request, [$table], 'Satış hesabatı', $filters)) {
+        if ($response = $this->exportIfRequested($request, [$table], __('Satış hesabatı'), $filters)) {
             return $response;
         }
         $rows = $table->resolve($request);
@@ -96,10 +108,10 @@ class SalesController extends ReportController
             'stacked' => count($dims) > 1,
             'format' => $type === 'qty' ? 'number' : 'money',
             'categories' => array_map(fn ($r) => $r->label, $pivot),
-            'series' => array_map(fn ($i, $dim) => ['name' => (string) $dim, 'data' => array_map(fn ($r) => round($r->{'d'.$i}, 2), $pivot)], array_keys(array_slice($dims, 0, 8)), array_slice($dims, 0, 8)),
+            'series' => array_map(fn ($i, $dim) => ['name' => $dim === '∑' ? __('Cəmi') : (string) $dim, 'data' => array_map(fn ($r) => round($r->{'d'.$i}, 2), $pivot)], array_keys(array_slice($dims, 0, 8)), array_slice($dims, 0, 8)),
             'columnWidth' => '55%',
         ];
 
-        return view('reports.sales', compact('filters', 'table', 'rows', 'chart', 'granularity', 'dimension', 'measure') + ['title' => 'Satış hesabatı']);
+        return view('reports.sales', compact('filters', 'table', 'rows', 'chart', 'granularity', 'dimension', 'measure') + ['title' => __('Satış hesabatı')]);
     }
 }

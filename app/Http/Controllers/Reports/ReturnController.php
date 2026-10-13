@@ -31,8 +31,8 @@ class ReturnController extends ReportController
             'type' => 'line',
             'categories' => $monthly->map(fn ($r) => Fmt::period($r->period))->all(),
             'series' => [
-                ['name' => 'Qaytarma', 'type' => 'column', 'data' => $monthly->map(fn ($r) => round($r->returns, 2))->all()],
-                ['name' => 'Qaytarma faizi', 'type' => 'line', 'data' => $monthly->map(fn ($r) => $r->return_rate !== null ? round($r->return_rate, 4) : null)->all()],
+                ['name' => __('Qaytarma'), 'type' => 'column', 'data' => $monthly->map(fn ($r) => round($r->returns, 2))->all()],
+                ['name' => __('Qaytarma faizi'), 'type' => 'line', 'data' => $monthly->map(fn ($r) => $r->return_rate !== null ? round($r->return_rate, 4) : null)->all()],
             ],
             'colors' => ['--chart-6', '--chart-1'],
             'dualAxis' => true,
@@ -41,7 +41,7 @@ class ReturnController extends ReportController
             'markers' => true,
         ];
 
-        $reasons = $base()->groupBy('r.reason')->selectRaw("COALESCE(r.reason, 'Göstərilməyib') AS reason, SUM(r.net_amount) AS amount, COUNT(*) AS cnt")
+        $reasons = $base()->groupBy('r.reason')->selectRaw("COALESCE(r.reason, '—') AS reason, SUM(r.net_amount) AS amount, COUNT(*) AS cnt")
             ->orderByDesc('amount')->get();
         $reasonChart = [
             'type' => 'donut',
@@ -58,14 +58,14 @@ class ReturnController extends ReportController
 
                 return $r;
             });
-        $productTable = Table::make('rp', 'Ən çox qaytarılan mallar')
-            ->column('code', 'Kod', 'text', ['link' => fn ($r) => $r->product_id ? route('movements.product', $r->product_id) : null])
-            ->column('name', 'Mal')
-            ->column('cnt', 'Sətir', 'int')
-            ->column('qty', 'Miqdar', 'qty')
-            ->column('amount', 'Məbləğ', 'money')
-            ->column('cogs', 'Maya', 'money')
-            ->column('rate', 'Satışa nisbəti', 'pct')
+        $productTable = Table::make('rp', __('Ən çox qaytarılan mallar'))
+            ->column('code', __('Kod'), 'text', ['link' => fn ($r) => $r->product_id ? route('movements.product', $r->product_id) : null])
+            ->column('name', __('Mal'))
+            ->column('cnt', __('Sətir'), 'int')
+            ->column('qty', __('Miqdar'), 'qty')
+            ->column('amount', __('Məbləğ'), 'money')
+            ->column('cogs', __('Maya'), 'money')
+            ->column('rate', __('Satışa nisbəti'), 'pct')
             ->source($products)->sortBy('amount')->perPage(15)->footer(auto: true);
 
         $salesByCustomer = SalesSummaryQuery::base($filters)->groupBy('s.customer_id')->selectRaw("s.customer_id, SUM(CASE WHEN s.kind = 'sale' THEN s.net_amount ELSE 0 END) AS sales")->pluck('sales', 'customer_id');
@@ -78,36 +78,36 @@ class ReturnController extends ReportController
 
                 return $r;
             });
-        $customerTable = Table::make('rc', 'Ən çox qaytaran müştərilər')
-            ->column('name', 'Müştəri', 'text', ['link' => fn ($r) => $r->customer_id ? route('customers.show', $r->customer_id) : null])
-            ->column('docs', 'Sənəd', 'int')
-            ->column('amount', 'Qaytarma', 'money')
-            ->column('sales', 'Satış', 'money')
-            ->column('rate', 'Qaytarma faizi', 'pct', ['class' => fn ($v) => $v !== null && $v > 0.2 ? 'neg font-semibold' : ''])
+        $customerTable = Table::make('rc', __('Ən çox qaytaran müştərilər'))
+            ->column('name', __('Müştəri'), 'text', ['link' => fn ($r) => $r->customer_id ? route('customers.show', $r->customer_id) : null])
+            ->column('docs', __('Sənəd'), 'int')
+            ->column('amount', __('Qaytarma'), 'money')
+            ->column('sales', __('Satış'), 'money')
+            ->column('rate', __('Qaytarma faizi'), 'pct', ['class' => fn ($v) => $v !== null && $v > 0.2 ? 'neg font-semibold' : ''])
             ->source($customers)->sortBy('amount')->perPage(15)->footer(auto: true);
 
-        $listTable = Table::make('rl', 'Qaytarma sətirləri')
-            ->column('date', 'Tarix', 'date', ['sql' => 'r.date'])
-            ->column('return_no', 'Qaytarma №', 'text', ['sql' => 'r.return_no'])
-            ->column('customer', 'Müştəri', 'text', ['sql' => 'COALESCE(c.name, r.customer_name)', 'link' => fn ($r) => $r->customer_id ? route('customers.show', $r->customer_id) : null])
-            ->column('product_code', 'Kod', 'text', ['sql' => 'r.product_code'])
-            ->column('product_name', 'Mal', 'text', ['sql' => 'COALESCE(p.name, r.product_name)'])
-            ->column('qty', 'Miqdar', 'qty', ['sql' => 'r.qty'])
-            ->column('net_amount', 'Məbləğ', 'money', ['sql' => 'r.net_amount'])
-            ->column('cogs', 'Maya', 'money', ['sql' => 'r.cogs'])
-            ->column('reason', 'Səbəb', 'text', ['sql' => 'r.reason'])
-            ->column('order_no', 'Sifariş', 'text', ['sql' => 'o.order_no', 'link' => fn ($r) => $r->sales_order_id ? route('orders.show', $r->sales_order_id) : null])
+        $listTable = Table::make('rl', __('Qaytarma sətirləri'))
+            ->column('date', __('Tarix'), 'date', ['sql' => 'r.date'])
+            ->column('return_no', __('Qaytarma №'), 'text', ['sql' => 'r.return_no'])
+            ->column('customer', __('Müştəri'), 'text', ['sql' => 'COALESCE(c.name, r.customer_name)', 'link' => fn ($r) => $r->customer_id ? route('customers.show', $r->customer_id) : null])
+            ->column('product_code', __('Kod'), 'text', ['sql' => 'r.product_code'])
+            ->column('product_name', __('Mal'), 'text', ['sql' => 'COALESCE(p.name, r.product_name)'])
+            ->column('qty', __('Miqdar'), 'qty', ['sql' => 'r.qty'])
+            ->column('net_amount', __('Məbləğ'), 'money', ['sql' => 'r.net_amount'])
+            ->column('cogs', __('Maya'), 'money', ['sql' => 'r.cogs'])
+            ->column('reason', __('Səbəb'), 'text', ['sql' => 'r.reason'])
+            ->column('order_no', __('Sifariş'), 'text', ['sql' => 'o.order_no', 'link' => fn ($r) => $r->sales_order_id ? route('orders.show', $r->sales_order_id) : null])
             ->source($base()->leftJoin('sales_orders as o', 'o.id', '=', 'r.sales_order_id')
                 ->select('r.date', 'r.return_no', 'r.customer_id', 'r.product_code', 'r.qty', 'r.net_amount', 'r.cogs', 'r.reason', 'r.sales_order_id', 'o.order_no',
                     DB::raw('COALESCE(c.name, r.customer_name) AS customer'), DB::raw('COALESCE(p.name, r.product_name) AS product_name')))
             ->sortBy('date')->perPage(50)->footer(auto: true);
 
-        if ($response = $this->exportIfRequested($request, [$productTable, $customerTable, $listTable], 'Qaytarmalar', $filters)) {
+        if ($response = $this->exportIfRequested($request, [$productTable, $customerTable, $listTable], __('Qaytarmalar'), $filters)) {
             return $response;
         }
 
         return view('reports.returns', [
-            'title' => 'Qaytarmalar',
+            'title' => __('Qaytarmalar'),
             'filters' => $filters,
             'totals' => $totals,
             'trend' => $trend,

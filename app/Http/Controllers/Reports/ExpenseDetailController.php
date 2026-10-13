@@ -32,7 +32,7 @@ class ExpenseDetailController extends ReportController
 
         $periodLabel = match (true) {
             $col === 'total' => $filters->label(),
-            $granularity === 'year' => $col.' ili',
+            $granularity === 'year' => __(':year ili', ['year' => $col]),
             default => Fmt::period($col),
         };
 
@@ -40,7 +40,7 @@ class ExpenseDetailController extends ReportController
             'title' => $name.' · '.$periodLabel,
             'name' => $name,
             'periodLabel' => $periodLabel,
-            'direction' => $filters->direction && $filters->direction !== 'all' ? $filters->direction : 'bütün istiqamətlər',
+            'direction' => $filters->direction && $filters->direction !== 'all' ? $filters->direction : __('bütün istiqamətlər'),
             'rows' => $rows,
             'total' => $rows->sum(fn ($r) => (float) $r->expense - (float) $r->income),
             'bySub' => $rows->groupBy(fn ($r) => $r->subcategory ?: '—')

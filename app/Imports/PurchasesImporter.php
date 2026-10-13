@@ -19,7 +19,7 @@ class PurchasesImporter extends Importer
 
     public function title(): string
     {
-        return 'İdxal / alışlar';
+        return __('İdxal / alışlar');
     }
 
     public function fileHint(): string
@@ -46,7 +46,7 @@ class PurchasesImporter extends Importer
         $date = Spreadsheet::date($row['Tarix'] ?? null);
         if ($sheet === 'Partiyalar') {
             if ($batchNo === null) {
-                return self::result(null, ['Partiya_No boşdur']);
+                return self::result(null, [__(':column boşdur', ['column' => 'Partiya_No'])]);
             }
 
             return self::result([
@@ -65,16 +65,16 @@ class PurchasesImporter extends Importer
         $qty = Spreadsheet::number($row['Miqdar_Eded'] ?? null);
         $unitCost = Spreadsheet::number($row['Maya_Deyeri_Vahid'] ?? null);
         if ($batchNo === null) {
-            $errors[] = 'Partiya_No boşdur';
+            $errors[] = __(':column boşdur', ['column' => 'Partiya_No']);
         }
         if ($date === null) {
-            $errors[] = 'Tarix oxunmadı: '.Spreadsheet::text($row['Tarix'] ?? null);
+            $errors[] = __('Tarix oxunmadı: :value', ['value' => (string) Spreadsheet::text($row['Tarix'] ?? null)]);
         }
         if ($code === null) {
-            $errors[] = 'Mal_Kodu boşdur';
+            $errors[] = __(':column boşdur', ['column' => 'Mal_Kodu']);
         }
         if ($qty === null) {
-            $errors[] = 'Miqdar_Eded rəqəm deyil';
+            $errors[] = __(':column rəqəm deyil', ['column' => 'Miqdar_Eded']);
         }
         if ($errors !== []) {
             return self::result(null, $errors);
@@ -98,7 +98,7 @@ class PurchasesImporter extends Importer
             'note' => $note,
             'is_estimated' => str_contains(NameNormalizer::normalize($note), 'texmini'),
             'status' => $productId === null ? 'pending' : 'ok',
-        ], [], $productId === null ? ["Tanınmayan mal kodu: {$code}"] : []);
+        ], [], $productId === null ? [__('Tanınmayan mal kodu: :code', ['code' => $code])] : []);
     }
 
     protected function persist(string $sheet, array $rows, ImportBatch $batch): void

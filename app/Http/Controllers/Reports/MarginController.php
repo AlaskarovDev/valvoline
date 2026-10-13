@@ -19,17 +19,24 @@ class MarginController extends ReportController
 {
     public const CHART_ITEMS = 20;
 
-    /** Marja qrupları: rəng tokeni => [aşağı hədd, ad]. */
-    public const MARGIN_BANDS = [
-        '--positive' => [0.35, '35 %+'],
-        '--chart-2' => [0.20, '20–35 %'],
-        '--warning' => [0.0, '0–20 %'],
-        '--negative' => [-INF, 'zərər'],
-    ];
+    /**
+     * Marja qrupları: rəng tokeni => [aşağı hədd, ad].
+     *
+     * @return array<string, array{0: float, 1: string}>
+     */
+    public static function marginBands(): array
+    {
+        return [
+            '--positive' => [0.35, '35 %+'],
+            '--chart-2' => [0.20, '20–35 %'],
+            '--warning' => [0.0, '0–20 %'],
+            '--negative' => [-INF, __('zərər')],
+        ];
+    }
 
     public static function marginColor(?float $margin): string
     {
-        foreach (self::MARGIN_BANDS as $color => [$min]) {
+        foreach (self::marginBands() as $color => [$min]) {
             if (($margin ?? 0) >= $min) {
                 return $color;
             }
@@ -38,32 +45,38 @@ class MarginController extends ReportController
         return '--negative';
     }
 
-    public const DIMENSIONS = ['product' => 'Mal (kod)', 'group' => 'Məhsul qrupu', 'category' => 'Kateqoriya', 'customer' => 'Müştəri', 'manager' => 'Menecer'];
+    /**
+     * @return array<string, string>
+     */
+    public static function dimensions(): array
+    {
+        return ['product' => __('Mal (kod)'), 'group' => __('Məhsul qrupu'), 'category' => __('Kateqoriya'), 'customer' => __('Müştəri'), 'manager' => __('Menecer')];
+    }
 
     public function __invoke(Request $request): View|Response
     {
         $filters = $this->filters($request);
-        $dimension = array_key_exists($request->query('dim'), self::DIMENSIONS) ? $request->query('dim') : 'product';
+        $dimension = array_key_exists((string) $request->query('dim'), self::dimensions()) ? $request->query('dim') : 'product';
         $rows = $this->rows($filters, $dimension);
 
-        $table = Table::make('margin', 'Marjinallıq — '.self::DIMENSIONS[$dimension])
-            ->column('name', self::DIMENSIONS[$dimension], 'text', ['link' => fn ($r) => $r->link, 'format' => fn ($v, $r) => e($v).($r->estimated ? ' <span class="warn" title="Maya təxminidir">⚠</span>' : '')]);
+        $table = Table::make('margin', __('Marjinallıq').' — '.self::dimensions()[$dimension])
+            ->column('name', self::dimensions()[$dimension], 'text', ['link' => fn ($r) => $r->link, 'format' => fn ($v, $r) => e($v).($r->estimated ? ' <span class="warn" title="'.e(__('Maya təxminidir')).'">⚠</span>' : '')]);
         if ($dimension === 'product') {
-            $table->column('code', 'Kod');
+            $table->column('code', __('Kod'));
         }
-        $table->column('qty', 'Miqdar', 'qty')
-            ->column('liters', 'Litr', 'qty')
-            ->column('sales', 'Satış', 'money')
-            ->column('returns', 'Qaytarma', 'money')
-            ->column('net_sales', 'Xalis satış', 'money')
-            ->column('cogs', 'Maya', 'money')
-            ->column('gross_profit', 'Brüt mənfəət', 'money', ['class' => fn ($v) => $v < 0 ? 'neg' : ''])
-            ->column('margin', 'Marja', 'pct', ['class' => fn ($v) => $v !== null && $v < 0 ? 'neg font-semibold' : 'font-semibold'])
-            ->column('discount', 'Orta endirim', 'pct')
+        $table->column('qty', __('Miqdar'), 'qty')
+            ->column('liters', __('Litr'), 'qty')
+            ->column('sales', __('Satış'), 'money')
+            ->column('returns', __('Qaytarma'), 'money')
+            ->column('net_sales', __('Xalis satış'), 'money')
+            ->column('cogs', __('Maya'), 'money')
+            ->column('gross_profit', __('Brüt mənfəət'), 'money', ['class' => fn ($v) => $v < 0 ? 'neg' : ''])
+            ->column('margin', __('Marja'), 'pct', ['class' => fn ($v) => $v !== null && $v < 0 ? 'neg font-semibold' : 'font-semibold'])
+            ->column('discount', __('Orta endirim'), 'pct')
             ->source($rows)->sortBy('net_sales')->perPage(100)->footer(auto: true)
             ->rowClass(fn ($r) => $r->gross_profit < 0 ? 'row-neg' : '');
 
-        if ($response = $this->exportIfRequested($request, [$table], 'Marjinallıq', $filters)) {
+        if ($response = $this->exportIfRequested($request, [$table], __('Marjinallıq'), $filters)) {
             return $response;
         }
         $paginated = $table->resolve($request);
@@ -80,14 +93,14 @@ class MarginController extends ReportController
             'horizontal' => true,
             'distributed' => true,
             'categories' => $top->map(fn ($r) => mb_strimwidth($r->name, 0, 42, '…'))->all(),
-            'series' => [['name' => 'Xalis satış', 'data' => $top->map(fn ($r) => round($r->net_sales, 2))->all()]],
+            'series' => [['name' => __('Xalis satış'), 'data' => $top->map(fn ($r) => round($r->net_sales, 2))->all()]],
             'colors' => $top->map(fn ($r) => self::marginColor($r->margin))->all(),
             'barLabels' => $top->map(fn ($r) => Fmt::pct($r->margin))->all(),
             'links' => $top->map(fn ($r) => $r->link)->all(),
         ];
 
         return view('reports.margin', [
-            'title' => 'Marjinallıq',
+            'title' => __('Marjinallıq'),
             'filters' => $filters,
             'dimension' => $dimension,
             'table' => $table,
@@ -128,7 +141,7 @@ class MarginController extends ReportController
             ->get()
             ->map(function ($r) use ($dimension, $filters) {
                 $r = SalesSummaryQuery::derive($r);
-                $r->name ??= '— (təyin edilməyib)';
+                $r->name ??= '— ('.__('təyin edilməyib').')';
                 $r->estimated = (bool) ($r->estimated ?? false);
                 $r->link = $r->id === null ? null : match ($dimension) {
                     'product' => route('movements.product', $r->id),

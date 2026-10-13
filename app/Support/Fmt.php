@@ -78,8 +78,8 @@ class Fmt
 
     public static function monthName(int $month, bool $short = false): string
     {
-        $full = [1 => 'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun', 'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr'];
-        $abbr = [1 => 'Yan', 'Fev', 'Mar', 'Apr', 'May', 'İyn', 'İyl', 'Avq', 'Sen', 'Okt', 'Noy', 'Dek'];
+        $full = [1 => __('Yanvar'), __('Fevral'), __('Mart'), __('Aprel'), __('May'), __('İyun'), __('İyul'), __('Avqust'), __('Sentyabr'), __('Oktyabr'), __('Noyabr'), __('Dekabr')];
+        $abbr = [1 => __('Yan'), __('Fev'), __('Mar'), __('Apr'), __('May'), __('İyn'), __('İyl'), __('Avq'), __('Sen'), __('Okt'), __('Noy'), __('Dek')];
 
         return ($short ? $abbr : $full)[$month] ?? (string) $month;
     }

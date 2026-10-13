@@ -23,7 +23,7 @@ class SalesImporter extends Importer
 
     public function title(): string
     {
-        return 'Satışlar';
+        return __('Satışlar');
     }
 
     public function fileHint(): string
@@ -79,19 +79,19 @@ class SalesImporter extends Importer
         $opRaw = Spreadsheet::text($row['Emeliyyat_Tipi'] ?? null);
         $opType = self::opType($opRaw);
         if ($date === null) {
-            $errors[] = 'Tarix oxunmadı: '.Spreadsheet::text($row['Tarix'] ?? null);
+            $errors[] = __('Tarix oxunmadı: :value', ['value' => (string) Spreadsheet::text($row['Tarix'] ?? null)]);
         }
         if ($orderNo === null) {
-            $errors[] = 'Sifaris_No boşdur';
+            $errors[] = __(':column boşdur', ['column' => 'Sifaris_No']);
         }
         if ($productCode === null) {
-            $errors[] = 'Mal_Kodu boşdur';
+            $errors[] = __(':column boşdur', ['column' => 'Mal_Kodu']);
         }
         if ($qty === null) {
-            $errors[] = 'Miqdar rəqəm deyil';
+            $errors[] = __(':column rəqəm deyil', ['column' => 'Miqdar']);
         }
         if ($opType === null) {
-            $errors[] = "Naməlum Emeliyyat_Tipi: {$opRaw}";
+            $errors[] = __('Naməlum Emeliyyat_Tipi: :value', ['value' => (string) $opRaw]);
         }
         if ($errors !== []) {
             return self::result(null, $errors);
@@ -104,10 +104,10 @@ class SalesImporter extends Importer
         $customerId = $this->context()->customerId($customerCode, [$customerName, $originalName]);
         $pending = [];
         if ($productId === null) {
-            $pending[] = "Tanınmayan mal kodu: {$productCode}";
+            $pending[] = __('Tanınmayan mal kodu: :code', ['code' => $productCode]);
         }
         if ($customerId === null) {
-            $pending[] = 'Tanınmayan müştəri: '.($customerCode ?? $customerName ?? $originalName ?? '—');
+            $pending[] = __('Tanınmayan müştəri: :name', ['name' => $customerCode ?? $customerName ?? $originalName ?? '—']);
         }
 
         $price = Spreadsheet::number($row['Qiymet'] ?? null) ?? 0;

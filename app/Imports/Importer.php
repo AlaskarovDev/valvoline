@@ -86,7 +86,7 @@ abstract class Importer
             $found = $this->findSheet($inspection, $sheet);
             if ($found === null) {
                 $result['ok'] = false;
-                $result['errors'][] = ['sheet' => $sheet, 'row' => 0, 'message' => "«{$sheet}» vərəqi tapılmadı. Fayldakı vərəqlər: ".implode(', ', array_keys($inspection))];
+                $result['errors'][] = ['sheet' => $sheet, 'row' => 0, 'message' => __('«:sheet» vərəqi tapılmadı. Fayldakı vərəqlər: :sheets', ['sheet' => $sheet, 'sheets' => implode(', ', array_keys($inspection))])];
 
                 continue;
             }
@@ -95,7 +95,7 @@ abstract class Importer
             $info = ['headers' => $headers, 'missing' => $missing, 'rows' => 0, 'sample' => [], 'pending' => 0, 'errors' => 0];
             if ($missing !== []) {
                 $result['ok'] = false;
-                $result['errors'][] = ['sheet' => $sheet, 'row' => 1, 'message' => 'Çatışmayan sütunlar: '.implode(', ', $missing)];
+                $result['errors'][] = ['sheet' => $sheet, 'row' => 1, 'message' => __('Çatışmayan sütunlar: :columns', ['columns' => implode(', ', $missing)])];
                 $result['sheets'][$sheet] = $info;
 
                 continue;
@@ -138,11 +138,11 @@ abstract class Importer
         foreach ($this->sheets() as $sheet => $required) {
             $found = $this->findSheet($inspection, $sheet);
             if ($found === null) {
-                throw new RuntimeException("«{$sheet}» vərəqi tapılmadı.");
+                throw new RuntimeException(__('«:sheet» vərəqi tapılmadı.', ['sheet' => $sheet]));
             }
             $missing = array_diff($required, $inspection[$found]['headers']);
             if ($missing !== []) {
-                throw new RuntimeException("«{$sheet}»: çatışmayan sütunlar — ".implode(', ', $missing));
+                throw new RuntimeException(__('«:sheet»: çatışmayan sütunlar — :columns', ['sheet' => $sheet, 'columns' => implode(', ', $missing)]));
             }
         }
 

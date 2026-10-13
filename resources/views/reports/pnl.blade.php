@@ -1,33 +1,33 @@
 @php use App\Support\Fmt; @endphp
 <x-layouts.app :title="$title">
     <x-filters :filters="$filters" :show="['direction', 'manager', 'category']" :own="['gran']">
-        <label class="sr-only" for="gran">Dövr</label>
+        <label class="sr-only" for="gran">{{ __('Dövr') }}</label>
         <select id="gran" name="gran" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()">
-            <option value="month" @selected($granularity === 'month')>Aylıq</option>
-            <option value="year" @selected($granularity === 'year')>İllik</option>
+            <option value="month" @selected($granularity === 'month')>{{ __('Aylıq') }}</option>
+            <option value="year" @selected($granularity === 'year')>{{ __('İllik') }}</option>
         </select>
     </x-filters>
 
-    <x-chart title="Brüt mənfəət, xərclər və xalis mənfəət" :sub="$filters->label().' · xərclər: '.($filters->direction && $filters->direction !== 'all' ? $filters->direction : 'bütün istiqamətlər')" :spec="$chart" :height="300"/>
+    <x-chart :title="__('Brüt mənfəət, xərclər və xalis mənfəət')" :sub="$filters->label().' · '.__('xərclər').': '.($filters->direction && $filters->direction !== 'all' ? $filters->direction : __('bütün istiqamətlər'))" :spec="$chart" :height="300"/>
 
     <section class="card overflow-hidden" x-data="{ open: {} }">
         <div class="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
             <div>
-                <h2 class="card-title">Mənfəət-zərər hesabatı</h2>
-                <div class="card-sub">{{ $granularity === 'year' ? 'İllər' : 'Aylar' }} sütunlarda, cəmi sonda. Xərc və gəlir sətirlərinə klik — kateqoriyalar açılır.</div>
+                <h2 class="card-title">{{ __('Mənfəət-zərər hesabatı') }}</h2>
+                <div class="card-sub">{{ $granularity === 'year' ? __('İllər sütunlarda, cəmi sonda.') : __('Aylar sütunlarda, cəmi sonda.') }} {{ __('Xərc və gəlir sətirlərinə klik — kateqoriyalar açılır.') }}</div>
             </div>
             <div class="ml-auto flex gap-1.5 no-print">
-                <a href="{{ request()->fullUrlWithQuery(['export' => 'xlsx']) }}" class="btn btn-sm"><x-icon name="download" size="14"/> Excel</a>
-                <a href="{{ request()->fullUrlWithQuery(['export' => 'pdf']) }}" class="btn btn-sm"><x-icon name="download" size="14"/> PDF</a>
+                <a href="{{ request()->fullUrlWithQuery(['export' => 'xlsx']) }}" class="btn btn-sm"><x-icon name="download" size="14"/> {{ __('Excel') }}</a>
+                <a href="{{ request()->fullUrlWithQuery(['export' => 'pdf']) }}" class="btn btn-sm"><x-icon name="download" size="14"/> {{ __('PDF') }}</a>
             </div>
         </div>
         <div class="tbl-wrap">
             <table class="tbl">
                 <thead>
                 <tr>
-                    <th class="sticky left-0 z-[2] min-w-36 bg-surface-2 sm:min-w-56">Göstərici</th>
+                    <th class="sticky left-0 z-[2] min-w-36 bg-surface-2 sm:min-w-56">{{ __('Göstərici') }}</th>
                     @foreach ($labels as $label)<th class="num">{{ $label }}</th>@endforeach
-                    <th class="num">Cəmi</th>
+                    <th class="num">{{ __('Cəmi') }}</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -63,7 +63,7 @@
             </table>
         </div>
         <div class="border-t border-line px-4 py-2.5 text-xs text-muted">
-            Məbləğlər AZN, tam ədədə yuvarlaqlaşdırılıb (hesablama 4 onluq dəqiqliklə). Hədiyyə / daxili istifadə mayası brüt mənfəəti azaldır. «Mənfəətə təsir: Xeyr» olan kassa əməliyyatları burada görünmür — yalnız Kassa hesabatında.
+            {{ __('Məbləğlər AZN, tam ədədə yuvarlaqlaşdırılıb (hesablama 4 onluq dəqiqliklə). Hədiyyə / daxili istifadə mayası brüt mənfəəti azaldır. «Mənfəətə təsir: Xeyr» olan kassa əməliyyatları burada görünmür — yalnız Kassa hesabatında.') }}
         </div>
     </section>
 </x-layouts.app>

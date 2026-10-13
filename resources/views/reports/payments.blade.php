@@ -3,13 +3,13 @@
     <x-filters :filters="$filters" :show="['manager', 'customer']"/>
 
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <x-kpi label="Cəmi ödəniş" :value="Fmt::money($totals->total)" :meta="Fmt::number($totals->cnt).' əməliyyat'"/>
-        <x-kpi label="Nağd" :value="Fmt::money($totals->cash)" :meta="$totals->total > 0 ? Fmt::pct($totals->cash / $totals->total).' payı' : null"/>
-        <x-kpi label="Bank" :value="Fmt::money($totals->bank)" :meta="$totals->total > 0 ? Fmt::pct($totals->bank / $totals->total).' payı' : null"/>
-        <x-kpi label="Geri ödənişlər" :value="Fmt::money($totals->refunds)" :tone="$totals->refunds < 0 ? 'neg' : null"/>
+        <x-kpi :label="__('Cəmi ödəniş')" :value="Fmt::money($totals->total)" :meta="__(':n əməliyyat', ['n' => Fmt::number($totals->cnt)])"/>
+        <x-kpi :label="__('Nağd')" :value="Fmt::money($totals->cash)" :meta="$totals->total > 0 ? __(':pct payı', ['pct' => Fmt::pct($totals->cash / $totals->total)]) : null"/>
+        <x-kpi :label="__('Bank')" :value="Fmt::money($totals->bank)" :meta="$totals->total > 0 ? __(':pct payı', ['pct' => Fmt::pct($totals->bank / $totals->total)]) : null"/>
+        <x-kpi :label="__('Geri ödənişlər')" :value="Fmt::money($totals->refunds)" :tone="$totals->refunds < 0 ? 'neg' : null"/>
     </div>
 
-    <x-chart title="Aylıq nağd və bank" :sub="$filters->label()" :spec="$chart" :height="300"/>
+    <x-chart :title="__('Aylıq nağd və bank')" :sub="$filters->label()" :spec="$chart" :height="300"/>
 
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <x-table :table="$receiverTable" :rows="$receiverRows"/>

@@ -30,9 +30,9 @@ class ProfitLossController extends ReportController
             'type' => 'line',
             'categories' => $labels,
             'series' => [
-                ['name' => 'Brüt mənfəət', 'type' => 'column', 'data' => array_map(fn ($c) => round($report['lines']['gross_profit'][$c] ?? 0, 2), $columns)],
-                ['name' => 'Xərclər', 'type' => 'column', 'data' => array_map(fn ($c) => round($report['lines']['expenses'][$c] ?? 0, 2), $columns)],
-                ['name' => 'Xalis mənfəət', 'type' => 'line', 'data' => array_map(fn ($c) => round($report['lines']['net_profit'][$c] ?? 0, 2), $columns)],
+                ['name' => __('Brüt mənfəət'), 'type' => 'column', 'data' => array_map(fn ($c) => round($report['lines']['gross_profit'][$c] ?? 0, 2), $columns)],
+                ['name' => __('Xərclər'), 'type' => 'column', 'data' => array_map(fn ($c) => round($report['lines']['expenses'][$c] ?? 0, 2), $columns)],
+                ['name' => __('Xalis mənfəət'), 'type' => 'line', 'data' => array_map(fn ($c) => round($report['lines']['net_profit'][$c] ?? 0, 2), $columns)],
             ],
             'colors' => ['--chart-1', '--chart-6', '--chart-3'],
             'strokeWidths' => [0, 0, 3],
@@ -40,7 +40,7 @@ class ProfitLossController extends ReportController
         ];
 
         return view('reports.pnl', [
-            'title' => 'Mənfəət-zərər (P&L)',
+            'title' => __('Mənfəət-zərər (P&L)'),
             'filters' => $filters,
             'granularity' => $granularity,
             'columns' => $columns,
@@ -63,23 +63,23 @@ class ProfitLossController extends ReportController
 
         $net = array_sum($l['net_sales'] ?? []);
         $lines = [
-            ['label' => 'Satış', 'values' => $l['sales'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
-            ['label' => '− Qaytarma', 'values' => array_map(fn ($v) => -$v, $l['returns'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
-            ['label' => 'Xalis satış', 'values' => $l['net_sales'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
-            ['label' => '− Satılan malın mayası', 'values' => array_map(fn ($v) => -$v, $l['sale_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
-            ['label' => '− Hədiyyə / daxili istifadə mayası', 'values' => array_map(fn ($v) => -$v, $l['gift_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
-            ['label' => 'Brüt mənfəət', 'values' => $l['gross_profit'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
-            ['label' => 'Brüt marja', 'values' => $l['margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
-            ['label' => '− Əməliyyat xərcləri', 'values' => array_map(fn ($v) => -$v, $l['expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
+            ['label' => __('Satışlar'), 'values' => $l['sales'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
+            ['label' => __('− Qaytarma'), 'values' => array_map(fn ($v) => -$v, $l['returns'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
+            ['label' => __('Xalis satış'), 'values' => $l['net_sales'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
+            ['label' => __('− Satılan malın mayası'), 'values' => array_map(fn ($v) => -$v, $l['sale_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
+            ['label' => __('− Hədiyyə / daxili istifadə mayası'), 'values' => array_map(fn ($v) => -$v, $l['gift_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
+            ['label' => __('Brüt mənfəət'), 'values' => $l['gross_profit'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
+            ['label' => __('Brüt marja'), 'values' => $l['margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
+            ['label' => __('− Əməliyyat xərcləri'), 'values' => array_map(fn ($v) => -$v, $l['expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
                 'children' => array_map(fn ($c) => ['label' => $c['label'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['expenses']))],
-            ['label' => '+ Digər gəlirlər', 'values' => $l['other_income'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => $children($report['other_income'])],
-            ['label' => 'Xalis mənfəət', 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
-            ['label' => 'Xalis marja', 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
+            ['label' => __('+ Digər gəlirlər'), 'values' => $l['other_income'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => $children($report['other_income'])],
+            ['label' => __('Xalis mənfəət'), 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
+            ['label' => __('Xalis marja'), 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];
         if (array_sum($l['founder'] ?? []) != 0.0) {
-            $lines[] = ['label' => '− Təsisçiyə ödənişlər', 'values' => array_map(fn ($v) => -$v, $l['founder']), 'style' => 'expand', 'type' => 'money',
+            $lines[] = ['label' => __('− Təsisçiyə ödənişlər'), 'values' => array_map(fn ($v) => -$v, $l['founder']), 'style' => 'expand', 'type' => 'money',
                 'children' => array_map(fn ($c) => ['label' => $c['label'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['founder']))];
-            $lines[] = ['label' => 'Bölüşdürülməmiş mənfəət', 'values' => $l['retained'], 'style' => 'subtotal', 'type' => 'money', 'children' => []];
+            $lines[] = ['label' => __('Bölüşdürülməmiş mənfəət'), 'values' => $l['retained'], 'style' => 'subtotal', 'type' => 'money', 'children' => []];
         }
         foreach ($lines as &$line) {
             $line['total'] = $line['type'] === 'money' ? array_sum($line['values']) : null;
@@ -105,7 +105,7 @@ class ProfitLossController extends ReportController
                 $rows[] = $this->exportRow('    '.$child['label'], $child['values'], $columns, $line['type'], array_sum($child['values']));
             }
         }
-        $headers = array_merge(['Göstərici'], $labels, ['Cəmi']);
+        $headers = array_merge([__('Göstərici')], $labels, [__('Cəmi')]);
         $file = 'menfeet-zerer-'.now()->format('Y-m-d');
 
         if ($format === 'xlsx') {

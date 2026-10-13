@@ -20,7 +20,7 @@
         <div class="min-w-0">
             @if ($table->title)<h2 class="card-title">{{ $table->title }}</h2>@endif
             <div class="card-sub">
-                {{ number_format($rows->total(), 0, ',', ' ') }} sətir
+                {{ __(':n sətir', ['n' => number_format($rows->total(), 0, ',', ' ')]) }}
                 @if ($table->subtitle) · {{ $table->subtitle }} @endif
             </div>
         </div>
@@ -30,21 +30,21 @@
                     @foreach (request()->except([$table->param('q'), $table->param('page'), 'export', 'table']) as $k => $v)
                         @if (is_string($v))<input type="hidden" name="{{ $k }}" value="{{ $v }}">@endif
                     @endforeach
-                    <label class="sr-only" for="{{ $table->param('q') }}">Axtarış</label>
+                    <label class="sr-only" for="{{ $table->param('q') }}">{{ __('Axtarış') }}</label>
                     <x-icon name="search" size="14" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint"/>
-                    <input id="{{ $table->param('q') }}" name="{{ $table->param('q') }}" value="{{ $table->search() }}" placeholder="Axtar…" class="input h-[34px] w-full pl-8 text-xs md:h-[30px] md:w-44">
+                    <input id="{{ $table->param('q') }}" name="{{ $table->param('q') }}" value="{{ $table->search() }}" placeholder="{{ __('Axtar…') }}" class="input h-[34px] w-full pl-8 text-xs md:h-[30px] md:w-44">
                 </form>
             @endif
             {{ $actions ?? '' }}
-            <a href="{{ $table->exportUrl('xlsx') }}" class="btn btn-sm" title="Excel-ə export"><x-icon name="download" size="14"/> Excel</a>
-            <a href="{{ $table->exportUrl('pdf') }}" class="btn btn-sm" title="PDF-ə export"><x-icon name="download" size="14"/> PDF</a>
+            <a href="{{ $table->exportUrl('xlsx') }}" class="btn btn-sm" title="{{ __('Excel-ə export') }}"><x-icon name="download" size="14"/> {{ __('Excel') }}</a>
+            <a href="{{ $table->exportUrl('pdf') }}" class="btn btn-sm" title="{{ __('PDF-ə export') }}"><x-icon name="download" size="14"/> {{ __('PDF') }}</a>
             @if ($sortable)
-                <label class="sr-only" for="{{ $table->param('sortsel') }}">Sıralama</label>
+                <label class="sr-only" for="{{ $table->param('sortsel') }}">{{ __('Sıralama') }}</label>
                 <select id="{{ $table->param('sortsel') }}" class="select h-[34px] w-full text-xs md:hidden" onchange="if (this.value) window.location = this.value">
                     @foreach ($sortable as $column)
                         @foreach (['desc' => '↓', 'asc' => '↑'] as $dir => $arrow)
                             <option value="{{ $table->url([$table->param('sort') => $column['key'], $table->param('dir') => $dir, $table->param('page') => null]) }}"
-                                @selected($sortKey === $column['key'] && $table->sortDir() === $dir)>Sırala: {{ $column['label'] }} {{ $arrow }}</option>
+                                @selected($sortKey === $column['key'] && $table->sortDir() === $dir)>{{ __('Sırala') }}: {{ $column['label'] }} {{ $arrow }}</option>
                         @endforeach
                     @endforeach
                 </select>
@@ -79,11 +79,11 @@
                 </dl>
             </div>
         @empty
-            <div class="px-4 py-10 text-center text-sm text-muted">Məlumat yoxdur</div>
+            <div class="px-4 py-10 text-center text-sm text-muted">{{ __('Məlumat yoxdur') }}</div>
         @endforelse
         @if ($footer)
             <div class="bg-surface-2 px-4 py-3">
-                <div class="text-sm font-semibold">Cəmi</div>
+                <div class="text-sm font-semibold">{{ __('Cəmi') }}</div>
                 <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
                     @foreach ($table->columns as $column)
                         @continue(! isset($footer[$column['key']]))
@@ -132,7 +132,7 @@
                     @endforeach
                 </tr>
             @empty
-                <tr><td colspan="{{ count($table->columns) }}" class="py-10 text-center text-muted">Məlumat yoxdur</td></tr>
+                <tr><td colspan="{{ count($table->columns) }}" class="py-10 text-center text-muted">{{ __('Məlumat yoxdur') }}</td></tr>
             @endforelse
             </tbody>
             @if ($footer)
@@ -141,7 +141,7 @@
                     @foreach ($table->columns as $i => $column)
                         @php $value = $footer[$column['key']] ?? null; @endphp
                         <td @class(['num' => in_array($column['type'], ['money', 'qty', 'int', 'pct'], true)])>
-                            @if ($i === 0 && $value === null) Cəmi @elseif ($value !== null) {{ \App\Reports\Table::formatValue($value, $column['type']) }} @endif
+                            @if ($i === 0 && $value === null) {{ __('Cəmi') }} @elseif ($value !== null) {{ \App\Reports\Table::formatValue($value, $column['type']) }} @endif
                         </td>
                     @endforeach
                 </tr>

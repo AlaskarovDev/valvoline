@@ -39,31 +39,31 @@ class PurchaseController extends ReportController
                 return $b;
             });
 
-        $table = Table::make('batches', 'İdxal partiyaları')
-            ->column('batch_no', '№', 'int', ['link' => fn ($r) => route('purchases.show', $r->id)])
-            ->column('name', 'Partiya', 'text', ['link' => fn ($r) => route('purchases.show', $r->id), 'format' => fn ($v, $r) => e($v ?? '—').($r->batch_no == 0 ? ' <span class="badge">açılış</span>' : '').($r->estimated > 0 ? ' <span class="warn" title="Təxmini maya">⚠</span>' : '')])
-            ->column('date', 'Tarix', 'date')
-            ->column('line_count', 'Çeşid', 'int')
-            ->column('qty', 'Ədəd', 'qty')
-            ->column('cost', 'Maya cəmi', 'money')
-            ->column('avg_cost', 'Orta vahid maya', 'money')
-            ->column('sold_60', 'Satılıb ('.self::SELL_THROUGH_DAYS.' gün)', 'qty')
-            ->column('sell_through', 'Satış sürəti', 'pct', ['class' => fn ($v) => $v !== null && $v >= 0.8 ? 'pos font-semibold' : ($v !== null && $v < 0.3 ? 'warn' : '')])
+        $table = Table::make('batches', __('İdxal partiyaları'))
+            ->column('batch_no', __('№'), 'int', ['link' => fn ($r) => route('purchases.show', $r->id)])
+            ->column('name', __('Partiya'), 'text', ['link' => fn ($r) => route('purchases.show', $r->id), 'format' => fn ($v, $r) => e($v ?? '—').($r->batch_no == 0 ? ' <span class="badge">'.e(__('açılış')).'</span>' : '').($r->estimated > 0 ? ' <span class="warn" title="'.e(__('Təxmini maya')).'">⚠</span>' : '')])
+            ->column('date', __('Tarix'), 'date')
+            ->column('line_count', __('Çeşid'), 'int')
+            ->column('qty', __('Ədəd'), 'qty')
+            ->column('cost', __('Maya cəmi'), 'money')
+            ->column('avg_cost', __('Orta vahid maya'), 'money')
+            ->column('sold_60', __('Satılıb (:days gün)', ['days' => self::SELL_THROUGH_DAYS]), 'qty')
+            ->column('sell_through', __('Satış sürəti'), 'pct', ['class' => fn ($v) => $v !== null && $v >= 0.8 ? 'pos font-semibold' : ($v !== null && $v < 0.3 ? 'warn' : '')])
             ->source($batches)->sortBy('date')->perPage(100)->footer(auto: true)
-            ->subtitle('Satış sürəti = partiyadakı mallardan ilk '.self::SELL_THROUGH_DAYS.' gündə satılan miqdar / partiya miqdarı (eyni kodların bütün satışları)');
+            ->subtitle(__('Satış sürəti = partiyadakı mallardan ilk :days gündə satılan miqdar / partiya miqdarı (eyni kodların bütün satışları)', ['days' => self::SELL_THROUGH_DAYS]));
 
-        if ($response = $this->exportIfRequested($request, [$table], 'İdxal partiyaları')) {
+        if ($response = $this->exportIfRequested($request, [$table], __('İdxal partiyaları'))) {
             return $response;
         }
 
         $chart = [
             'type' => 'bar',
             'categories' => $batches->map(fn ($b) => ($b->name ?? '№'.$b->batch_no).' · '.Fmt::date($b->date))->all(),
-            'series' => [['name' => 'Maya cəmi', 'data' => $batches->map(fn ($b) => round((float) $b->cost, 2))->all()]],
+            'series' => [['name' => __('Maya cəmi'), 'data' => $batches->map(fn ($b) => round((float) $b->cost, 2))->all()]],
             'links' => $batches->map(fn ($b) => route('purchases.show', $b->id))->all(),
         ];
 
-        return view('reports.purchases', ['title' => 'İdxal partiyaları', 'table' => $table, 'rows' => $table->resolve($request), 'chart' => $chart]);
+        return view('reports.purchases', ['title' => __('İdxal partiyaları'), 'table' => $table, 'rows' => $table->resolve($request), 'chart' => $chart]);
     }
 
     public function show(Request $request, PurchaseBatch $batch): View|Response
@@ -87,25 +87,25 @@ class PurchaseController extends ReportController
             return $l;
         });
 
-        $table = Table::make('lines', 'Partiyanın malları')
-            ->column('product_code', 'Kod', 'text', ['link' => fn ($r) => $r->product_id ? route('movements.product', $r->product_id) : null])
-            ->column('pname', 'Mal', 'text', ['format' => fn ($v, $r) => e($v ?? $r->product_name).($r->is_estimated ? ' <span class="warn" title="'.e($r->note).'">⚠ təxmini</span>' : '').($r->product_id ? '' : ' <span class="badge badge-warn">gözləmədə</span>')])
-            ->column('qty', 'Miqdar', 'qty')
-            ->column('unit_cost', 'Vahid maya', 'money')
-            ->column('total_cost', 'Cəmi maya', 'money')
-            ->column('sold', 'Satılıb (növbəti partiyaya qədər)', 'qty')
-            ->column('sell_through', 'Satış sürəti', 'pct')
-            ->column('days_to_sell', 'Satılma müddəti, gün', 'int', ['format' => fn ($v) => $v === null ? '—' : e(Fmt::number($v))])
-            ->column('stock_qty', 'Cari qalıq', 'qty')
+        $table = Table::make('lines', __('Partiyanın malları'))
+            ->column('product_code', __('Kod'), 'text', ['link' => fn ($r) => $r->product_id ? route('movements.product', $r->product_id) : null])
+            ->column('pname', __('Mal'), 'text', ['format' => fn ($v, $r) => e($v ?? $r->product_name).($r->is_estimated ? ' <span class="warn" title="'.e($r->note).'">⚠ '.e(__('təxmini')).'</span>' : '').($r->product_id ? '' : ' <span class="badge badge-warn">'.e(__('gözləmədə')).'</span>')])
+            ->column('qty', __('Miqdar'), 'qty')
+            ->column('unit_cost', __('Vahid maya'), 'money')
+            ->column('total_cost', __('Cəmi maya'), 'money')
+            ->column('sold', __('Satılıb (növbəti partiyaya qədər)'), 'qty')
+            ->column('sell_through', __('Satış sürəti'), 'pct')
+            ->column('days_to_sell', __('Satılma müddəti, gün'), 'int', ['format' => fn ($v) => $v === null ? '—' : e(Fmt::number($v))])
+            ->column('stock_qty', __('Cari qalıq'), 'qty')
             ->source($rows)->sortBy('total_cost')->perPage(200)->footer(auto: true)
-            ->subtitle('Dövr: '.Fmt::date($batch->date).' – '.Fmt::date($end).' ('.$days.' gün)');
+            ->subtitle(__('Dövr: :from – :to (:days gün)', ['from' => Fmt::date($batch->date), 'to' => Fmt::date($end), 'days' => $days]));
 
-        if ($response = $this->exportIfRequested($request, [$table], 'Partiya '.$batch->batch_no)) {
+        if ($response = $this->exportIfRequested($request, [$table], __('Partiya ').$batch->batch_no)) {
             return $response;
         }
 
         return view('reports.purchase', [
-            'title' => ($batch->name ?? 'Partiya').' · №'.$batch->batch_no,
+            'title' => ($batch->name ?? __('Partiya')).' · №'.$batch->batch_no,
             'batch' => $batch,
             'table' => $table,
             'rows' => $table->resolve($request),

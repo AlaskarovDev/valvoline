@@ -4,36 +4,36 @@
         <section class="card xl:col-span-2">
             <div class="card-head">
                 <div>
-                    <h2 class="card-title">Fayl yüklə</h2>
-                    <div class="card-sub">Ardıcıllıq vacibdir: əvvəl mallar və müştərilər, sonra əməliyyat faylları. Növbəti addımda önizləmə göstəriləcək.</div>
+                    <h2 class="card-title">{{ __('Fayl yüklə') }}</h2>
+                    <div class="card-sub">{{ __('Ardıcıllıq vacibdir: əvvəl mallar və müştərilər, sonra əməliyyat faylları. Növbəti addımda önizləmə göstəriləcək.') }}</div>
                 </div>
             </div>
             <form method="POST" action="{{ route('import.upload') }}" enctype="multipart/form-data" class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-[1fr_220px_auto] sm:items-end">
                 @csrf
                 <div>
-                    <label class="label" for="file">Excel faylı (.xlsx)</label>
+                    <label class="label" for="file">{{ __('Excel faylı (.xlsx)') }}</label>
                     <input id="file" name="file" type="file" accept=".xlsx" required class="input pt-1.5">
                 </div>
                 <div>
-                    <label class="label" for="type">Fayl tipi</label>
+                    <label class="label" for="type">{{ __('Fayl tipi') }}</label>
                     <select id="type" name="type" class="select">
-                        <option value="">Fayl adından təyin et</option>
+                        <option value="">{{ __('Fayl adından təyin et') }}</option>
                         @foreach ($importers as $type => $importer)
                             <option value="{{ $type }}">{{ $importer->fileHint() }} — {{ $importer->title() }}</option>
                         @endforeach
                     </select>
                 </div>
-                <button class="btn btn-primary"><x-icon name="import" size="16"/> Önizləmə</button>
+                <button class="btn btn-primary"><x-icon name="import" size="16"/> {{ __('Önizləmə') }}</button>
             </form>
         </section>
         <livewire:rebuild-status/>
     </div>
 
     <section class="card overflow-hidden">
-        <div class="card-head"><h2 class="card-title">Fayl tipləri və son import</h2></div>
+        <div class="card-head"><h2 class="card-title">{{ __('Fayl tipləri və son import') }}</h2></div>
         <div class="tbl-wrap">
             <table class="tbl">
-                <thead><tr><th>#</th><th>Fayl</th><th>Vərəqlər</th><th>Son import</th><th class="num">Sətir</th><th class="num">Gözləmədə</th><th class="num">Xəta</th></tr></thead>
+                <thead><tr><th>#</th><th>{{ __('Fayl') }}</th><th>{{ __('Vərəqlər') }}</th><th>{{ __('Son import') }}</th><th class="num">{{ __('Sətir') }}</th><th class="num">{{ __('Gözləmədə') }}</th><th class="num">{{ __('Xəta') }}</th></tr></thead>
                 <tbody>
                 @foreach ($importers as $type => $importer)
                     @php $b = $last[$type]; @endphp
@@ -41,7 +41,7 @@
                         <td class="text-muted">{{ $loop->iteration }}</td>
                         <td><span class="font-medium">{{ $importer->fileHint() }}</span><div class="text-xs text-muted">{{ $importer->title() }}</div></td>
                         <td class="text-xs text-muted">{{ implode(', ', array_keys($importer->sheets())) }}</td>
-                        <td>@if ($b){{ Fmt::date($b->imported_at) }} {{ $b->imported_at->format('H:i') }}<div class="text-xs text-muted">{{ $b->file_name }}</div>@else<span class="badge badge-warn">import edilməyib</span>@endif</td>
+                        <td>@if ($b){{ Fmt::date($b->imported_at) }} {{ $b->imported_at->format('H:i') }}<div class="text-xs text-muted">{{ $b->file_name }}</div>@else<span class="badge badge-warn">{{ __('import edilməyib') }}</span>@endif</td>
                         <td class="num">{{ $b ? Fmt::number($b->rows_total) : '—' }}</td>
                         <td class="num {{ $b && $b->rows_pending ? 'warn' : '' }}">{{ $b ? Fmt::number($b->rows_pending) : '—' }}</td>
                         <td class="num {{ $b && $b->rows_error ? 'neg' : '' }}">{{ $b ? Fmt::number($b->rows_error) : '—' }}</td>
@@ -53,10 +53,10 @@
     </section>
 
     <section class="card overflow-hidden">
-        <div class="card-head"><h2 class="card-title">Import tarixçəsi</h2><span class="card-sub">Geri qaytarma həmin importun bütün sətirlərini silir və hesablamaları yeniləyir</span></div>
+        <div class="card-head"><h2 class="card-title">{{ __('Import tarixçəsi') }}</h2><span class="card-sub">{{ __('Geri qaytarma həmin importun bütün sətirlərini silir və hesablamaları yeniləyir') }}</span></div>
         <div class="tbl-wrap">
             <table class="tbl">
-                <thead><tr><th>Tarix</th><th>Fayl</th><th>Tip</th><th>İstifadəçi</th><th class="num">Sətir</th><th class="num">Gözləmədə</th><th class="num">Xəta</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>{{ __('Tarix') }}</th><th>{{ __('Fayl') }}</th><th>{{ __('Tip') }}</th><th>{{ __('İstifadəçi') }}</th><th class="num">{{ __('Sətir') }}</th><th class="num">{{ __('Gözləmədə') }}</th><th class="num">{{ __('Xəta') }}</th><th>{{ __('Status') }}</th><th></th></tr></thead>
                 <tbody>
                 @forelse ($history as $b)
                     <tr>
@@ -78,23 +78,23 @@
                         </td>
                         <td>
                             @switch($b->status)
-                                @case('done')<span class="badge badge-pos">aktiv</span>@break
-                                @case('replaced')<span class="badge">əvəzlənib</span>@break
-                                @case('rolled_back')<span class="badge badge-warn">geri qaytarılıb</span>@break
+                                @case('done')<span class="badge badge-pos">{{ __('aktiv') }}</span>@break
+                                @case('replaced')<span class="badge">{{ __('əvəzlənib') }}</span>@break
+                                @case('rolled_back')<span class="badge badge-warn">{{ __('geri qaytarılıb') }}</span>@break
                                 @default<span class="badge badge-neg">{{ $b->status }}</span>
                             @endswitch
                         </td>
                         <td class="text-right">
                             @if ($b->status === 'done')
-                                <form method="POST" action="{{ route('import.rollback', $b) }}" onsubmit="return confirm('Bu importun bütün sətirləri silinsin?')">
+                                <form method="POST" action="{{ route('import.rollback', $b) }}" onsubmit="return confirm(@js(__('Bu importun bütün sətirləri silinsin?')))">
                                     @csrf
-                                    <button class="btn btn-sm btn-danger">Geri qaytar</button>
+                                    <button class="btn btn-sm btn-danger">{{ __('Geri qaytar') }}</button>
                                 </form>
                             @endif
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="py-8 text-center text-muted">Hələ import yoxdur</td></tr>
+                    <tr><td colspan="9" class="py-8 text-center text-muted">{{ __('Hələ import yoxdur') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>

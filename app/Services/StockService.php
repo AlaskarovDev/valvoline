@@ -104,9 +104,9 @@ class StockService
     public static function typeLabel(string $type): string
     {
         return [
-            'opening' => 'Açılış qalığı', 'purchase' => 'İdxal / alış', 'sale' => 'Satış', 'gift' => 'Hədiyyə / pulsuz',
-            'internal_use' => 'Daxili istifadə', 'return' => 'Qaytarma', 'transfer_out' => 'Transfer (çıxış)',
-            'transfer_in' => 'Transfer (giriş)', 'adjustment' => 'Sayım düzəlişi',
+            'opening' => __('Açılış qalığı'), 'purchase' => __('İdxal / alış'), 'sale' => __('Satış'), 'gift' => __('Hədiyyə / pulsuz'),
+            'internal_use' => __('Daxili istifadə'), 'return' => __('Qaytarma'), 'transfer_out' => __('Transfer (çıxış)'),
+            'transfer_in' => __('Transfer (giriş)'), 'adjustment' => __('Sayım düzəlişi'),
         ][$type] ?? $type;
     }
 }

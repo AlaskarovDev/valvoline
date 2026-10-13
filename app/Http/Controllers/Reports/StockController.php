@@ -29,32 +29,32 @@ class StockController extends ReportController
             $rows = $rows->filter(fn ($r) => abs($r->qty) > 0.0001)->values();
         }
 
-        $table = Table::make('stock', 'Mal üzrə qalıq')
-            ->column('code', 'Kod', 'text', ['link' => fn ($r) => route('movements.product', $r->id)])
-            ->column('name', 'Mal', 'text', ['format' => fn ($v, $r) => e($v)
-                .($r->low_stock ? ' <span class="badge badge-warn">az qalıb</span>' : '')
-                .($r->qty < -0.0001 ? ' <span class="badge badge-neg">mənfi</span>' : '')])
-            ->column('category_name', 'Kateqoriya')
-            ->column('qty', 'Qalıq, ədəd', 'qty', ['class' => fn ($v) => $v < 0 ? 'neg font-semibold' : 'font-semibold'])
-            ->column('liters', 'Litr', 'qty')
-            ->column('avg_cost', 'Orta maya', 'money', ['format' => fn ($v, $r) => e(Fmt::money($v)).($r->cost_estimated ? ' <span class="warn" title="Maya təxminidir — mal kartında redaktə edin">⚠</span>' : '')])
-            ->column('value', 'Dəyər (maya)', 'money')
-            ->column('sale_value', 'Dəyər (satış qiyməti)', 'money')
-            ->column('potential_profit', 'Potensial mənfəət', 'money')
-            ->column('last_date', 'Son hərəkət', 'date')
-            ->column('turnover_days', 'Dövriyyə, gün', 'int', ['format' => fn ($v) => $v === null ? '—' : e(Fmt::number($v)), 'class' => fn ($v) => $v !== null && $v > 180 ? 'warn' : ''])
+        $table = Table::make('stock', __('Mal üzrə qalıq'))
+            ->column('code', __('Kod'), 'text', ['link' => fn ($r) => route('movements.product', $r->id)])
+            ->column('name', __('Mal'), 'text', ['format' => fn ($v, $r) => e($v)
+                .($r->low_stock ? ' <span class="badge badge-warn">'.e(__('az qalıb')).'</span>' : '')
+                .($r->qty < -0.0001 ? ' <span class="badge badge-neg">'.e(__('mənfi')).'</span>' : '')])
+            ->column('category_name', __('Kateqoriya'))
+            ->column('qty', __('Qalıq, ədəd'), 'qty', ['class' => fn ($v) => $v < 0 ? 'neg font-semibold' : 'font-semibold'])
+            ->column('liters', __('Litr'), 'qty')
+            ->column('avg_cost', __('Orta maya'), 'money', ['format' => fn ($v, $r) => e(Fmt::money($v)).($r->cost_estimated ? ' <span class="warn" title="'.e(__('Maya təxminidir — mal kartında redaktə edin')).'">⚠</span>' : '')])
+            ->column('value', __('Dəyər (maya)'), 'money')
+            ->column('sale_value', __('Dəyər (satış qiyməti)'), 'money')
+            ->column('potential_profit', __('Potensial mənfəət'), 'money')
+            ->column('last_date', __('Son hərəkət'), 'date')
+            ->column('turnover_days', __('Dövriyyə, gün'), 'int', ['format' => fn ($v) => $v === null ? '—' : e(Fmt::number($v)), 'class' => fn ($v) => $v !== null && $v > 180 ? 'warn' : ''])
             ->source($rows)->sortBy('value')->perPage(100)->footer(auto: true)
             ->rowClass(fn ($r) => $r->qty < -0.0001 ? 'row-neg' : ($r->low_stock ? 'row-warn' : ''))
-            ->subtitle('Dövriyyə günləri = qalıq / son '.StockService::TURNOVER_WINDOW_DAYS.' günün orta gündəlik satışı');
+            ->subtitle(__('Dövriyyə günləri = qalıq / son :days günün orta gündəlik satışı', ['days' => StockService::TURNOVER_WINDOW_DAYS]));
 
-        if ($response = $this->exportIfRequested($request, [$table], 'Anbar qalığı '.$asOf->format('d.m.Y'), $filters)) {
+        if ($response = $this->exportIfRequested($request, [$table], __('Anbar qalığı').' '.$asOf->format('d.m.Y'), $filters)) {
             return $response;
         }
 
         $positive = $rows->filter(fn ($r) => $r->qty > 0);
 
         return view('reports.stock', [
-            'title' => 'Anbar qalığı və dəyəri',
+            'title' => __('Anbar qalığı və dəyəri'),
             'filters' => $filters,
             'asOf' => $asOf,
             'warehouseId' => $warehouseId,
