@@ -12,7 +12,7 @@
                 @csrf
                 <div>
                     <label class="label" for="file">{{ __('Excel faylı (.xlsx)') }}</label>
-                    <input id="file" name="file" type="file" accept=".xlsx" required class="input pt-1.5">
+                    <input id="file" name="file" type="file" accept=".xlsx,.xls" required class="input pt-1.5">
                 </div>
                 <div>
                     <label class="label" for="type">{{ __('Fayl tipi') }}</label>

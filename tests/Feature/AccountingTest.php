@@ -1,0 +1,228 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\ImportBatch;
+use App\Models\User;
+use App\Reports\ReportFilters;
+use App\Services\FlowClassifier;
+use App\Services\ProfitLossService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Tests\TestCase;
+
+/**
+ * «Balans / MZ / Cash Flow» faylı: oxuma, ödənişlərin təsnifatı və P&L-ə yalnız əməliyyat xərclərinin düşməsi.
+ */
+class AccountingTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->admin = User::factory()->create(['role' => 'admin']);
+    }
+
+    private function workbook(int $year = 2025, float $salary = 1000.0): string
+    {
+        $book = new Spreadsheet;
+        $balance = $book->getActiveSheet()->setTitle('BALANS');
+        $balance->fromArray([
+            ['"VALVOLINE AZ" MMC'], [], [],
+            ['Hesab №-si', 'Açıqlaması', ExcelDate::PHPToExcel(Carbon::create($year, 12, 31))],
+            [41, 'Mallar', 900.0],
+            [50, 'Kassa', 100.0],
+            [62, 'Alıcılar və sifarişçilərlə hesablaşmalar', 50.0],
+            [null, null, 1050.0],
+            ['Hesab №-si', 'Açıqlaması', ExcelDate::PHPToExcel(Carbon::create($year, 12, 31))],
+            [60, 'Malsatan və podratçılarla hesablaşmalar', 250.0],
+            [76, 'Müxtəlif D və K hesablaşmalar (tesisçi borc müq)', 900.0],
+            [80, 'Mənfəət və zərər', -100.0],
+            [null, null, 1050.0],
+        ]);
+
+        $pl = $book->createSheet()->setTitle('MZ');
+        $pl->fromArray([
+            ['"VALVOLINE AZ" MMC'], [],
+            ['Hesab №-si', 'Gəlir-Xərc maddələri', ExcelDate::PHPToExcel(Carbon::create($year, 12, 31))],
+            [null, 'GƏLİRLƏR'],
+            ['200.1.2', 'Topdansatışdan gəlir', 5000.0],
+            [null, 'CƏMİ', 5000.0],
+            [null, 'XƏRCLƏR'],
+            ['221.1.2', 'Əmək Haqqı və ona bərabər tutulan ödəmələr', 4000.0],
+            ['221.4', 'Malın dəyəri', 1100.0],
+            [null, 'CƏMİ', 5100.0],
+            [null, 'HESABAT DÖVRÜNDƏ MƏNFƏƏT (ZƏRƏR)', -100.0],
+        ]);
+
+        $jan = ExcelDate::PHPToExcel(Carbon::create($year, 1, 1));
+        $feb = ExcelDate::PHPToExcel(Carbon::create($year, 2, 1));
+        $flow = $book->createSheet()->setTitle('Cash Flow');
+        $flow->fromArray([
+            ['CASH FLOW - "VALVOLINE AZ" MMC', $jan, $feb, 'Total'],
+            ['Dövrün əvvəlinə qalıq', 500.0, 300.0],
+            ['GƏLİRLƏR'],
+            ['Müştəri Bir MMC', 2000.0, 1000.0, 3000.0],
+            ['Murad İsmayılov Məmməd', 100.0, null, 100.0],
+            ['Təsisçidən', null, 5000.0, 5000.0],
+            ['Total Gəlirlər:', 2100.0, 6000.0],
+            ['ÖDƏNİŞLƏR'],
+            ['ELLIS ENTERPRISES BV DORDRECHT NETERLANDS', 1500.0, 3000.0, 4500.0],
+            ['Əmək Haqqı', $salary, $salary, 2 * $salary],
+            ['DSMF', 220.0, 220.0, 440.0],
+            ['Xanlarov Kamil Mirzexan (icare anbar)', 300.0, null, 300.0],
+            ['MV', null, 700.0, 700.0],
+            ['YGB', null, 400.0, 400.0],
+            ['Murad İsmayılov Məmməd', null, 50.0, 50.0],
+            ['Naməlum Firma MMC', 80.0, null, 80.0],
+            ['Total Ödənişlər:', 3100.0, 4590.0],
+            [],
+            ['DİGƏR ƏMƏLİYYAT GƏLİRİ (XƏRCİ)'],
+            ['Valyutanın yenidən qiymətləndirməsi, M (-Z)', -5.0, 2.0, -3.0],
+            [],
+            ['Dövrün sonuna Net Cash (Xalis Pul Vəsaitləri):', 300.0, 1712.0],
+            [],
+            ['Net Cash (Xalis Pul Vəsaitləri) açıqlaması'],
+            ['Kassa AZN', 100.0, 100.0],
+            ['RB Sebail AZN', 200.0, 1612.0],
+        ]);
+
+        $ledger = $book->createSheet()->setTitle('62');
+        $ledger->fromArray([
+            ['Щесаб цзря дювриййя галыг жядвяли: 62'], [], [], ['Субконто', 'Дюврцн сонуна галыг'], [null, 'Дебет', 'Кредит'],
+            ['MILLA DAIRY', 50.0, ' '],
+            ['       Mallarin yuklenmesi ve satisi 000082 (10.12.25)', 50.0, ' '],
+            ['Йекун:', 50.0, ' '],
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'acc').'.xlsx';
+        (new Xlsx($book))->save($path);
+
+        return $path;
+    }
+
+    private function upload(string $path, string $name = '09_Balans_MZ_CashFlow.xlsx'): ImportBatch
+    {
+        $this->actingAs($this->admin)->post(route('import.upload'), ['file' => new UploadedFile($path, $name, null, null, true)])->assertRedirect();
+        $batch = ImportBatch::query()->latest('id')->firstOrFail();
+        $this->assertSame('accounting', $batch->file_type, 'fayl adından tip təyin olunur');
+        $this->get(route('import.preview', $batch))->assertOk()->assertSee('Cash Flow');
+        $this->post(route('import.confirm', $batch))->assertRedirect(route('import.index'));
+
+        return $batch->refresh();
+    }
+
+    private function filters(?string $direction = 'VALVO'): ReportFilters
+    {
+        return new ReportFilters(Carbon::parse('2025-01-01'), Carbon::parse('2025-12-31')->endOfDay(), 'custom', direction: $direction);
+    }
+
+    public function test_workbook_is_parsed_and_balances(): void
+    {
+        $batch = $this->upload($this->workbook());
+        $this->assertSame('done', $batch->status);
+
+        $this->assertEqualsWithDelta(1050.0, DB::table('acc_balance_lines')->where('side', 'asset')->sum('amount'), 0.001);
+        $this->assertEqualsWithDelta(1050.0, DB::table('acc_balance_lines')->where('side', 'liability')->sum('amount'), 0.001);
+        $this->assertSame('2025-12-31', (string) DB::table('acc_balance_lines')->value('as_of'));
+        $this->assertEqualsWithDelta(-100.0, DB::table('acc_pl_lines')->where('section', 'result')->value('amount'), 0.001);
+        $this->assertSame(2, DB::table('acc_pl_lines')->where('section', 'expense')->count(), 'CƏMİ sətirləri oxunmur');
+        $this->assertEqualsWithDelta(8470.0, DB::table('bank_flow_lines')->where('section', 'payment')->sum('amount'), 0.001);
+        $this->assertSame(0, DB::table('bank_flow_lines')->where('counterparty', 'like', 'Total%')->count());
+        $this->assertSame(['2025-01', '2025-02'], DB::table('bank_flow_lines')->distinct()->orderBy('period')->pluck('period')->all());
+        $this->assertSame(4, DB::table('bank_flow_balances')->count());
+        $this->assertSame(1, DB::table('acc_ledger_lines')->whereNull('document')->count());
+        $this->assertSame(1, DB::table('acc_ledger_lines')->whereNotNull('document')->count(), 'Йекун sətri oxunmur');
+    }
+
+    public function test_payments_are_classified_and_only_operating_expenses_reach_pnl(): void
+    {
+        $this->upload($this->workbook());
+        $classifier = new FlowClassifier;
+        $this->assertSame('cogs', $classifier->classify('ELLIS ENTERPRISES BV DORDRECHT NETERLANDS', 'payment')['type']);
+        $this->assertSame('cogs', $classifier->classify('YGB', 'payment')['type']);
+        $this->assertSame('tax', $classifier->classify('MV', 'payment')['type']);
+        $this->assertSame('financing', $classifier->classify('Təsisçidən', 'income')['type']);
+        $this->assertSame('revenue', $classifier->classify('Müştəri Bir MMC', 'income')['type']);
+        $this->assertSame('İcarə', $classifier->classify('Xanlarov Kamil Mirzexan (icare anbar)', 'payment')['group']);
+        $this->assertSame('İcarə', $classifier->classify('10TT023 VELIYEV FERHAD ZUBEYIR OGLU', 'payment')['group']);
+        $this->assertSame('Cərimə və sanksiyalar', $classifier->classify('Cərimə (audit)', 'payment')['group']);
+        $this->assertSame('uncertain', $classifier->classify('Naməlum Firma MMC', 'payment')['type']);
+        $this->assertSame('uncertain', $classifier->classify('Murad İsmayılov Məmməd', 'payment')['type'], 'alıcı kimi də ödəyən şəxs');
+
+        // P&L: yalnız əmək haqqı 2000 + DSMF 440 + icarə 300
+        $pnl = app(ProfitLossService::class);
+        $this->assertEqualsWithDelta(2740.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+        $this->assertEqualsWithDelta(2740.0, $pnl->bankExpenseTotal($this->filters('all')), 0.001);
+        $this->assertEqualsWithDelta(0.0, $pnl->bankExpenseTotal($this->filters('TIR')), 0.001, 'TIR istiqamətinə bank xərci düşmür');
+        $report = $pnl->build($this->filters(), 'month');
+        $this->assertEqualsWithDelta(1520.0, $report['lines']['bank_expenses']['2025-01'], 0.001);
+        $this->assertEqualsWithDelta(-2740.0, array_sum($report['lines']['net_profit']), 0.001);
+
+        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
+            ->assertOk()->assertSee('Bank xərcləri (Cash Flow)')->assertSee('Əmək haqqı');
+    }
+
+    public function test_manual_classification_changes_pnl_and_can_be_reset(): void
+    {
+        $this->upload($this->workbook());
+        $pnl = app(ProfitLossService::class);
+        $this->actingAs($this->admin)->post(route('accounting.classify'), [
+            'normalized' => 'namelum firma mmc', 'counterparty' => 'Naməlum Firma MMC', 'type' => 'expense', 'expense_group' => 'Reklam və marketinq',
+        ])->assertRedirect();
+        $this->assertEqualsWithDelta(2820.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+        $this->assertSame('Reklam və marketinq', (new FlowClassifier)->classify('Naməlum Firma MMC', 'payment')['group']);
+
+        $this->post(route('accounting.classify'), ['normalized' => 'emek haqqi', 'counterparty' => 'Əmək Haqqı', 'type' => 'financing'])->assertRedirect();
+        $this->assertEqualsWithDelta(820.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+
+        $this->post(route('accounting.classify'), ['normalized' => 'emek haqqi', 'counterparty' => 'Əmək Haqqı', 'type' => 'reset'])->assertRedirect();
+        $this->assertEqualsWithDelta(2820.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+    }
+
+    public function test_reimport_of_same_year_replaces_data(): void
+    {
+        $first = $this->upload($this->workbook(2025, 1000.0));
+        $this->upload($this->workbook(2025, 1500.0));
+        $this->assertSame(1, DB::table('bank_flow_lines')->where('counterparty', 'Əmək Haqqı')->where('period', '2025-01')->count());
+        $this->assertEqualsWithDelta(3000.0, DB::table('bank_flow_lines')->where('counterparty', 'Əmək Haqqı')->sum('amount'), 0.001);
+        $this->assertSame('replaced', $first->refresh()->status);
+
+        $this->upload($this->workbook(2024), '09_Balans_2024.xlsx');
+        $this->assertSame([2024, 2025], DB::table('acc_balance_lines')->distinct()->orderBy('year')->pluck('year')->map(fn ($y) => (int) $y)->all(), 'başqa il əvəzlənmir');
+    }
+
+    public function test_accounting_pages_render(): void
+    {
+        $this->actingAs($this->admin)->get(route('accounting.chart'))->assertOk()->assertSee('Hesablar planı')->assertSee('Mallar')->assertSee('205');
+        $this->upload($this->workbook());
+        $this->get(route('accounting.chart', ['section' => '2']))->assertOk()->assertSee('Qısamüddətli aktivlər')->assertSee('900,00');
+        $this->get(route('accounting.balance'))->assertOk()->assertSee('Bərabərdir');
+        $this->get(route('accounting.ledger', '62'), ['X-Modal' => '1'])->assertOk()->assertSee('MILLA DAIRY')->assertDontSee('<html', false);
+        $this->get(route('accounting.pl'))->assertOk()->assertSee('Topdansatışdan gəlir');
+        $this->get(route('accounting.cashflow'))->assertOk()->assertSee('Mal alışı / gömrük')->assertSee('ELLIS');
+        $this->get(route('accounting.cashflow', ['section' => 'income']))->assertOk()->assertSee('Təsisçidən');
+
+        $this->post(route('accounting.chart.store'), ['code' => '2051', 'name' => 'Mallar — anbar 2', 'nature' => 'A'])->assertRedirect();
+        $this->assertSame('20', DB::table('chart_accounts')->where('code', '2051')->value('group_code'));
+
+        $manager = User::factory()->create(['role' => 'menecer']);
+        $this->actingAs($manager)->get(route('accounting.cashflow'))->assertForbidden();
+    }
+
+    public function test_xls_upload_is_only_allowed_for_the_accounting_file(): void
+    {
+        $ole = "\xD0\xCF\x11\xE0".str_repeat("\0", 60);
+        $this->actingAs($this->admin)
+            ->post(route('import.upload'), ['file' => UploadedFile::fake()->createWithContent('04_Satislar.xls', $ole)])
+            ->assertSessionHasErrors('file');
+    }
+}

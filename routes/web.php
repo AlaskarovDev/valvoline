@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AliasController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ExpenseCategoryController;
@@ -74,6 +75,15 @@ Route::middleware('auth')->group(function () {
         Route::put('/xerc-kateqoriyalari/{category}', [ExpenseCategoryController::class, 'update'])->name('categories.update');
 
         Route::put('/mallar/{product}/maya', [ProductCostController::class, 'update'])->name('products.cost');
+
+        Route::get('/muhasibat/hesablar-plani', [AccountingController::class, 'chart'])->name('accounting.chart');
+        Route::post('/muhasibat/hesablar-plani', [AccountingController::class, 'storeAccount'])->name('accounting.chart.store');
+        Route::put('/muhasibat/hesablar-plani/{account}', [AccountingController::class, 'updateAccount'])->name('accounting.chart.update');
+        Route::get('/muhasibat/balans', [AccountingController::class, 'balance'])->name('accounting.balance');
+        Route::get('/muhasibat/hesab/{code}', [AccountingController::class, 'ledger'])->name('accounting.ledger');
+        Route::get('/muhasibat/menfeet-zerer', [AccountingController::class, 'profitLoss'])->name('accounting.pl');
+        Route::get('/muhasibat/cash-flow', [AccountingController::class, 'cashFlow'])->name('accounting.cashflow');
+        Route::post('/muhasibat/cash-flow/tesnifat', [AccountingController::class, 'classify'])->name('accounting.classify');
 
         Route::get('/istifadeciler', [UserController::class, 'index'])->name('users.index');
         Route::post('/istifadeciler', [UserController::class, 'store'])->name('users.store');

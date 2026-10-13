@@ -2,6 +2,7 @@
 
 namespace App\Imports;
 
+use App\Support\NameNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -19,6 +20,7 @@ class ImporterRegistry
         PaymentsImporter::class,
         StockImporter::class,
         CashImporter::class,
+        AccountingImporter::class,
     ];
 
     /**
@@ -45,6 +47,10 @@ class ImporterRegistry
      */
     public static function guess(string $fileName): ?string
     {
+        $normalized = NameNormalizer::normalize(basename($fileName));
+        if (str_contains($normalized, 'balans') || str_contains($normalized, 'cash flow')) {
+            return 'accounting';
+        }
         $prefix = substr(basename($fileName), 0, 2);
         foreach (self::all() as $type => $importer) {
             if (str_starts_with($importer->fileHint(), $prefix) && ctype_digit($prefix)) {

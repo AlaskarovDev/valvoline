@@ -34,12 +34,14 @@ class ProfitLossService
         $expenses = $this->cashByCategory($filters, $granularity, 'expense');
         $otherIncome = $this->cashByCategory($filters, $granularity, 'income');
         $founder = $this->cashByCategory($filters, $granularity, 'founder');
+        $bank = $this->bankExpensesByGroup($filters, $granularity);
 
         $columns = array_unique(array_merge(
             $sales->keys()->map(fn ($k) => (string) $k)->all(),
             array_merge(...array_map('array_keys', array_values($expenses) ?: [[]])),
             array_merge(...array_map('array_keys', array_values($otherIncome) ?: [[]])),
             array_merge(...array_map('array_keys', array_values($founder) ?: [[]])),
+            array_merge(...array_map('array_keys', array_values($bank) ?: [[]])),
         ));
         sort($columns);
 
@@ -47,6 +49,7 @@ class ProfitLossService
         foreach ($columns as $column) {
             $row = SalesSummaryQuery::derive($sales[$column] ?? (object) []);
             $expenseTotal = array_sum(array_map(fn ($c) => $c[$column] ?? 0, $expenses));
+            $bankTotal = array_sum(array_map(fn ($c) => $c[$column] ?? 0, $bank));
             $incomeTotal = array_sum(array_map(fn ($c) => $c[$column] ?? 0, $otherIncome));
             $lines['sales'][$column] = $row->sales;
             $lines['returns'][$column] = $row->returns;
@@ -58,14 +61,52 @@ class ProfitLossService
             $lines['margin'][$column] = $row->margin ?? 0;
             $lines['expenses'][$column] = $expenseTotal;
             $lines['other_income'][$column] = $incomeTotal;
-            $lines['net_profit'][$column] = $row->gross_profit + $incomeTotal - $expenseTotal;
-            $lines['net_margin'][$column] = abs($row->net_sales) > 0.005 ? ($row->gross_profit + $incomeTotal - $expenseTotal) / $row->net_sales : 0;
+            $lines['bank_expenses'][$column] = $bankTotal;
+            $lines['net_profit'][$column] = $row->gross_profit + $incomeTotal - $expenseTotal - $bankTotal;
+            $lines['net_margin'][$column] = abs($row->net_sales) > 0.005 ? $lines['net_profit'][$column] / $row->net_sales : 0;
             $founderTotal = array_sum(array_map(fn ($c) => $c[$column] ?? 0, $founder));
             $lines['founder'][$column] = $founderTotal;
             $lines['retained'][$column] = $lines['net_profit'][$column] - $founderTotal;
         }
 
-        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome, 'founder' => $founder];
+        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome, 'founder' => $founder, 'bank' => $bank];
+    }
+
+    /**
+     * Mühasibat Cash Flow-dan (bank) yalnız «əməliyyat xərci» təsnifatlı ödənişlər, xərc qrupu üzrə.
+     * Bank məlumatı «VALVOLINE AZ» MMC-yə aiddir — istiqamət filtri VALVO və ya «hamısı» olanda daxil edilir.
+     *
+     * @param  'month'|'year'  $granularity
+     * @return array<string, array<string, float>> qrup => sütun => məbləğ
+     */
+    public function bankExpensesByGroup(ReportFilters $filters, string $granularity = 'month'): array
+    {
+        if ($filters->direction !== null && ! in_array($filters->direction, ['all', 'VALVO'], true)) {
+            return [];
+        }
+        $rows = DB::table('bank_flow_lines')->where('section', 'payment')
+            ->whereBetween('period', [$filters->fromPeriod(), $filters->toPeriod()])
+            ->get(['period', 'counterparty', 'amount']);
+        $classifier = new FlowClassifier;
+        $memo = [];
+        $result = [];
+        foreach ($rows as $row) {
+            $c = $memo[$row->counterparty] ??= $classifier->classify($row->counterparty, 'payment');
+            if ($c['type'] !== FlowClassifier::EXPENSE) {
+                continue;
+            }
+            $group = $c['group'] ?: 'Sair xərclər';
+            $column = $granularity === 'year' ? substr($row->period, 0, 4) : $row->period;
+            $result[$group][$column] = ($result[$group][$column] ?? 0.0) + (float) $row->amount;
+        }
+        uasort($result, fn ($a, $b) => array_sum($b) <=> array_sum($a));
+
+        return $result;
+    }
+
+    public function bankExpenseTotal(ReportFilters $filters): float
+    {
+        return (float) array_sum(array_map('array_sum', $this->bankExpensesByGroup($filters)));
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Reports;
 
+use App\Services\FlowClassifier;
 use App\Services\ProfitLossService;
 use App\Support\Fmt;
 use App\Support\Spreadsheet;
@@ -69,12 +70,14 @@ class ProfitLossController extends ReportController
             ['label' => __('− Satılan malın mayası'), 'values' => array_map(fn ($v) => -$v, $l['sale_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
             ['label' => __('− Hədiyyə / daxili istifadə mayası'), 'values' => array_map(fn ($v) => -$v, $l['gift_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
             ['label' => __('Brüt mənfəət'), 'values' => $l['gross_profit'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
-            ['label' => __('Brüt marja'), 'values' => $l['margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
+            ['key' => 'gross_margin', 'label' => __('Brüt marja'), 'values' => $l['margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
             ['label' => __('− Əməliyyat xərcləri'), 'values' => array_map(fn ($v) => -$v, $l['expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
                 'children' => array_map(fn ($c) => ['label' => $c['label'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['expenses']))],
+            ['key' => 'bank', 'label' => __('− Bank xərcləri (Cash Flow)'), 'values' => array_map(fn ($v) => -$v, $l['bank_expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
+                'children' => array_map(fn ($c) => ['label' => FlowClassifier::groupLabel($c['label']), 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['bank']))],
             ['label' => __('+ Digər gəlirlər'), 'values' => $l['other_income'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => $children($report['other_income'])],
             ['label' => __('Xalis mənfəət'), 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
-            ['label' => __('Xalis marja'), 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
+            ['key' => 'net_margin', 'label' => __('Xalis marja'), 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];
         if (array_sum($l['founder'] ?? []) != 0.0) {
             $lines[] = ['label' => __('− Təsisçiyə ödənişlər'), 'values' => array_map(fn ($v) => -$v, $l['founder']), 'style' => 'expand', 'type' => 'money',
@@ -85,8 +88,16 @@ class ProfitLossController extends ReportController
             $line['total'] = $line['type'] === 'money' ? array_sum($line['values']) : null;
         }
         unset($line);
-        $lines[6]['total'] = abs($net) > 0.005 ? array_sum($l['gross_profit'] ?? []) / $net : null;
-        $lines[10]['total'] = abs($net) > 0.005 ? array_sum($l['net_profit'] ?? []) / $net : null;
+        foreach ($lines as &$line) {
+            match ($line['key'] ?? null) {
+                'gross_margin' => $line['total'] = abs($net) > 0.005 ? array_sum($l['gross_profit'] ?? []) / $net : null,
+                'net_margin' => $line['total'] = abs($net) > 0.005 ? array_sum($l['net_profit'] ?? []) / $net : null,
+                default => null,
+            };
+        }
+        unset($line);
+        // bank məlumatı yoxdursa boş sətri göstərmə
+        $lines = array_values(array_filter($lines, fn ($line) => ($line['key'] ?? null) !== 'bank' || $line['children'] !== []));
 
         return $lines;
     }

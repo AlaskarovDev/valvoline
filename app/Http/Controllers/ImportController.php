@@ -47,19 +47,21 @@ class ImportController extends Controller
         $file = $request->file('file');
         $extension = strtolower($file->getClientOriginalExtension());
         $handle = fopen($file->getRealPath(), 'rb');
-        $signature = $handle ? fread($handle, 2) : '';
+        $signature = $handle ? fread($handle, 4) : '';
         if ($handle) {
             fclose($handle);
         }
-        // mimes:xlsx WPS / yenidən saxlanılmış faylları rədd edə bilir — uzantı + ZIP imzası yoxlanılır
-        if ($extension !== 'xlsx' || $signature !== 'PK') {
-            throw ValidationException::withMessages(['file' => __('Yalnız .xlsx (Excel 2007+) faylı qəbul olunur.')]);
-        }
+        // mimes:xlsx WPS / yenidən saxlanılmış faylları rədd edə bilir — uzantı + imza yoxlanılır
+        $isXlsx = $extension === 'xlsx' && str_starts_with($signature, 'PK');
+        $isXls = $extension === 'xls' && $signature === "\xD0\xCF\x11\xE0";
         $type = $request->input('type') ?: ImporterRegistry::guess($file->getClientOriginalName());
+        if (! $isXlsx && ! ($isXls && $type === 'accounting')) {
+            throw ValidationException::withMessages(['file' => __('Yalnız .xlsx (Excel 2007+) faylı qəbul olunur; .xls yalnız Balans / MZ / Cash Flow faylı üçün.')]);
+        }
         if ($type === null || ! array_key_exists($type, ImporterRegistry::all())) {
             throw ValidationException::withMessages(['type' => __('Fayl tipini seçin (fayl adından təyin olunmadı).')]);
         }
-        $path = $file->storeAs('imports', now()->format('Ymd_His').'_'.Str::random(6).'.xlsx', 'local');
+        $path = $file->storeAs('imports', now()->format('Ymd_His').'_'.Str::random(6).'.'.($isXls ? 'xls' : 'xlsx'), 'local');
         $batch = ImportBatch::query()->create([
             'file_type' => $type,
             'file_name' => $file->getClientOriginalName(),

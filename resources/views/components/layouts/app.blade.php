@@ -45,6 +45,12 @@
             ['pnl.index', __('Mənfəət-zərər (P&L)'), 'pnl', $isAdmin],
             ['cash.index', __('Kassa'), 'cash', $isAdmin],
         ],
+        __('Mühasibat') => [
+            ['accounting.chart', __('Hesablar planı'), 'tag', $isAdmin],
+            ['accounting.balance', __('Balans'), 'pnl', $isAdmin],
+            ['accounting.pl', __('Mənfəət-zərər (vergi)'), 'expenses', $isAdmin],
+            ['accounting.cashflow', __('Cash Flow (bank)'), 'cash', $isAdmin],
+        ],
         __('Məlumat') => [
             ['quality.index', __('Məlumat keyfiyyəti'), 'quality', $isAdmin],
             ['import.index', __('Import'), 'import', $isAdmin],
@@ -74,7 +80,7 @@
                 @if ($visible)
                     <div class="nav-section">{{ $section }}</div>
                     @foreach ($visible as [$route, $label, $icon])
-                        @php $active = request()->routeIs(\Illuminate\Support\Str::beforeLast($route, '.').'*') || request()->routeIs($route); @endphp
+                        @php $active = request()->routeIs((str_ends_with($route, '.index') ? \Illuminate\Support\Str::beforeLast($route, '.') : $route).'*'); @endphp
                         <a href="{{ route($route) }}" @class(['nav-link', 'active' => $active]) @if($active) aria-current="page" @endif>
                             <x-icon :name="$icon"/> <span>{{ $label }}</span>
                         </a>

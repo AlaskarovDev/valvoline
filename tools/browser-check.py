@@ -56,6 +56,10 @@ PAGES = [
     ("uygunlasdirma", "/uygunlasdirma", 0),
     ("kateqoriyalar", "/xerc-kateqoriyalari", 0),
     ("istifadeciler", "/istifadeciler", 0),
+    ("hesablar-plani", "/muhasibat/hesablar-plani", 0),
+    ("balans", "/muhasibat/balans", 0),
+    ("mz", "/muhasibat/menfeet-zerer", 0),
+    ("cash-flow", "/muhasibat/cash-flow", 1),
 ]
 
 PASS: list[str] = []
