@@ -130,6 +130,20 @@
         </main>
     </div>
 </div>
+{{-- Detal popup: data-modal atributlu keçidlər burada açılır (resources/js/app.js) --}}
+<dialog id="detail-modal" aria-labelledby="detail-modal-title"
+        class="m-auto w-[min(1100px,96vw)] max-w-none overflow-hidden rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50">
+    <div class="flex max-h-[88vh] flex-col">
+        <div class="flex items-center justify-between gap-2 border-b border-line bg-surface-2 px-5 py-2">
+            <span id="detail-modal-title" class="text-xs font-semibold uppercase tracking-wide text-muted">Detal</span>
+            <div class="flex items-center gap-1.5">
+                <a data-modal-open-page href="#" class="btn btn-sm" target="_blank" rel="noopener">Ayrıca səhifədə aç</a>
+                <button type="button" class="btn btn-sm" data-modal-close aria-label="Bağla" autofocus><x-icon name="x" size="14"/></button>
+            </div>
+        </div>
+        <div data-modal-body class="min-h-24 overflow-y-auto"></div>
+    </div>
+</dialog>
 @livewireScripts
 </body>
 </html>

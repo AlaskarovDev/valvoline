@@ -11,6 +11,7 @@ use App\Http\Controllers\Reports\DashboardController;
 use App\Http\Controllers\Reports\DataQualityController;
 use App\Http\Controllers\Reports\DebtController;
 use App\Http\Controllers\Reports\ExpenseController;
+use App\Http\Controllers\Reports\ExpenseDetailController;
 use App\Http\Controllers\Reports\MarginController;
 use App\Http\Controllers\Reports\MovementController;
 use App\Http\Controllers\Reports\OrderController;
@@ -49,6 +50,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/idxal', [PurchaseController::class, 'index'])->name('purchases.index');
         Route::get('/idxal/{batch}', [PurchaseController::class, 'show'])->name('purchases.show');
         Route::get('/xercler', ExpenseController::class)->name('expenses.index');
+        Route::get('/xercler/detal', ExpenseDetailController::class)->name('expenses.detail');
         Route::get('/menfeet-zerer', ProfitLossController::class)->name('pnl.index');
         Route::get('/kassa', CashController::class)->name('cash.index');
         Route::get('/melumat-keyfiyyeti', DataQualityController::class)->name('quality.index');

@@ -72,7 +72,7 @@
                         <div @class(['min-w-0', 'col-span-2' => $column['wrap'] || ($column['type'] === 'text' && $column['format'] === null && mb_strlen((string) data_get($row, $column['key'])) > 22)])>
                             <dt class="text-[11px] leading-tight text-muted">{{ $column['label'] }}</dt>
                             <dd class="text-[13px] font-medium tabular-nums {{ $cls }} {{ $column['wrap'] ? '' : 'truncate' }}">
-                                @if ($cellHref)<a href="{{ $cellHref }}" class="text-primary-text hover:underline">{!! $render($row, $column) !!}</a>@else{!! $render($row, $column) !!}@endif
+                                @if ($cellHref)<a href="{{ $cellHref }}" class="text-primary-text hover:underline" @if($column['modal']) data-modal @endif>{!! $render($row, $column) !!}</a>@else{!! $render($row, $column) !!}@endif
                             </dd>
                         </div>
                     @endforeach
@@ -124,7 +124,7 @@
                         @php $href = $table->link($row, $column); @endphp
                         <td class="{{ $table->cellClass($row, $column) }}">
                             @if ($href)
-                                <a href="{{ $href }}" class="cell-link">{!! $render($row, $column) !!}</a>
+                                <a href="{{ $href }}" class="cell-link" @if($column['modal']) data-modal @endif>{!! $render($row, $column) !!}</a>
                             @else
                                 {!! $render($row, $column) !!}
                             @endif

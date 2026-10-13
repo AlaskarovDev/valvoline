@@ -235,6 +235,28 @@ class CostingAndBalancesTest extends TestCase
         $this->assertEqualsWithDelta(437.0, app(ProfitLossService::class)->build($filters, 'year')['lines']['net_profit']['2024'], 0.001);
     }
 
+    public function test_expense_cell_drilldown_matches_pivot(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $query = ['from' => '2024-01-01', 'to' => '2024-12-31', 'direction' => 'VALVO'];
+
+        $pivot = $this->actingAs($admin)->get(route('expenses.index', $query))->assertOk();
+        $cell = $pivot->viewData('pivotRows')->firstWhere('category', 'Əmək haqqı');
+        $this->assertEqualsWithDelta(100.0, $cell->c0, 0.001);
+        $pivot->assertSee(route('expenses.detail', $query + ['name' => 'Əmək haqqı', 'col' => '2024-03', 'gran' => 'month']))->assertSee('data-modal', false);
+
+        $popup = $this->get(route('expenses.detail', $query + ['name' => 'Əmək haqqı', 'col' => '2024-03', 'gran' => 'month']), ['X-Modal' => '1']);
+        $popup->assertOk()->assertDontSee('<html', false)->assertSee('05.03.2024');
+        $this->assertEqualsWithDelta($cell->c0, $popup->viewData('total'), 0.001);
+        $this->assertCount(1, $popup->viewData('rows'));
+
+        // istiqamət filtri: TIR xərci VALVO xanasına düşmür, TIR-də isə görünür
+        $this->assertCount(0, $this->get(route('expenses.detail', $query + ['name' => 'TIR xərcləri', 'col' => 'total']), ['X-Modal' => '1'])->viewData('rows'));
+        $tir = $this->get(route('expenses.detail', ['from' => '2024-01-01', 'to' => '2024-12-31', 'direction' => 'TIR', 'name' => 'TIR xərcləri', 'col' => 'total']));
+        $tir->assertOk()->assertSee('<html', false);
+        $this->assertEqualsWithDelta(40.0, $tir->viewData('total'), 0.001);
+    }
+
     public function test_reimport_does_not_duplicate_and_rollback_removes_batch(): void
     {
         $path = $this->fixtureDir().DIRECTORY_SEPARATOR.'04_Satislar.xlsx';

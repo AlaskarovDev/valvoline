@@ -41,13 +41,17 @@ class ExpenseController extends ReportController
 
         $pivot = Table::make('pivot', 'Kateqoriya × '.($granularity === 'year' ? 'il' : 'ay'))
             ->column('category', 'Kateqoriya', 'text', ['link' => fn ($r) => route('expenses.index', $filters->query(['cat' => $r->category_id, 'gran' => $granularity === 'year' ? 'year' : null]))]);
+        // Xanaya klik → həmin rəqəmi yaradan kassa əməliyyatları (popup)
+        $detail = fn (object $r, string $col) => abs((float) ($col === 'total' ? $r->total : $r->{'c'.array_search($col, $columns, true)})) > 0.004
+            ? route('expenses.detail', $filters->query(['name' => $r->category, 'col' => $col, 'gran' => $granularity]))
+            : null;
         foreach ($columns as $i => $col) {
-            $pivot->column('c'.$i, $granularity === 'year' ? $col : Fmt::period($col), 'money');
+            $pivot->column('c'.$i, $granularity === 'year' ? $col : Fmt::period($col), 'money', ['link' => fn ($r) => $detail($r, $col), 'modal' => true]);
         }
-        $pivot->column('total', 'Cəmi', 'money', ['class' => fn () => 'font-semibold'])
+        $pivot->column('total', 'Cəmi', 'money', ['class' => fn () => 'font-semibold', 'link' => fn ($r) => $detail($r, 'total'), 'modal' => true])
             ->column('share', 'Pay', 'pct')
             ->source(collect($pivotRows))->sortBy('total')->perPage(100)->footer(auto: true)
-            ->subtitle('Yalnız «Xərc» tipli və mənfəətə təsir edən əməliyyatlar · istiqamət: '.($filters->direction ?? 'hamısı'));
+            ->subtitle('Yalnız «Xərc» tipli və mənfəətə təsir edən əməliyyatlar · istiqamət: '.($filters->direction ?? 'hamısı').' · rəqəmə klik → əməliyyatlar');
 
         $category = is_numeric($request->query('cat')) ? (int) $request->query('cat') : null;
         $list = DB::table('cash_transactions as c')

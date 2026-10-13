@@ -246,6 +246,27 @@ def main() -> int:
                 ok(f"{name} səhifəsi açılır")
             shot("20-" + name.replace(" ", "-"), full=True)
 
+
+        # xərc xanasına klik → popup əməliyyatları göstərir və cəm xananın rəqəmi ilə eynidir
+        def popup_check(label):
+            visit("/xercler?preset=last_12")
+            cell = js("(() => { const a = [...document.querySelectorAll('a[data-modal]')].find(x => x.offsetParent !== null); if (!a) return null; a.click(); return a.textContent.trim(); })()")
+            if not cell:
+                bad(f"{label}: klik ediləcək xana tapılmadı")
+                return
+            loaded = wait_for("document.getElementById('detail-modal').open && document.querySelector('[data-modal-body]').innerText.includes('əməliyyat')", 10)
+            popup_total = js("(document.querySelector('[data-modal-body] .text-lg') || {}).textContent || ''").strip()
+            if loaded and popup_total.replace(' ₼', '').replace(' ₼', '').strip() == cell.replace(' ₼', '').replace(' ₼', '').strip():
+                ok(f"{label}: popup açıldı, cəm xana ilə eynidir ({cell})")
+            else:
+                bad(f"{label}: popup — xana {cell!r}, popup {popup_total!r}, yükləndi={loaded}")
+            time.sleep(0.4)
+            shot(f"50-popup-{label}")
+            js("document.querySelector('[data-modal-close]').click()")
+            ok(f"{label}: popup bağlanır") if wait_for("!document.getElementById('detail-modal').open", 3) else bad(f"{label}: popup bağlanmadı")
+
+        popup_check("masaustu")
+
         # qaranlıq rejim
         visit("/?preset=last_12")
         was_dark = js("document.documentElement.classList.contains('dark')")
@@ -278,6 +299,7 @@ def main() -> int:
             overflow = js("document.documentElement.scrollWidth - document.documentElement.clientWidth")
             ok(f"mobil {name}: daşma yoxdur") if isinstance(overflow, (int, float)) and overflow <= 2 else bad(f"mobil {name}: {overflow}px daşma")
             shot("40-mobil-" + name, full=True)
+        popup_check("telefon")
         js("document.querySelector('[aria-label=\"Menyunu aç\"]').click()")
         time.sleep(0.6)
         nav_open = js("document.querySelector('aside').getBoundingClientRect().left >= 0")

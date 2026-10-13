@@ -211,3 +211,27 @@ window.addEventListener('resize', () => {
         }
     }, 250);
 });
+
+/* Detal popup: <a data-modal href="…"> → məzmun serverdən (X-Modal başlığı ilə) yüklənib <dialog>-da göstərilir */
+document.addEventListener('click', async (event) => {
+    const link = event.target.closest('a[data-modal]');
+    const dialog = document.getElementById('detail-modal');
+    if (!link || !dialog || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    event.preventDefault();
+    const body = dialog.querySelector('[data-modal-body]');
+    dialog.querySelector('[data-modal-open-page]').href = link.href;
+    body.innerHTML = '<div class="p-10 text-center text-sm text-muted">Yüklənir…</div>';
+    if (!dialog.open) dialog.showModal();
+    try {
+        const response = await fetch(link.href, { headers: { 'X-Modal': '1', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+        if (!response.ok) throw new Error(response.status);
+        body.innerHTML = await response.text();
+    } catch (e) {
+        body.innerHTML = '<div class="p-10 text-center text-sm neg">Məlumat yüklənmədi. «Ayrıca səhifədə aç» ilə yoxlayın.</div>';
+    }
+});
+document.addEventListener('click', (event) => {
+    const dialog = document.getElementById('detail-modal');
+    if (!dialog || !dialog.open) return;
+    if (event.target.closest('[data-modal-close]') || event.target === dialog) dialog.close();
+});
