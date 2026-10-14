@@ -1,10 +1,16 @@
 @php use App\Support\Fmt; @endphp
 <x-layouts.app :title="$title">
-    <x-filters :filters="$filters" :show="['direction']" :own="['gran', 'cat', 'profit']">
+    <x-filters :filters="$filters" :show="['direction']" :own="['gran', 'cat', 'profit', 'src']">
         <label class="sr-only" for="gran">{{ __('Dövr') }}</label>
         <select id="gran" name="gran" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()">
             <option value="month" @selected($granularity === 'month')>{{ __('Aylıq') }}</option>
             <option value="year" @selected($granularity === 'year')>{{ __('İllik') }}</option>
+        </select>
+        <label class="sr-only" for="src">{{ __('Mənbə') }}</label>
+        <select id="src" name="src" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()">
+            <option value="all" @selected($source === 'all')>{{ __('Kassa + rəsmi') }}</option>
+            <option value="cash" @selected($source === 'cash')>{{ __('Yalnız kassa') }}</option>
+            <option value="bank" @selected($source === 'bank')>{{ __('Yalnız rəsmi (bank)') }}</option>
         </select>
         <label class="sr-only" for="profit">{{ __('Mənfəətə təsir') }}</label>
         <select id="profit" name="profit" class="select h-[30px] w-auto text-xs">
@@ -18,10 +24,11 @@
         @endif
     </x-filters>
 
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-kpi :label="__('Əməliyyat xərcləri')" :value="Fmt::money($grand)" :meta="$filters->label()" tone="neg"/>
-        <x-kpi :label="__('İstiqamət')" :value="$filters->direction && $filters->direction !== 'all' ? $filters->direction : __('Hamısı')" :meta="__('TIR ayrıca biznes xəttidir')"/>
-        <x-kpi :label="__('Kateqoriya sayı')" :value="$pivotRows->total()" :href="route('categories.index')" :meta="__('Bayraqları redaktə et →')"/>
+        <x-kpi :label="__('Kassa xərcləri')" :value="Fmt::money($cashTotal)" :meta="__('08 Xərclər faylı')"/>
+        <x-kpi :label="__('Rəsmi xərclər (bank)')" :value="Fmt::money($bankTotal)" :meta="__('Mühasibat Cash Flow · kassada yoxdur')" :href="route('accounting.reconcile')"/>
+        <x-kpi :label="__('İstiqamət')" :value="$filters->direction && $filters->direction !== 'all' ? $filters->direction : __('Hamısı')" :meta="__('Rəsmi xərclər yalnız VALVO-ya aiddir')"/>
     </div>
 
     <x-chart :title="__('Xərc trendi')" :sub="__('Ən böyük 6 kateqoriya')" :spec="$chart" :height="320"/>

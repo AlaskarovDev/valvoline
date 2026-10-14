@@ -6,6 +6,7 @@ use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
 use App\Services\FlowClassifier;
 use App\Services\ProfitLossService;
+use App\Services\ReconciliationService;
 use App\Support\ChartOfAccounts;
 use App\Support\Fmt;
 use App\Support\NameNormalizer;
@@ -259,6 +260,20 @@ class AccountingController extends Controller
                 'colors' => ['--chart-2', '--chart-6', '--chart-1'],
             ],
         ]);
+    }
+
+    /**
+     * Sistem məlumatlarının mühasibat faylı ilə tutuşdurulması (il üzrə).
+     */
+    public function reconcile(Request $request, ReconciliationService $service): View
+    {
+        $year = $this->year($request);
+
+        return view('accounting.reconcile', array_merge([
+            'title' => __('Tutuşdurma: sistem ↔ mühasibat'),
+            'year' => $year,
+            'years' => $this->years(),
+        ], $year === null ? [] : $service->build($year)));
     }
 
     public function cashFlow(Request $request): View

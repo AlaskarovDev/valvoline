@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AliasController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LocaleController;
@@ -80,12 +81,21 @@ Route::middleware('auth')->group(function () {
         Route::post('/muhasibat/hesablar-plani', [AccountingController::class, 'storeAccount'])->name('accounting.chart.store');
         Route::get('/muhasibat/hesablar-plani/{code}/menbe', [AccountingController::class, 'accountSource'])->name('accounting.chart.source');
         Route::put('/muhasibat/hesablar-plani/{account}', [AccountingController::class, 'updateAccount'])->name('accounting.chart.update');
+        Route::get('/muhasibat/tutusdurma', [AccountingController::class, 'reconcile'])->name('accounting.reconcile');
         Route::get('/muhasibat/iller', [AccountingController::class, 'overview'])->name('accounting.overview');
         Route::get('/muhasibat/balans', [AccountingController::class, 'balance'])->name('accounting.balance');
         Route::get('/muhasibat/hesab/{code}', [AccountingController::class, 'ledger'])->name('accounting.ledger');
         Route::get('/muhasibat/menfeet-zerer', [AccountingController::class, 'profitLoss'])->name('accounting.pl');
         Route::get('/muhasibat/cash-flow', [AccountingController::class, 'cashFlow'])->name('accounting.cashflow');
         Route::post('/muhasibat/cash-flow/tesnifat', [AccountingController::class, 'classify'])->name('accounting.classify');
+
+        Route::get('/bank-hesablari', [BankAccountController::class, 'index'])->name('bank.index');
+        Route::post('/bank-hesablari', [BankAccountController::class, 'store'])->name('bank.store');
+        Route::delete('/bank-hesablari/emeliyyat/{transaction}', [BankAccountController::class, 'destroyTransaction'])->name('bank.tx.destroy');
+        Route::get('/bank-hesablari/{account}', [BankAccountController::class, 'show'])->name('bank.show');
+        Route::put('/bank-hesablari/{account}', [BankAccountController::class, 'update'])->name('bank.update');
+        Route::post('/bank-hesablari/{account}/emeliyyat', [BankAccountController::class, 'storeTransaction'])->name('bank.tx.store');
+        Route::post('/bank-hesablari/{account}/cixaris', [BankAccountController::class, 'import'])->name('bank.import');
 
         Route::get('/istifadeciler', [UserController::class, 'index'])->name('users.index');
         Route::post('/istifadeciler', [UserController::class, 'store'])->name('users.store');

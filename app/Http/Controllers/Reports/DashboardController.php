@@ -24,10 +24,10 @@ class DashboardController extends ReportController
         $previousOrders = $this->orderCount(SalesSummaryQuery::previousYear($filters));
 
         $expenses = $isAdmin ? (float) ProfitLossService::profitCash($filters, 'expense')->sum(DB::raw('c.expense - c.income')) + app(ProfitLossService::class)->bankExpenseTotal($filters) : null;
-        $otherIncome = $isAdmin ? (float) ProfitLossService::profitCash($filters, 'income')->sum(DB::raw('c.income - c.expense')) : null;
+        $otherIncome = $isAdmin ? (float) ProfitLossService::profitCash($filters, 'income')->sum(DB::raw('c.income - c.expense')) + app(ProfitLossService::class)->exportResultTotal($filters) : null;
         $prevFilters = SalesSummaryQuery::previousYear($filters);
         $prevExpenses = $isAdmin ? (float) ProfitLossService::profitCash($prevFilters, 'expense')->sum(DB::raw('c.expense - c.income')) + app(ProfitLossService::class)->bankExpenseTotal($prevFilters) : null;
-        $prevIncome = $isAdmin ? (float) ProfitLossService::profitCash($prevFilters, 'income')->sum(DB::raw('c.income - c.expense')) : null;
+        $prevIncome = $isAdmin ? (float) ProfitLossService::profitCash($prevFilters, 'income')->sum(DB::raw('c.income - c.expense')) + app(ProfitLossService::class)->exportResultTotal($prevFilters) : null;
 
         $debt = DB::table('customer_balances as b')->join('customers as c', 'c.id', '=', 'b.customer_id')
             ->where('c.type', 'customer')->where('b.balance', '>', 0)

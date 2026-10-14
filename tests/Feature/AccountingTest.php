@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Reports\ReportFilters;
 use App\Services\FlowClassifier;
 use App\Services\ProfitLossService;
+use App\Services\ReconciliationService;
+use App\Support\Fmt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -31,7 +33,7 @@ class AccountingTest extends TestCase
         $this->admin = User::factory()->create(['role' => 'admin']);
     }
 
-    private function workbook(int $year = 2025, float $salary = 1000.0): string
+    private function workbook(int $year = 2025, float $salary = 1000.0, bool $export = false): string
     {
         $book = new Spreadsheet;
         $balance = $book->getActiveSheet()->setTitle('BALANS');
@@ -55,10 +57,12 @@ class AccountingTest extends TestCase
             ['Hesab №-si', 'Gəlir-Xərc maddələri', ExcelDate::PHPToExcel(Carbon::create($year, 12, 31))],
             [null, 'GƏLİRLƏR'],
             ['200.1.2', 'Topdansatışdan gəlir', 5000.0],
+            ...($export ? [['217.2', 'AR hüdudlarından kənarda əldə edilmiş gəlirlər', 1200.0]] : []),
             [null, 'CƏMİ', 5000.0],
             [null, 'XƏRCLƏR'],
             ['221.1.2', 'Əmək Haqqı və ona bərabər tutulan ödəmələr', 4000.0],
             ['221.4', 'Malın dəyəri', 1100.0],
+            ...($export ? [['232.1', 'AR hududlarından kənarda gəlirlərin əldə edilməsi ilə bağlı xərclər', 1000.0]] : []),
             [null, 'CƏMİ', 5100.0],
             [null, 'HESABAT DÖVRÜNDƏ MƏNFƏƏT (ZƏRƏR)', -100.0],
         ]);
@@ -73,6 +77,7 @@ class AccountingTest extends TestCase
             ['Müştəri Bir MMC', 2000.0, 1000.0, 3000.0],
             ['Murad İsmayılov Məmməd', 100.0, null, 100.0],
             ['Təsisçidən', null, 5000.0, 5000.0],
+            ...($export ? [['OOO VALSAR Rus', null, 600.0, 600.0]] : []),
             ['Total Gəlirlər:', 2100.0, 6000.0],
             ['ÖDƏNİŞLƏR'],
             ['ELLIS ENTERPRISES BV DORDRECHT NETERLANDS', 1500.0, 3000.0, 4500.0],
@@ -168,7 +173,7 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta(-2740.0, array_sum($report['lines']['net_profit']), 0.001);
 
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
-            ->assertOk()->assertSee('Bank xərcləri (Cash Flow)')->assertSee('Əmək haqqı');
+            ->assertOk()->assertSee('Rəsmi xərclər (bank)')->assertSee('Əmək haqqı')->assertDontSee('Re-eksport nəticəsi');
     }
 
     public function test_manual_classification_changes_pnl_and_can_be_reset(): void
@@ -247,6 +252,55 @@ class AccountingTest extends TestCase
         $this->assertSame('Nəqliyyat və logistika', $c->classify('TIBER LOGISTIK', 'payment')['group']);
         $this->assertSame('Reklam və marketinq', $c->classify('PROMOLINE ADVERTISING MMC', 'payment')['group']);
         $this->assertSame('Bank xidməti', $c->classify('Konvertasiya komisyonu', 'payment')['group']);
+    }
+
+    public function test_reexport_from_mz_is_added_to_pnl_by_foreign_buyer_receipts(): void
+    {
+        $this->upload($this->workbook(export: true));
+        $pnl = app(ProfitLossService::class);
+        $report = $pnl->build($this->filters(), 'month');
+
+        // MZ 217.2 = 1200, 232.1 = 1000 — hamısı OOO VALSAR-ın ödədiyi fevrala düşür
+        $this->assertEqualsWithDelta(1200.0, $report['lines']['export_revenue']['2025-02'], 0.001);
+        $this->assertEqualsWithDelta(1000.0, $report['lines']['export_cost']['2025-02'], 0.001);
+        $this->assertEqualsWithDelta(0.0, $report['lines']['export_revenue']['2025-01'], 0.001);
+        $this->assertEqualsWithDelta(-2740.0 + 200.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(0.0, $pnl->exportResultTotal($this->filters('TIR')), 0.001);
+
+        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
+            ->assertOk()->assertSee('Re-eksport nəticəsi')->assertSee('AR hüdudlarından kənar satış');
+    }
+
+    public function test_expenses_page_adds_official_bank_expenses_with_source_and_detail(): void
+    {
+        $this->upload($this->workbook());
+        $range = ['from' => '2025-01-01', 'to' => '2025-12-31'];
+
+        $this->get(route('expenses.index', $range))->assertOk()
+            ->assertSee('Rəsmi')->assertSee('Sosial sığorta (DSMF)')->assertSee(Fmt::money(2740), false);
+        $this->get(route('expenses.index', $range + ['src' => 'cash']))->assertOk()->assertDontSee('Sosial sığorta (DSMF)');
+
+        $this->get(route('expenses.detail', $range + ['src' => 'bank', 'name' => 'Əmək haqqı', 'col' => '2025-01']), ['X-Modal' => '1'])
+            ->assertOk()->assertSee('Əmək Haqqı')->assertSee(Fmt::money(1000), false)->assertDontSee('DSMF')->assertDontSee('<html', false);
+        $this->get(route('expenses.detail', $range + ['src' => 'bank', 'name' => 'İcarə', 'col' => 'total']))
+            ->assertOk()->assertSee('Xanlarov Kamil')->assertSee('<html', false);
+    }
+
+    public function test_reconciliation_page_compares_system_with_accounting_file(): void
+    {
+        $this->upload($this->workbook(export: true));
+
+        $this->get(route('accounting.reconcile'))->assertOk()
+            ->assertSee('Re-eksport (AR hüdudlarından kənar)')->assertSee(Fmt::money(1200), false)
+            ->assertSee('Sistemdə yox idi')->assertSee('Sosial sığorta (DSMF)')
+            ->assertSee('Müştəri Bir MMC')->assertSee('Müştəri tapılmadı');
+
+        $rows = app(ReconciliationService::class)->build(2025);
+        $dsmf = collect($rows['expenses'])->firstWhere('group', 'Sosial sığorta (DSMF)');
+        $this->assertSame(ReconciliationService::STATUS_ADDED, $dsmf->status);
+        $this->assertEqualsWithDelta(440.0, $dsmf->bank, 0.001);
+        $this->assertEqualsWithDelta(4000.0, collect($rows['expenses'])->firstWhere('group', 'Əmək haqqı')->mz, 0.001);
+        $this->assertEqualsWithDelta(1100.0, collect($rows['purchases'])->get(2)->amount, 0.001);
     }
 
     public function test_xls_upload_is_only_allowed_for_the_accounting_file(): void

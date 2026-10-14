@@ -629,10 +629,11 @@ T: dict[str, tuple[str, str]] = {
 
 def main() -> int:
     sys.stdout.reconfigure(encoding='utf-8')
-    # mühasibat bölməsinin tərcümələri ayrıca faylda
-    extra: dict = {}
-    exec((ROOT / 'tools' / 'i18n_translations_accounting.py').read_text(encoding='utf-8'), extra)
-    T.update(extra['T'])
+    # mühasibat və bank bölmələrinin tərcümələri ayrıca fayllarda
+    for name in ('i18n_translations_accounting.py', 'i18n_translations_bank.py'):
+        extra: dict = {}
+        exec((ROOT / 'tools' / name).read_text(encoding='utf-8'), extra)
+        T.update(extra['T'])
     keys = json.loads(subprocess.run([sys.executable, '-I', str(ROOT / 'tools/i18n_keys.py'), '--dump'], capture_output=True, text=True, encoding='utf-8').stdout)
     missing = [k for k in keys if k not in T]
     for locale, index in (('ru', 0), ('en', 1)):

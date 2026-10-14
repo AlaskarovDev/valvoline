@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Reports;
 
+use App\Services\FlowClassifier;
 use App\Services\ProfitLossService;
 use App\Support\Fmt;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
- * Xərc pivotundakı bir xananın (kateqoriya × ay/il və ya cəmi) arxasındakı kassa əməliyyatları.
+ * Xərc pivotundakı bir xananın (kateqoriya × ay/il və ya cəmi) arxasındakı əməliyyatlar:
+ * kassa sətirləri və ya (rəsmi xərclər üçün) mühasibat Cash Flow-dakı bank ödənişləri.
  * Sorğu başlığında X-Modal varsa yalnız popup məzmunu, yoxdursa tam səhifə qaytarılır.
  */
 class ExpenseDetailController extends ReportController
@@ -19,6 +22,16 @@ class ExpenseDetailController extends ReportController
         $name = (string) $request->query('name', '');
         $col = (string) $request->query('col', 'total');
         $granularity = $request->query('gran') === 'year' ? 'year' : 'month';
+        $periodLabel = match (true) {
+            $col === 'total' => $filters->label(),
+            $granularity === 'year' => __(':year ili', ['year' => $col]),
+            default => Fmt::period($col),
+        };
+        $page = $request->header('X-Modal') ? null : 'reports.expense-detail-page';
+
+        if ($request->query('src') === 'bank') {
+            return $this->bank($filters->fromPeriod(), $filters->toPeriod(), $name, $col, $granularity, $periodLabel, $page);
+        }
 
         $query = ProfitLossService::profitCash($filters, 'expense');
         $name === '—' ? $query->whereNull('c.category_name') : $query->where('c.category_name', $name);
@@ -30,13 +43,8 @@ class ExpenseDetailController extends ReportController
         $rows = $query->orderBy('c.date')->orderBy('c.id')
             ->get(['c.id', 'c.date', 'c.subcategory', 'c.description', 'c.income', 'c.expense', 'c.op_type', 'c.direction', 'c.note', 'c.original_row', 'c.category_source']);
 
-        $periodLabel = match (true) {
-            $col === 'total' => $filters->label(),
-            $granularity === 'year' => __(':year ili', ['year' => $col]),
-            default => Fmt::period($col),
-        };
-
-        return view($request->header('X-Modal') ? 'reports.expense-detail' : 'reports.expense-detail-page', [
+        return view($page ?? 'reports.expense-detail', [
+            'partial' => 'reports.expense-detail',
             'title' => $name.' · '.$periodLabel,
             'name' => $name,
             'periodLabel' => $periodLabel,
@@ -46,6 +54,41 @@ class ExpenseDetailController extends ReportController
             'bySub' => $rows->groupBy(fn ($r) => $r->subcategory ?: '—')
                 ->map(fn ($g) => ['count' => $g->count(), 'sum' => $g->sum(fn ($r) => (float) $r->expense - (float) $r->income)])
                 ->sortByDesc('sum'),
+        ]);
+    }
+
+    /**
+     * Rəsmi xərc qrupunun bank ödənişləri (kontragent × ay) — mühasibat Cash Flow-dan.
+     */
+    private function bank(string $from, string $to, string $group, string $col, string $granularity, string $periodLabel, ?string $page): View
+    {
+        [$from, $to] = match (true) {
+            $col === 'total' => [$from, $to],
+            $granularity === 'year' => [max($from, $col.'-01'), min($to, $col.'-12')],
+            default => [$col, $col],
+        };
+        $classifier = new FlowClassifier;
+        $rows = DB::table('bank_flow_lines')->where('section', 'payment')->whereBetween('period', [$from, $to])
+            ->orderBy('period')->orderBy('row_no')->get(['period', 'counterparty', 'amount'])
+            ->map(function ($r) use ($classifier) {
+                $c = $classifier->classify($r->counterparty, 'payment');
+                $r->type = $c['type'];
+                $r->group = $c['group'] ?: 'Sair xərclər';
+                $r->note = $c['note'];
+
+                return $r;
+            })
+            ->filter(fn ($r) => $r->type === FlowClassifier::EXPENSE && $r->group === $group)->values();
+
+        return view($page ?? 'reports.expense-detail-bank', [
+            'partial' => 'reports.expense-detail-bank',
+            'title' => FlowClassifier::groupLabel($group).' · '.$periodLabel,
+            'name' => FlowClassifier::groupLabel($group),
+            'periodLabel' => $periodLabel,
+            'rows' => $rows,
+            'total' => (float) $rows->sum('amount'),
+            'byCounterparty' => $rows->groupBy('counterparty')->map(fn ($g) => (float) $g->sum('amount'))->sortDesc(),
+            'year' => substr($to, 0, 4),
         ]);
     }
 }

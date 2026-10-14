@@ -63,6 +63,7 @@ class ProfitLossController extends ReportController
         $children = fn (array $set) => array_map(fn ($name, $values) => ['label' => $name, 'values' => $values], array_keys($set), array_values($set));
 
         $net = array_sum($l['net_sales'] ?? []);
+        $netWithExport = $net + array_sum($l['export_revenue'] ?? []);
         $lines = [
             ['label' => __('Satışlar'), 'values' => $l['sales'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
             ['label' => __('− Qaytarma'), 'values' => array_map(fn ($v) => -$v, $l['returns'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
@@ -73,9 +74,13 @@ class ProfitLossController extends ReportController
             ['key' => 'gross_margin', 'label' => __('Brüt marja'), 'values' => $l['margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
             ['label' => __('− Əməliyyat xərcləri'), 'values' => array_map(fn ($v) => -$v, $l['expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
                 'children' => array_map(fn ($c) => ['label' => $c['label'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['expenses']))],
-            ['key' => 'bank', 'label' => __('− Bank xərcləri (Cash Flow)'), 'values' => array_map(fn ($v) => -$v, $l['bank_expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
+            ['key' => 'bank', 'label' => __('− Rəsmi xərclər (bank)'), 'values' => array_map(fn ($v) => -$v, $l['bank_expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
                 'children' => array_map(fn ($c) => ['label' => FlowClassifier::groupLabel($c['label']), 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['bank']))],
             ['label' => __('+ Digər gəlirlər'), 'values' => $l['other_income'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => $children($report['other_income'])],
+            ['key' => 'export', 'label' => __('+ Re-eksport nəticəsi (rəsmi MZ)'), 'values' => $l['export_result'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => [
+                ['label' => __('Gəlir — AR hüdudlarından kənar satış'), 'values' => $l['export_revenue'] ?? []],
+                ['label' => __('Xərc — re-eksportla bağlı (maya, daşınma)'), 'values' => array_map(fn ($v) => -$v, $l['export_cost'] ?? [])],
+            ]],
             ['label' => __('Xalis mənfəət'), 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
             ['key' => 'net_margin', 'label' => __('Xalis marja'), 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];
@@ -91,13 +96,17 @@ class ProfitLossController extends ReportController
         foreach ($lines as &$line) {
             match ($line['key'] ?? null) {
                 'gross_margin' => $line['total'] = abs($net) > 0.005 ? array_sum($l['gross_profit'] ?? []) / $net : null,
-                'net_margin' => $line['total'] = abs($net) > 0.005 ? array_sum($l['net_profit'] ?? []) / $net : null,
+                'net_margin' => $line['total'] = abs($netWithExport) > 0.005 ? array_sum($l['net_profit'] ?? []) / $netWithExport : null,
                 default => null,
             };
         }
         unset($line);
-        // bank məlumatı yoxdursa boş sətri göstərmə
-        $lines = array_values(array_filter($lines, fn ($line) => ($line['key'] ?? null) !== 'bank' || $line['children'] !== []));
+        // bank / re-eksport məlumatı yoxdursa boş sətri göstərmə
+        $lines = array_values(array_filter($lines, fn ($line) => match ($line['key'] ?? null) {
+            'bank' => $line['children'] !== [],
+            'export' => abs(array_sum($l['export_revenue'] ?? [])) + abs(array_sum($l['export_cost'] ?? [])) > 0.005,
+            default => true,
+        }));
 
         return $lines;
     }

@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Əməliyyat xərcləri  = kassa: Emeliyyat_Tipi = Xərc  və effektiv Mənfəətə təsir = Bəli (istiqamət filtri ilə).
  * Digər gəlirlər      = kassa: Emeliyyat_Tipi = Mədaxil və effektiv Mənfəətə təsir = Bəli.
+ * Rəsmi xərclər       = mühasibat Cash Flow-dan (bank) «əməliyyat xərci» təsnifatlı ödənişlər.
+ * Re-eksport          = mühasibat MZ-dəki AR hüdudlarından kənar gəlir və onunla bağlı xərc (satış faylında yoxdur).
  */
 class ProfitLossService
 {
@@ -35,6 +37,7 @@ class ProfitLossService
         $otherIncome = $this->cashByCategory($filters, $granularity, 'income');
         $founder = $this->cashByCategory($filters, $granularity, 'founder');
         $bank = $this->bankExpensesByGroup($filters, $granularity);
+        $export = $this->exportByColumn($filters, $granularity);
 
         $columns = array_unique(array_merge(
             $sales->keys()->map(fn ($k) => (string) $k)->all(),
@@ -42,6 +45,7 @@ class ProfitLossService
             array_merge(...array_map('array_keys', array_values($otherIncome) ?: [[]])),
             array_merge(...array_map('array_keys', array_values($founder) ?: [[]])),
             array_merge(...array_map('array_keys', array_values($bank) ?: [[]])),
+            array_keys($export['revenue']),
         ));
         sort($columns);
 
@@ -62,8 +66,12 @@ class ProfitLossService
             $lines['expenses'][$column] = $expenseTotal;
             $lines['other_income'][$column] = $incomeTotal;
             $lines['bank_expenses'][$column] = $bankTotal;
-            $lines['net_profit'][$column] = $row->gross_profit + $incomeTotal - $expenseTotal - $bankTotal;
-            $lines['net_margin'][$column] = abs($row->net_sales) > 0.005 ? $lines['net_profit'][$column] / $row->net_sales : 0;
+            $lines['export_revenue'][$column] = $export['revenue'][$column] ?? 0.0;
+            $lines['export_cost'][$column] = $export['cost'][$column] ?? 0.0;
+            $lines['export_result'][$column] = $lines['export_revenue'][$column] - $lines['export_cost'][$column];
+            $lines['net_profit'][$column] = $row->gross_profit + $incomeTotal - $expenseTotal - $bankTotal + $lines['export_result'][$column];
+            $base = $row->net_sales + $lines['export_revenue'][$column];
+            $lines['net_margin'][$column] = abs($base) > 0.005 ? $lines['net_profit'][$column] / $base : 0;
             $founderTotal = array_sum(array_map(fn ($c) => $c[$column] ?? 0, $founder));
             $lines['founder'][$column] = $founderTotal;
             $lines['retained'][$column] = $lines['net_profit'][$column] - $founderTotal;
@@ -107,6 +115,74 @@ class ProfitLossService
     public function bankExpenseTotal(ReportFilters $filters): float
     {
         return (float) array_sum(array_map('array_sum', $this->bankExpensesByGroup($filters)));
+    }
+
+    /**
+     * Rəsmi re-eksport: MZ-dəki illik «AR hüdudlarından kənar» gəlir və onunla bağlı xərc.
+     * Aylara xarici alıcılardan (OOO …) bank daxilolmalarının payı ilə bölünür — bölgü təxminidir, illik cəm dəqiqdir.
+     *
+     * @param  'month'|'year'  $granularity
+     * @return array{revenue: array<string, float>, cost: array<string, float>}
+     */
+    public function exportByColumn(ReportFilters $filters, string $granularity = 'month'): array
+    {
+        $result = ['revenue' => [], 'cost' => []];
+        if ($filters->direction !== null && ! in_array($filters->direction, ['all', 'VALVO'], true)) {
+            return $result;
+        }
+        [$from, $to] = [$filters->fromPeriod(), $filters->toPeriod()];
+        $lines = DB::table('acc_pl_lines')->whereBetween('year', [(int) substr($from, 0, 4), (int) substr($to, 0, 4)])
+            ->whereIn('section', ['income', 'expense'])->get(['year', 'section', 'tax_code', 'name', 'amount']);
+        foreach ($lines->filter(fn ($l) => self::isExportLine($l))->groupBy('year') as $year => $group) {
+            $totals = ['revenue' => (float) $group->where('section', 'income')->sum('amount'), 'cost' => (float) $group->where('section', 'expense')->sum('amount')];
+            foreach (self::exportWeights((int) $year) as $period => $weight) {
+                if ($period < $from || $period > $to) {
+                    continue;
+                }
+                $column = $granularity === 'year' ? substr($period, 0, 4) : $period;
+                foreach ($totals as $key => $amount) {
+                    $result[$key][$column] = ($result[$key][$column] ?? 0.0) + $amount * $weight;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    public function exportResultTotal(ReportFilters $filters): float
+    {
+        $export = $this->exportByColumn($filters);
+
+        return (float) (array_sum($export['revenue']) - array_sum($export['cost']));
+    }
+
+    /**
+     * MZ sətri AR hüdudlarından kənar (re-eksport) gəlir / xərcdirmi: 217.2 gəlir, 232.1 xərc.
+     */
+    public static function isExportLine(object $line): bool
+    {
+        return str_contains(NameNormalizer::normalize($line->name), 'hududlarindan kenar')
+            || in_array($line->tax_code, ['217.2', '232.1'], true);
+    }
+
+    /**
+     * Re-eksport məbləğinin aylara bölgüsü: xarici alıcılardan (adı «OOO» ilə başlayan) bank daxilolmaları;
+     * belə daxilolma yoxdursa ilin aylarına bərabər.
+     *
+     * @return array<string, float> dövr => pay (cəmi 1)
+     */
+    public static function exportWeights(int $year): array
+    {
+        $receipts = DB::table('bank_flow_lines')->where('year', $year)->where('section', 'income')
+            ->where('normalized', 'like', 'ooo %')->where('amount', '>', 0)
+            ->groupBy('period')->selectRaw('period, SUM(amount) AS amount')->pluck('amount', 'period')->map(fn ($v) => (float) $v);
+        $sum = $receipts->sum();
+        if ($sum > 0) {
+            return $receipts->map(fn ($v) => $v / $sum)->all();
+        }
+        $months = array_map(fn ($m) => sprintf('%d-%02d', $year, $m), range(1, 12));
+
+        return array_fill_keys($months, 1 / 12);
     }
 
     /**

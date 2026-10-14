@@ -50,7 +50,9 @@
             ['accounting.balance', __('Balans'), 'pnl', $isAdmin],
             ['accounting.pl', __('Mənfəət-zərər (vergi)'), 'expenses', $isAdmin],
             ['accounting.cashflow', __('Cash Flow (bank)'), 'cash', $isAdmin],
+            ['bank.index', __('Bank hesabları'), 'payments', $isAdmin],
             ['accounting.overview', __('İllər üzrə müqayisə'), 'up', $isAdmin],
+            ['accounting.reconcile', __('Tutuşdurma'), 'quality', $isAdmin],
         ],
         __('Məlumat') => [
             ['quality.index', __('Məlumat keyfiyyəti'), 'quality', $isAdmin],
