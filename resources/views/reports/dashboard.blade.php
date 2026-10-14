@@ -39,10 +39,10 @@
                     <div class="mt-1 text-xl font-semibold tabular-nums pos">{{ Fmt::money($o['customer'] ?? 0) }}</div>
                     <div class="text-xs text-muted">{{ __('sistemdə var') }}: {{ Fmt::money($o['included'] ?? 0, 0) }}@if (($o['pending'] ?? 0) > 0) · <span class="warn">{{ __('yoxlanılmalı') }}: {{ Fmt::money($o['pending'], 0) }}</span>@endif</div>
                 </a>
-                <a href="{{ route('expenses.index', $filters->query(['src' => 'bank'])) }}" class="block bg-surface p-4 hover:bg-surface-2">
+                <a href="{{ route('pnl.index', $filters->query(['resmi' => 'daxil'])) }}" class="block bg-surface p-4 hover:bg-surface-2">
                     <div class="kpi-label">{{ __('Rəsmi xərclər (bank)') }}</div>
                     <div class="mt-1 text-xl font-semibold tabular-nums neg">{{ Fmt::money($official['bank_expenses']) }}</div>
-                    <div class="text-xs text-muted">{{ __('xərclərə və xalis mənfəətə daxildir') }}</div>
+                    <div class="text-xs text-muted">{{ __('P&L-də «Daxil» seçiləndə xərclərə düşür') }}</div>
                 </a>
                 <a href="{{ route('pnl.index', $filters->query()) }}" class="block bg-surface p-4 hover:bg-surface-2">
                     <div class="kpi-label">{{ __('Təsisçidən / re-eksport') }}</div>

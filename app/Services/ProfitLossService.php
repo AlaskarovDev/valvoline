@@ -193,9 +193,9 @@ class ProfitLossService
      *
      * @return array{net_profit: float, expenses: float, other_income: float}
      */
-    public function totals(ReportFilters $filters): array
+    public function totals(ReportFilters $filters, bool $withOfficial = false): array
     {
-        $lines = $this->build($filters, 'year')['lines'];
+        $lines = $this->build($filters, 'year', $withOfficial)['lines'];
 
         return [
             'net_profit' => (float) array_sum($lines['net_profit'] ?? []),

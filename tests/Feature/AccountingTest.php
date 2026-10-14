@@ -173,7 +173,7 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta(1600.0, $report['lines']['bank_expenses']['2025-01'], 0.001);
         $this->assertEqualsWithDelta(-3570.0, array_sum($report['lines']['net_profit']), 0.001);
 
-        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
+        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year', 'resmi' => 'daxil']))
             ->assertOk()->assertSee('Rəsmi xərclər (bank)')->assertSee('Əmək Haqqı')->assertSee('Naməlum Firma MMC')->assertDontSee('ELLIS ENTERPRISES')->assertDontSee('Re-eksport nəticəsi');
     }
 
@@ -335,7 +335,7 @@ class AccountingTest extends TestCase
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))->assertOk()
             ->assertSee('Rəsmi gəlir — sistemdə olmayan satış (bank)')->assertSee('Rəsmi pul axını (mühasibat Cash Flow)')->assertSee('Dövrün əvvəlinə qalıq');
         $this->get(route('dashboard', ['from' => '2025-01-01', 'to' => '2025-12-31']))->assertOk()
-            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(-3570.0 + 3000.0), false);
+            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(3000.0), false, 'idarə paneli P&L kimi — rəsmi xərclər standart xaric');
 
         $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'auto'])->assertRedirect();
         $this->assertSame(0, DB::table('revenue_decisions')->count());
@@ -350,21 +350,23 @@ class AccountingTest extends TestCase
         // yanvar: yalnız rəsmi xərclər 1600 → xalis −1600; əl ilə açılış 1000 → son qalıq −600, fevral oradan davam edir
         $this->post(route('pnl.openings'), ['opening' => ['2025-01' => '1000', 'bogus' => '5']])->assertRedirect();
         $this->assertSame(['2025-01'], DB::table('pnl_openings')->pluck('period')->all());
-        $this->get(route('flowsheet.index', $range))->assertOk()->assertSee('Cash Flow (idarəetmə)')
+        $this->get(route('flowsheet.index', $range + ['resmi' => 'daxil']))->assertOk()->assertSee('Cash Flow (idarəetmə)')
             ->assertSee('Mənfəət-zərər — Excel görünüşü')->assertSee('Dövrün əvvəlinə qalıq')->assertSee('Naməlum Firma MMC')
             ->assertSee('value="1000"', false)->assertSee('placeholder="-600.00"', false)->assertSee(Fmt::money(-600, 2, false), false);
 
         $this->post(route('pnl.openings'), ['opening' => ['2025-01' => '']])->assertRedirect();
         $this->assertSame(0, DB::table('pnl_openings')->count(), 'boş xana əl ilə qalığı silir');
 
-        // «Rəsmi xərclər: Xaric» — bank xərcləri P&L-dən çıxır
+        // standart «Rəsmi xərclər: Xaric» — bank xərcləri P&L-ə yalnız «Daxil» seçiləndə düşür
         $pnl = app(ProfitLossService::class);
         $this->assertEqualsWithDelta(0.0, array_sum($pnl->build($this->filters(), 'month', false)['lines']['bank_expenses'] ?? []), 0.001);
         $this->assertEqualsWithDelta(0.0, array_sum($pnl->build($this->filters(), 'month', false)['lines']['net_profit'] ?? []), 0.001);
-        $this->get(route('pnl.index', $range + ['resmi' => 'xaric', 'gran' => 'year']))->assertOk()->assertDontSee('− Rəsmi xərclər (bank)');
-        $this->get(route('pnl.index', $range + ['gran' => 'year']))->assertOk()->assertSee('− Rəsmi xərclər (bank)');
-        $this->get(route('pnl.detail', $range + ['resmi' => 'xaric', 'line' => 'net_profit', 'col' => 'total']), ['X-Modal' => '1'])
+        $this->get(route('pnl.index', $range + ['gran' => 'year']))->assertOk()->assertDontSee('− Rəsmi xərclər (bank)');
+        $this->get(route('pnl.index', $range + ['resmi' => 'daxil', 'gran' => 'year']))->assertOk()->assertSee('− Rəsmi xərclər (bank)');
+        $this->get(route('pnl.detail', $range + ['line' => 'net_profit', 'col' => 'total']), ['X-Modal' => '1'])
             ->assertOk()->assertSee(Fmt::money(0), false);
+        $this->get(route('pnl.detail', $range + ['resmi' => 'daxil', 'line' => 'net_profit', 'col' => 'total']), ['X-Modal' => '1'])
+            ->assertOk()->assertSee(Fmt::money(-3570), false);
     }
 
     public function test_xls_upload_is_only_allowed_for_the_accounting_file(): void

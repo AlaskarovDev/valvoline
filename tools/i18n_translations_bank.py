@@ -216,7 +216,7 @@ T = {
     'sistemdə var': ('есть в системе', 'in the system'),
     'tapılmadı': ('не найден', 'not found'),
     'təsisçidən — gəlir deyil': ('от учредителя — не доход', 'from the founder — not revenue'),
-    'xərclərə və xalis mənfəətə daxildir': ('входит в расходы и чистую прибыль', 'included in expenses and net profit'),
+    'P&L-də «Daxil» seçiləndə xərclərə düşür': ('попадает в расходы, если в P&L выбрано «Включены»', 'counted in expenses when "Included" is selected in the P&L'),
     'yoxlanılmalı': ('проверить', 'to check'),
     'yoxlanılmalı — P&L-ə düşmür': ('требует проверки — не в P&L', 'to check — not in the P&L'),
     '«:name» üçün qərar saxlanıldı — P&L yeniləndi.': ('Решение для «:name» сохранено — P&L обновлён.', 'Decision for ":name" saved — the P&L is updated.'),

@@ -23,7 +23,8 @@ class ProfitLossController extends ReportController
         $view = $request->routeIs('flowsheet.index') || $request->query('view') === 'sheet' ? 'sheet' : 'report';
         // Excel görünüşü aylar üzrədir (ayın əvvəlinə qalıq aylıqdır)
         $granularity = $view === 'report' && $request->query('gran') === 'year' ? 'year' : 'month';
-        $withOfficial = $request->query('resmi') !== 'xaric';
+        // rəsmi (bank) xərclər standart olaraq xaricdir — «Daxil» düyməsi ilə əlavə olunur
+        $withOfficial = $request->query('resmi') === 'daxil';
         $report = $pnl->build($filters, $granularity, $withOfficial);
         $columns = $report['columns'];
         $labels = array_map(fn ($c) => $granularity === 'year' ? (string) $c : Fmt::period((string) $c), $columns);
@@ -55,7 +56,7 @@ class ProfitLossController extends ReportController
             'lines' => $lines,
             'chart' => $chart,
             // xanaya klik → hesablama popup-u (eyni filtrlər)
-            'detailQuery' => $filters->query(['gran' => $granularity, 'resmi' => $withOfficial ? null : 'xaric']),
+            'detailQuery' => $filters->query(['gran' => $granularity, 'resmi' => $withOfficial ? 'daxil' : null]),
             'view' => $view,
             'withOfficial' => $withOfficial,
             'sheet' => $view === 'sheet' ? $this->sheet($report) : null,

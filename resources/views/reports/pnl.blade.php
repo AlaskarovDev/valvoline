@@ -15,8 +15,8 @@
         </nav>
         <div class="ml-auto flex items-center gap-1.5" role="group" aria-label="{{ __('Rəsmi xərclər') }}">
             <span class="text-xs text-muted">{{ __('Rəsmi xərclər (bank)') }}:</span>
-            <a href="{{ request()->fullUrlWithQuery(['resmi' => null]) }}" @class(['chip', 'active' => $withOfficial])>{{ __('Daxil') }}</a>
-            <a href="{{ request()->fullUrlWithQuery(['resmi' => 'xaric']) }}" @class(['chip', 'active' => ! $withOfficial])>{{ __('Xaric') }}</a>
+            <a href="{{ request()->fullUrlWithQuery(['resmi' => 'daxil']) }}" @class(['chip', 'active' => $withOfficial])>{{ __('Daxil') }}</a>
+            <a href="{{ request()->fullUrlWithQuery(['resmi' => null]) }}" @class(['chip', 'active' => ! $withOfficial])>{{ __('Xaric') }}</a>
         </div>
     </div>
 
