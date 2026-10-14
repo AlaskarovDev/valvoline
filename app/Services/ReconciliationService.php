@@ -28,7 +28,7 @@ class ReconciliationService
     public function __construct(private ProfitLossService $pnl) {}
 
     /**
-     * @return array{revenue: list<object>, expenses: list<object>, purchases: list<object>, customers: list<object>, totals: array<string, float>}
+     * @return array{revenue: list<object>, expenses: list<object>, purchases: list<object>}
      */
     public function build(int $year): array
     {
@@ -48,7 +48,6 @@ class ReconciliationService
             'revenue' => $this->revenue($filters, $year, $pl, $flows),
             'expenses' => $this->expenses($filters, $pl, $flows),
             'purchases' => $this->purchases($year, $pl, $flows),
-            'customers' => $this->customers($year, $flows),
         ];
     }
 
@@ -152,47 +151,6 @@ class ReconciliationService
             (object) ['label' => __('MZ: satılmış malın dəyəri (daxili)'), 'amount' => $mzGoods, 'note' => __('Rəsmi uçotda daxili satışın mayası (221.4).')],
             (object) ['label' => __('MZ: re-eksportla bağlı xərclər'), 'amount' => $mzExport, 'note' => __('232.1 — re-eksport malının mayası və xərcləri; P&L-də re-eksport blokundadır.')],
         ];
-    }
-
-    /**
-     * Bankdan ödəyən hər alıcı üçün sistemdə ehtimal olunan müştəri və həmin ilin sistem ödənişləri.
-     *
-     * @return list<object>
-     */
-    private function customers(int $year, Collection $flows): array
-    {
-        $payers = $flows->where('section', 'income')->where('type', 'revenue')
-            ->reject(fn ($f) => str_starts_with($f->normalized, 'ooo '))
-            ->groupBy('counterparty')->map(fn ($g) => (float) $g->sum('amount'))->sortDesc();
-        if ($payers->isEmpty()) {
-            return [];
-        }
-        $customers = DB::table('customers')->where('type', 'customer')->get(['id', 'name', 'other_names']);
-        $paid = DB::table('payments')->whereBetween('period', [$year.'-01', $year.'-12'])->whereNotNull('customer_id')
-            ->groupBy('customer_id')->selectRaw('customer_id, SUM(bank) AS bank, SUM(total) AS total')->get()->keyBy('customer_id');
-
-        $rows = [];
-        foreach ($payers as $name => $amount) {
-            [$customer, $score] = self::bestCustomer((string) $name, $customers);
-            $p = $customer ? ($paid[$customer->id] ?? null) : null;
-            $systemBank = (float) ($p->bank ?? 0);
-            $rows[] = (object) [
-                'counterparty' => $name,
-                'official' => $amount,
-                'customer' => $customer,
-                'score' => $score,
-                'system_bank' => $systemBank,
-                'system_total' => (float) ($p->total ?? 0),
-                'status' => match (true) {
-                    $customer === null => 'not_found',
-                    $systemBank + 1 >= $amount => self::STATUS_OK,
-                    (float) ($p->total ?? 0) + 1 >= $amount => 'as_cash',
-                    default => 'missing',
-                },
-            ];
-        }
-
-        return $rows;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Reports;
 
 use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
+use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Support\Fmt;
 use Illuminate\Http\Request;
@@ -23,11 +24,11 @@ class DashboardController extends ReportController
         $orders = $this->orderCount($filters);
         $previousOrders = $this->orderCount(SalesSummaryQuery::previousYear($filters));
 
-        $expenses = $isAdmin ? (float) ProfitLossService::profitCash($filters, 'expense')->sum(DB::raw('c.expense - c.income')) + app(ProfitLossService::class)->bankExpenseTotal($filters) : null;
-        $otherIncome = $isAdmin ? (float) ProfitLossService::profitCash($filters, 'income')->sum(DB::raw('c.income - c.expense')) + app(ProfitLossService::class)->exportResultTotal($filters) : null;
+        // xərc və xalis mənfəət P&L səhifəsi ilə eyni: kassa + rəsmi (bank) xərclər, re-eksport, rəsmi əlavə gəlir
+        $pnl = app(ProfitLossService::class);
         $prevFilters = SalesSummaryQuery::previousYear($filters);
-        $prevExpenses = $isAdmin ? (float) ProfitLossService::profitCash($prevFilters, 'expense')->sum(DB::raw('c.expense - c.income')) + app(ProfitLossService::class)->bankExpenseTotal($prevFilters) : null;
-        $prevIncome = $isAdmin ? (float) ProfitLossService::profitCash($prevFilters, 'income')->sum(DB::raw('c.income - c.expense')) + app(ProfitLossService::class)->exportResultTotal($prevFilters) : null;
+        $totals = $isAdmin ? $pnl->totals($filters) : null;
+        $prevTotals = $isAdmin ? $pnl->totals($prevFilters) : null;
 
         $debt = DB::table('customer_balances as b')->join('customers as c', 'c.id', '=', 'b.customer_id')
             ->where('c.type', 'customer')->where('b.balance', '>', 0)
@@ -43,21 +44,43 @@ class DashboardController extends ReportController
                 'net_sales' => [$current->net_sales, Fmt::delta($current->net_sales, $previous->net_sales)],
                 'gross_profit' => [$current->gross_profit, Fmt::delta($current->gross_profit, $previous->gross_profit)],
                 'margin' => [$current->margin, $previous->margin],
-                'expenses' => [$expenses, $isAdmin ? Fmt::delta($expenses, $prevExpenses) : null],
-                'net_profit' => $isAdmin ? [
-                    $current->gross_profit + $otherIncome - $expenses,
-                    Fmt::delta($current->gross_profit + $otherIncome - $expenses, $previous->gross_profit + $prevIncome - $prevExpenses),
-                ] : null,
+                'expenses' => $isAdmin ? [$totals['expenses'], Fmt::delta($totals['expenses'], $prevTotals['expenses'])] : [null, null],
+                'net_profit' => $isAdmin ? [$totals['net_profit'], Fmt::delta($totals['net_profit'], $prevTotals['net_profit'])] : null,
                 'debt' => [(float) ($debt->total ?? 0), (int) ($debt->cnt ?? 0)],
                 'stock' => [(float) ($stock->value ?? 0), (float) ($stock->qty ?? 0)],
                 'orders' => [$orders, Fmt::delta($orders, $previousOrders)],
             ],
+            'official' => $isAdmin ? $this->official($filters, $pnl) : null,
             'trend' => $this->trend($filters),
             'categories' => $this->categoryShare($filters),
             'topProducts' => $this->topProducts($filters),
             'topDebtors' => $this->topDebtors($filters),
             'managers' => $this->managerSales($filters),
         ]);
+    }
+
+    /**
+     * Mühasibat faylından rəsmi göstəricilər: pul vəsaitləri, müştəri daxilolmaları, rəsmi xərclər, re-eksport.
+     * Seçilmiş dövr üçün məlumat yoxdursa son mövcud ay göstərilir.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function official(ReportFilters $filters, ProfitLossService $pnl): ?array
+    {
+        $lastPeriod = DB::table('bank_flow_lines')->whereIn('section', ['income', 'payment'])->where('amount', '!=', 0)->max('period');
+        if ($lastPeriod === null) {
+            return null;
+        }
+        $summary = app(OfficialRevenueService::class)->cashSummary($filters);
+        $lastClosing = (float) DB::table('bank_flow_lines')->where('section', 'closing')->where('period', $lastPeriod)->sum('amount');
+
+        return [
+            'summary' => $summary,
+            'last_period' => $lastPeriod,
+            'last_closing' => $lastClosing,
+            'bank_expenses' => $pnl->bankExpenseTotal($filters),
+            'export' => $pnl->exportResultTotal($filters),
+        ];
     }
 
     private function orderCount(ReportFilters $filters): int

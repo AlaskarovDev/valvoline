@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
 use App\Services\FlowClassifier;
+use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Services\ReconciliationService;
 use App\Support\ChartOfAccounts;
@@ -265,7 +266,7 @@ class AccountingController extends Controller
     /**
      * Sistem məlumatlarının mühasibat faylı ilə tutuşdurulması (il üzrə).
      */
-    public function reconcile(Request $request, ReconciliationService $service): View
+    public function reconcile(Request $request, ReconciliationService $service, OfficialRevenueService $official): View
     {
         $year = $this->year($request);
 
@@ -273,7 +274,26 @@ class AccountingController extends Controller
             'title' => __('Tutuşdurma: sistem ↔ mühasibat'),
             'year' => $year,
             'years' => $this->years(),
-        ], $year === null ? [] : $service->build($year)));
+        ], $year === null ? [] : $service->build($year) + [
+            'payers' => $official->payers($year),
+            'openings' => $official->openings(),
+            'decisionLabels' => OfficialRevenueService::labels(),
+        ]));
+    }
+
+    /**
+     * Rəsmi daxilolmanın P&L-ə münasibəti (ödəyici üzrə): sistemdə var / sistemdə olmayan satış / gəlir deyil / avtomatik.
+     */
+    public function decideRevenue(Request $request, OfficialRevenueService $official): RedirectResponse
+    {
+        $data = $request->validate([
+            'normalized' => ['required', 'string', 'max:255'],
+            'counterparty' => ['required', 'string', 'max:255'],
+            'decision' => ['required', Rule::in(array_merge(OfficialRevenueService::DECISIONS, ['auto']))],
+        ]);
+        $official->decide($data['normalized'], $data['counterparty'], $data['decision'], $request->user()->id);
+
+        return back()->with('status', __('«:name» üçün qərar saxlanıldı — P&L yeniləndi.', ['name' => $data['counterparty']]));
     }
 
     public function cashFlow(Request $request): View

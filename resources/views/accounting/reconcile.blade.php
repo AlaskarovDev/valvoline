@@ -8,12 +8,6 @@
         R::STATUS_OK => ['badge-pos', __('Uyğundur')],
         R::STATUS_INFO => ['', __('Məlumat')],
     ];
-    $customerStatus = [
-        'ok' => ['badge-pos', __('Sistemdə var')],
-        'as_cash' => ['badge-warn', __('Sistemdə nağd kimi yazılıb')],
-        'missing' => ['badge-neg', __('Sistemdə az / yoxdur')],
-        'not_found' => ['', __('Müştəri tapılmadı')],
-    ];
 @endphp
 <x-layouts.app :title="$title">
     <div class="flex flex-wrap items-center gap-3">
@@ -111,40 +105,9 @@
                 </ul>
             </section>
 
-            <section class="card overflow-hidden">
-                <div class="card-head"><div>
-                    <h2 class="card-title">{{ __('Müştərilərin bank ödənişləri') }}</h2>
-                    <div class="card-sub">{{ __('Bank çıxarışındakı ödəyici ↔ sistemdəki ehtimal olunan müştəri (ad oxşarlığı ilə) və həmin ilin ödənişləri.') }}</div>
-                </div></div>
-                <div class="tbl-wrap max-h-[60vh]">
-                    <table class="tbl">
-                        <thead><tr><th>{{ __('Bankda ödəyici') }}</th><th class="num">{{ __('Bank') }}</th><th>{{ __('Sistemdə müştəri') }}</th><th class="num">{{ __('Sistem: bank / cəmi') }}</th><th>{{ __('Vəziyyət') }}</th></tr></thead>
-                        <tbody>
-                        @forelse ($customers as $c)
-                            <tr>
-                                <td class="wrap">{{ $c->counterparty }}</td>
-                                <td class="num">{{ Fmt::money($c->official, 0) }}</td>
-                                <td class="wrap">
-                                    @if ($c->customer)
-                                        <a href="{{ route('customers.show', $c->customer->id) }}" class="cell-link">{{ $c->customer->name }}</a>
-                                        @if ($c->score < 0.8)<span class="text-xs text-muted">({{ __('ehtimal') }})</span>@endif
-                                    @else
-                                        <span class="text-faint">—</span>
-                                    @endif
-                                </td>
-                                <td class="num">{{ $c->customer ? Fmt::money($c->system_bank, 0).' / '.Fmt::money($c->system_total, 0) : '—' }}</td>
-                                <td><span class="badge {{ $customerStatus[$c->status][0] }}">{{ $customerStatus[$c->status][1] }}</span></td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="5" class="py-6 text-center text-muted">{{ __('Məlumat yoxdur') }}</td></tr>
-                        @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                <div class="border-t border-line px-4 py-2.5 text-xs text-muted">
-                    {{ __('«Müştəri tapılmadı» — bank adı sistemdəki heç bir müştəriyə bənzəmir; ödəniş başqa adla yazılıb və ya ümumiyyətlə yazılmayıb. Müştəri borcları yalnız sistemdəki ödənişlərlə hesablanır.') }}
-                </div>
-            </section>
+            @include('accounting._openings')
         </div>
+
+        @include('accounting._official-revenue')
     @endif
 </x-layouts.app>

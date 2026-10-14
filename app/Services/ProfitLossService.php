@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
  * Digər gəlirlər      = kassa: Emeliyyat_Tipi = Mədaxil və effektiv Mənfəətə təsir = Bəli.
  * Rəsmi xərclər       = mühasibat Cash Flow-dan (bank) «əməliyyat xərci» təsnifatlı ödənişlər.
  * Re-eksport          = mühasibat MZ-dəki AR hüdudlarından kənar gəlir və onunla bağlı xərc (satış faylında yoxdur).
+ * Rəsmi əlavə gəlir   = bank daxilolması, ödəyicisi sistemdə olmayan və «sistemdə olmayan satış» seçilmiş (OfficialRevenueService).
  */
 class ProfitLossService
 {
@@ -38,6 +39,7 @@ class ProfitLossService
         $founder = $this->cashByCategory($filters, $granularity, 'founder');
         $bank = $this->bankExpensesByGroup($filters, $granularity);
         $export = $this->exportByColumn($filters, $granularity);
+        $officialExtra = app(OfficialRevenueService::class)->extraByColumn($filters, $granularity);
 
         $columns = array_unique(array_merge(
             $sales->keys()->map(fn ($k) => (string) $k)->all(),
@@ -46,6 +48,7 @@ class ProfitLossService
             array_merge(...array_map('array_keys', array_values($founder) ?: [[]])),
             array_merge(...array_map('array_keys', array_values($bank) ?: [[]])),
             array_keys($export['revenue']),
+            array_keys($officialExtra),
         ));
         sort($columns);
 
@@ -69,8 +72,9 @@ class ProfitLossService
             $lines['export_revenue'][$column] = $export['revenue'][$column] ?? 0.0;
             $lines['export_cost'][$column] = $export['cost'][$column] ?? 0.0;
             $lines['export_result'][$column] = $lines['export_revenue'][$column] - $lines['export_cost'][$column];
-            $lines['net_profit'][$column] = $row->gross_profit + $incomeTotal - $expenseTotal - $bankTotal + $lines['export_result'][$column];
-            $base = $row->net_sales + $lines['export_revenue'][$column];
+            $lines['official_extra'][$column] = $officialExtra[$column] ?? 0.0;
+            $lines['net_profit'][$column] = $row->gross_profit + $incomeTotal - $expenseTotal - $bankTotal + $lines['export_result'][$column] + $lines['official_extra'][$column];
+            $base = $row->net_sales + $lines['export_revenue'][$column] + $lines['official_extra'][$column];
             $lines['net_margin'][$column] = abs($base) > 0.005 ? $lines['net_profit'][$column] / $base : 0;
             $founderTotal = array_sum(array_map(fn ($c) => $c[$column] ?? 0, $founder));
             $lines['founder'][$column] = $founderTotal;
@@ -147,6 +151,22 @@ class ProfitLossService
         }
 
         return $result;
+    }
+
+    /**
+     * İdarə paneli üçün P&L cəmləri (P&L səhifəsi ilə eyni hesablama).
+     *
+     * @return array{net_profit: float, expenses: float, other_income: float}
+     */
+    public function totals(ReportFilters $filters): array
+    {
+        $lines = $this->build($filters, 'year')['lines'];
+
+        return [
+            'net_profit' => (float) array_sum($lines['net_profit'] ?? []),
+            'expenses' => (float) array_sum($lines['expenses'] ?? []) + (float) array_sum($lines['bank_expenses'] ?? []),
+            'other_income' => (float) array_sum($lines['other_income'] ?? []) + (float) array_sum($lines['export_result'] ?? []) + (float) array_sum($lines['official_extra'] ?? []),
+        ];
     }
 
     public function exportResultTotal(ReportFilters $filters): float

@@ -66,4 +66,8 @@
             {{ __('Məbləğlər AZN, tam ədədə yuvarlaqlaşdırılıb (hesablama 4 onluq dəqiqliklə). Hədiyyə / daxili istifadə mayası brüt mənfəəti azaldır. «Mənfəətə təsir: Xeyr» olan kassa əməliyyatları burada görünmür — yalnız Kassa hesabatında.') }}
         </div>
     </section>
+
+    @if ($official)
+        @include('reports._pnl-official')
+    @endif
 </x-layouts.app>

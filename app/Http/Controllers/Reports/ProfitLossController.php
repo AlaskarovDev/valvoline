@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reports;
 
 use App\Services\FlowClassifier;
+use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Support\Fmt;
 use App\Support\Spreadsheet;
@@ -48,6 +49,7 @@ class ProfitLossController extends ReportController
             'labels' => $labels,
             'lines' => $lines,
             'chart' => $chart,
+            'official' => app(OfficialRevenueService::class)->cashSummary($filters),
         ]);
     }
 
@@ -63,7 +65,7 @@ class ProfitLossController extends ReportController
         $children = fn (array $set) => array_map(fn ($name, $values) => ['label' => $name, 'values' => $values], array_keys($set), array_values($set));
 
         $net = array_sum($l['net_sales'] ?? []);
-        $netWithExport = $net + array_sum($l['export_revenue'] ?? []);
+        $netWithExport = $net + array_sum($l['export_revenue'] ?? []) + array_sum($l['official_extra'] ?? []);
         $lines = [
             ['label' => __('Satışlar'), 'values' => $l['sales'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
             ['label' => __('− Qaytarma'), 'values' => array_map(fn ($v) => -$v, $l['returns'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
@@ -81,6 +83,7 @@ class ProfitLossController extends ReportController
                 ['label' => __('Gəlir — AR hüdudlarından kənar satış'), 'values' => $l['export_revenue'] ?? []],
                 ['label' => __('Xərc — re-eksportla bağlı (maya, daşınma)'), 'values' => array_map(fn ($v) => -$v, $l['export_cost'] ?? [])],
             ]],
+            ['key' => 'official_extra', 'label' => __('+ Rəsmi gəlir — sistemdə olmayan satış (bank)'), 'values' => $l['official_extra'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
             ['label' => __('Xalis mənfəət'), 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
             ['key' => 'net_margin', 'label' => __('Xalis marja'), 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];
@@ -105,6 +108,7 @@ class ProfitLossController extends ReportController
         $lines = array_values(array_filter($lines, fn ($line) => match ($line['key'] ?? null) {
             'bank' => $line['children'] !== [],
             'export' => abs(array_sum($l['export_revenue'] ?? [])) + abs(array_sum($l['export_cost'] ?? [])) > 0.005,
+            'official_extra' => abs(array_sum($l['official_extra'] ?? [])) > 0.005,
             default => true,
         }));
 

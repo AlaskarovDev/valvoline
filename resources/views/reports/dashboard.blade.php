@@ -18,6 +18,41 @@
         <x-kpi :label="__('Anbar dəyəri (maya ilə)')" :value="Fmt::money($kpi['stock'][0])" :meta="__(':n ədəd', ['n' => Fmt::number($kpi['stock'][1])])" :href="route('stock.index')"/>
     </div>
 
+    @if ($official)
+        @php $o = $official['summary']; @endphp
+        <section class="card overflow-hidden">
+            <div class="card-head">
+                <div>
+                    <h2 class="card-title">{{ __('Rəsmi göstəricilər (mühasibat)') }}</h2>
+                    <div class="card-sub">{{ $o ? $filters->label() : __('Bu dövr üçün mühasibat məlumatı yoxdur — son məlumat: :period', ['period' => Fmt::period($official['last_period'])]) }}</div>
+                </div>
+                <a href="{{ route('accounting.reconcile') }}" class="btn btn-sm">{{ __('Tutuşdurma') }} →</a>
+            </div>
+            <div class="grid grid-cols-2 gap-px bg-line xl:grid-cols-4">
+                <a href="{{ route('bank.index') }}" class="block bg-surface p-4 hover:bg-surface-2">
+                    <div class="kpi-label">{{ __('Pul vəsaitləri (bank + kassa)') }}</div>
+                    <div class="mt-1 text-xl font-semibold tabular-nums">{{ Fmt::money($o['closing'] ?? $official['last_closing']) }}</div>
+                    <div class="text-xs text-muted">{{ __(':period sonuna', ['period' => Fmt::period($o['closing_period'] ?? $official['last_period'])]) }}@if ($o && $o['opening'] !== null) · {{ __('dövrün əvvəlinə') }}: {{ Fmt::money($o['opening'], 0) }}@endif</div>
+                </a>
+                <a href="{{ route('accounting.reconcile') }}" class="block bg-surface p-4 hover:bg-surface-2">
+                    <div class="kpi-label">{{ __('Rəsmi daxilolmalar (müştərilər)') }}</div>
+                    <div class="mt-1 text-xl font-semibold tabular-nums pos">{{ Fmt::money($o['customer'] ?? 0) }}</div>
+                    <div class="text-xs text-muted">{{ __('sistemdə var') }}: {{ Fmt::money($o['included'] ?? 0, 0) }}@if (($o['pending'] ?? 0) > 0) · <span class="warn">{{ __('yoxlanılmalı') }}: {{ Fmt::money($o['pending'], 0) }}</span>@endif</div>
+                </a>
+                <a href="{{ route('expenses.index', $filters->query(['src' => 'bank'])) }}" class="block bg-surface p-4 hover:bg-surface-2">
+                    <div class="kpi-label">{{ __('Rəsmi xərclər (bank)') }}</div>
+                    <div class="mt-1 text-xl font-semibold tabular-nums neg">{{ Fmt::money($official['bank_expenses']) }}</div>
+                    <div class="text-xs text-muted">{{ __('xərclərə və xalis mənfəətə daxildir') }}</div>
+                </a>
+                <a href="{{ route('pnl.index', $filters->query()) }}" class="block bg-surface p-4 hover:bg-surface-2">
+                    <div class="kpi-label">{{ __('Təsisçidən / re-eksport') }}</div>
+                    <div class="mt-1 text-xl font-semibold tabular-nums">{{ Fmt::money($o['founder'] ?? 0) }}</div>
+                    <div class="text-xs text-muted">{{ __('təsisçidən — gəlir deyil') }} · {{ __('re-eksport nəticəsi') }}: {{ Fmt::money($official['export'], 0) }}</div>
+                </a>
+            </div>
+        </section>
+    @endif
+
     <x-chart :title="__('Son 24 ay: satış və mənfəət')" :sub="__('Sütunlar — xalis satış və brüt mənfəət, xətt — marja %. Aya klikləyin → sifarişlər')" :spec="$trend" :height="330"/>
 
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">

@@ -6,6 +6,7 @@ use App\Models\ImportBatch;
 use App\Models\User;
 use App\Reports\ReportFilters;
 use App\Services\FlowClassifier;
+use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Services\ReconciliationService;
 use App\Support\Fmt;
@@ -293,7 +294,7 @@ class AccountingTest extends TestCase
         $this->get(route('accounting.reconcile'))->assertOk()
             ->assertSee('Re-eksport (AR hüdudlarından kənar)')->assertSee(Fmt::money(1200), false)
             ->assertSee('Sistemdə yox idi')->assertSee('Sosial sığorta (DSMF)')
-            ->assertSee('Müştəri Bir MMC')->assertSee('Müştəri tapılmadı');
+            ->assertSee('Müştəri Bir MMC')->assertSee('Yoxlanılmalı')->assertSee('Dövrün əvvəlinə qalıqlar');
 
         $rows = app(ReconciliationService::class)->build(2025);
         $dsmf = collect($rows['expenses'])->firstWhere('group', 'Sosial sığorta (DSMF)');
@@ -301,6 +302,41 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta(440.0, $dsmf->bank, 0.001);
         $this->assertEqualsWithDelta(4000.0, collect($rows['expenses'])->firstWhere('group', 'Əmək haqqı')->mz, 0.001);
         $this->assertEqualsWithDelta(1100.0, collect($rows['purchases'])->get(2)->amount, 0.001);
+    }
+
+    public function test_official_receipts_reach_pnl_only_when_marked_as_missing_sales(): void
+    {
+        $this->upload($this->workbook());
+        $pnl = app(ProfitLossService::class);
+        $official = app(OfficialRevenueService::class);
+
+        // ödəyici sistemdə tapılmır → yoxlanılmalı, P&L-ə düşmür (satış gəliri sistemdə satış faylından gəlir)
+        $payer = $official->payers(2025)->firstWhere('counterparty', 'Müştəri Bir MMC');
+        $this->assertSame(OfficialRevenueService::PENDING, $payer->decision);
+        $this->assertEqualsWithDelta(3000.0, $payer->total, 0.001);
+        $this->assertNull($official->payers(2025)->firstWhere('counterparty', 'Təsisçidən'), 'təsisçi borcu gəlir deyil');
+        $this->assertEqualsWithDelta(-2740.0, array_sum($pnl->build($this->filters())['lines']['net_profit']), 0.001);
+
+        $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'extra'])->assertRedirect();
+        $report = $pnl->build($this->filters(), 'month');
+        $this->assertEqualsWithDelta(2000.0, $report['lines']['official_extra']['2025-01'], 0.001);
+        $this->assertEqualsWithDelta(-2740.0 + 3000.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(0.0, array_sum($pnl->build($this->filters('TIR'))['lines']['official_extra'] ?? []), 0.001);
+
+        $summary = $official->cashSummary($this->filters());
+        $this->assertEqualsWithDelta(500.0, $summary['opening'], 0.001, 'açılış — yanvarın əvvəlinə qalıq');
+        $this->assertEqualsWithDelta(1712.0, $summary['closing'], 0.001);
+        $this->assertEqualsWithDelta(3000.0, $summary['extra'], 0.001);
+        $this->assertEqualsWithDelta(5000.0, $summary['founder'], 0.001);
+
+        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))->assertOk()
+            ->assertSee('Rəsmi gəlir — sistemdə olmayan satış (bank)')->assertSee('Rəsmi pul axını (mühasibat Cash Flow)')->assertSee('Dövrün əvvəlinə qalıq');
+        $this->get(route('dashboard', ['from' => '2025-01-01', 'to' => '2025-12-31']))->assertOk()
+            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(-2740.0 + 3000.0), false);
+
+        $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'auto'])->assertRedirect();
+        $this->assertSame(0, DB::table('revenue_decisions')->count());
+        $this->post(route('accounting.revenue.decide'), ['normalized' => 'x', 'counterparty' => 'x', 'decision' => 'bogus'])->assertSessionHasErrors('decision');
     }
 
     public function test_xls_upload_is_only_allowed_for_the_accounting_file(): void
