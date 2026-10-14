@@ -155,6 +155,21 @@ class ReportPagesTest extends TestCase
         $this->assertSame('701', ChartLedgerService::mzAccount((object) ['section' => 'expense', 'tax_code' => '221.4', 'name' => 'Malın dəyəri']));
     }
 
+    public function test_management_balance_sheet_balances(): void
+    {
+        $this->actingAs($this->admin);
+        $parts = app(ChartLedgerService::class)->managementBalance(now());
+        $sum = fn (string $code) => array_sum(array_column($parts[$code] ?? [], 'amount'));
+        $assets = $sum('205') + $sum('211') + $sum('221');
+        $equityAndLiabilities = $sum('542') + $sum('343') + $sum('341') - $sum('344') + $sum('301');
+        $this->assertEqualsWithDelta($assets, $equityAndLiabilities, 0.01, 'aktiv = öhdəlik + kapital (301 balanslaşdırıcı)');
+        $this->assertNotEqualsWithDelta(0.0, $assets, 0.01);
+
+        $this->get(route('accounting.balance', ['view' => 'mgmt']))->assertOk()
+            ->assertSee('İdarəetmə (sistem importları)')->assertSee('Bərabərdir ✓')->assertSee(Fmt::money($assets), false);
+        $this->get(route('accounting.chart.mgmt', ['code' => '301']), ['X-Modal' => '1'])->assertOk()->assertSee('Balanslaşdırıcı fərq');
+    }
+
     public function test_excel_and_pdf_exports(): void
     {
         $this->actingAs($this->admin);

@@ -91,6 +91,37 @@ class AccountingController extends Controller
      * Hesablar planındakı qalığın mənbəyi: hansı köhnə balans sətirlərindən və sənədlərdən yaranıb (popup).
      */
     /**
+     * Balans — idarəetmə məlumatları (sistem importları) üzrə: aktivlər = öhdəliklər + kapital.
+     * Müqayisə üçün eyni hesabın rəsmi (mühasibat balansı) qalığı yanında göstərilir.
+     */
+    private function managementBalanceView(?int $year, ChartLedgerService $ledger): View
+    {
+        $date = $this->ledgerDate($year);
+        $parts = $ledger->managementBalance($date);
+        $names = DB::table('chart_accounts')->pluck('name', 'code');
+        $official = $year === null ? collect() : DB::table('acc_balance_lines as b')->join('legacy_accounts as l', 'l.code', '=', 'b.legacy_code')
+            ->where('b.year', $year)->groupBy('l.chart_code')->selectRaw('l.chart_code, SUM(b.amount) AS amount')->pluck('amount', 'chart_code');
+        $row = fn (string $code, int $sign = 1) => (object) [
+            'code' => $code,
+            'name' => $names[$code] ?? $code,
+            'amount' => $sign * (float) array_sum(array_column($parts[$code] ?? [], 'amount')),
+            'official' => isset($official[$code]) ? (float) $official[$code] : null,
+            'parts' => $parts[$code] ?? [],
+        ];
+        $assets = collect([$row('205'), $row('211'), $row('221')]);
+        $liabilities = collect([$row('542'), $row('343'), $row('341'), $row('344', -1), $row('301')]);
+
+        return view('accounting.balance-mgmt', [
+            'title' => __('Balans'),
+            'year' => $year,
+            'years' => $this->years(),
+            'date' => $date,
+            'assets' => $assets,
+            'liabilities' => $liabilities,
+        ]);
+    }
+
+    /**
      * Hesabın idarəetmə qalığının / dövriyyəsinin mənbəyi — sistem importlarından komponentlər (popup).
      */
     public function managementSource(Request $request, string $code, ChartLedgerService $ledger): View
@@ -98,7 +129,7 @@ class AccountingController extends Controller
         $year = $this->year($request);
         $account = DB::table('chart_accounts')->where('code', $code)->firstOrFail();
         $date = $this->ledgerDate($year);
-        $parts = $ledger->management($date)[$code] ?? [];
+        $parts = $ledger->managementBalance($date)[$code] ?? [];
 
         return view($request->header('X-Modal') ? 'accounting.mgmt-source' : 'accounting.mgmt-source-page', [
             'title' => __('Hesab :code — idarəetmə (sistem importları)', ['code' => $code]),
@@ -175,9 +206,12 @@ class AccountingController extends Controller
         return back()->with('status', __('Hesab yeniləndi.'));
     }
 
-    public function balance(Request $request): View
+    public function balance(Request $request, ChartLedgerService $ledger): View
     {
         $year = $this->year($request);
+        if ($request->query('view') === 'mgmt') {
+            return $this->managementBalanceView($year, $ledger);
+        }
         $lines = DB::table('acc_balance_lines as b')
             ->leftJoin('legacy_accounts as l', 'l.code', '=', 'b.legacy_code')
             ->leftJoin('chart_accounts as c', 'c.code', '=', 'l.chart_code')

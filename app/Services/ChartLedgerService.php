@@ -21,6 +21,9 @@ class ChartLedgerService
     /** Gəliri azaldan (kontr-gəlir) hesablar: qaytarma və güzəştlər — cəmlərdə çıxılır. */
     public const CONTRA_INCOME = ['602', '603'];
 
+    /** Bölmə / qrup cəmlərində çıxılan hesablar: kontr-gəlir və kapitalı azaldan təsisçiyə ödənişlər (344). */
+    public const CONTRA = ['602', '603', '344'];
+
     public function __construct(private ProfitLossService $pnl, private StockService $stock) {}
 
     /**
@@ -56,7 +59,8 @@ class ChartLedgerService
             $add(self::expenseAccount(ReconciliationService::cashGroup((string) $category)), (string) $category, (float) array_sum($values), $detail('expenses', (string) $category));
         }
         $add('801', __('Brüt mənfəət'), $sum('gross_profit'), $detail('gross_profit'));
-        $add('341', __('Xalis mənfəət (idarəetmə P&L)'), $sum('net_profit'), $detail('net_profit'));
+        // idarəetmə mənfəəti yalnız importlardan: re-eksport və rəsmi əlavə gəlir (mühasibat faylı) çıxılır
+        $add('341', __('Xalis mənfəət (idarəetmə P&L)'), $sum('net_profit') - $sum('export_result') - $sum('official_extra'), $detail('net_profit'));
         foreach ($report['founder'] as $category => $values) {
             $add('344', (string) $category, (float) array_sum($values), $detail('founder', (string) $category));
         }
@@ -71,6 +75,51 @@ class ChartLedgerService
         $add('542', __('Müştərilərin avansları / artıq ödənişləri (:n müştəri)', ['n' => $creditors]), $advances, route('debts.index', ['tab' => 'advances']));
 
         $add('221', __('Kassa qalığı (08 faylı)'), (float) DB::table('cash_transactions')->where('date', '<=', $date->toDateString())->sum(DB::raw('income - expense')), route('cash.index'));
+
+        return $out;
+    }
+
+    /**
+     * İdarəetmə balansı: management() + kapital hesabları ki, aktiv = öhdəlik + kapital olsun.
+     *   343 — keçmiş illərin bölüşdürülməmiş mənfəəti (əvvəlki illərin idarəetmə xalis mənfəəti − təsisçiyə ödənişlər);
+     *   301 — balanslaşdırıcı fərq: təsisçinin qoyuluşu və importlarda olmayan qalıqlar (bank, malsatan borcları …).
+     *
+     * @return array<string, list<array{label: string, amount: float, url: string|null}>>
+     */
+    public function managementBalance(Carbon $date): array
+    {
+        $out = $this->management($date);
+        $sum = fn (string $code) => (float) array_sum(array_column($out[$code] ?? [], 'amount'));
+
+        $first = collect([
+            DB::table('sales_lines')->min('date'), DB::table('purchase_lines')->min('date'),
+            DB::table('cash_transactions')->min('date'), DB::table('payments')->min('date'),
+        ])->filter()->min();
+        $previousEnd = $date->copy()->startOfYear()->subDay()->endOfDay();
+        if ($first !== null && Carbon::parse($first)->lte($previousEnd)) {
+            $filters = new ReportFilters(Carbon::parse($first)->startOfDay(), $previousEnd, 'custom', direction: 'VALVO');
+            $lines = $this->pnl->build($filters, 'year', false)['lines'];
+            $range = ['from' => Carbon::parse($first)->toDateString(), 'to' => $previousEnd->toDateString(), 'gran' => 'year'];
+            foreach ($lines['net_profit'] ?? [] as $year => $profit) {
+                $profit = (float) $profit - (float) ($lines['export_result'][$year] ?? 0) - (float) ($lines['official_extra'][$year] ?? 0);
+                if (abs($profit) > 0.005) {
+                    $out['343'][] = ['label' => __(':year ilin xalis mənfəəti', ['year' => $year]), 'amount' => (float) $profit, 'url' => route('pnl.index', $range)];
+                }
+            }
+            foreach ($lines['founder'] ?? [] as $year => $founder) {
+                if (abs((float) $founder) > 0.005) {
+                    $out['343'][] = ['label' => __(':year ilin təsisçiyə ödənişləri', ['year' => $year]), 'amount' => -(float) $founder, 'url' => route('pnl.index', $range)];
+                }
+            }
+        }
+
+        // arrow funksiya $out-u yaradılan anda götürür — kapital sətirlərindən sonra yenidən qururuq
+        $sum = fn (string $code) => (float) array_sum(array_column($out[$code] ?? [], 'amount'));
+        $assets = $sum('205') + $sum('211') + $sum('221');
+        $liabilities = $sum('542');
+        $equity = $sum('343') + $sum('341') - $sum('344');
+        $out['301'][] = ['label' => __('Balanslaşdırıcı fərq: təsisçinin qoyuluşu və importlarda olmayan qalıqlar (bank, malsatan borcları)'),
+            'amount' => $assets - $liabilities - $equity, 'url' => null];
 
         return $out;
     }

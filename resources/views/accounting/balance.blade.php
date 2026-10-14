@@ -5,6 +5,7 @@
         <span class="text-xs text-muted">{{ __('Köhnə hesab nömrələri faylda olduğu kimi; yanında yeni Hesablar Planı üzrə hesab.') }}</span>
         <div class="ml-auto">@include('accounting._year')</div>
     </div>
+    @include('accounting._balance-tabs', ['view' => 'official'])
 
     @if ($year)
         @php $totalA = $assets->sum('amount'); $totalP = $liabilities->sum('amount'); @endphp
