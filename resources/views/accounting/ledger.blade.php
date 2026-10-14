@@ -15,7 +15,7 @@
         <tbody>
         @forelse ($rows as $r)
             <tr @class(['font-semibold' => $r->document === null])>
-                <td class="wrap {{ $r->document ? 'pl-8 text-xs text-muted' : '' }}">{{ $r->document ?? $r->counterparty }}</td>
+                <td class="wrap {{ $r->document ? 'pl-8 text-xs text-muted' : '' }}"><a href="{{ route('accounting.ledger.party', array_filter(['code' => $r->legacy_code, 'party' => $r->counterparty, 'doc' => $r->document, 'year' => $year])) }}" data-modal class="cell-link">{{ $r->document ?? $r->counterparty }}</a></td>
                 <td class="num">{{ (float) $r->debit != 0 ? Fmt::money($r->debit) : '' }}</td>
                 <td class="num">{{ (float) $r->credit != 0 ? Fmt::money($r->credit) : '' }}</td>
             </tr>

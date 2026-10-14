@@ -91,6 +91,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/muhasibat/iller', [AccountingController::class, 'overview'])->name('accounting.overview');
         Route::get('/muhasibat/balans', [AccountingController::class, 'balance'])->name('accounting.balance');
         Route::get('/muhasibat/hesab/{code}', [AccountingController::class, 'ledger'])->name('accounting.ledger');
+        Route::get('/muhasibat/hesab/{code}/kontragent', [AccountingController::class, 'ledgerParty'])->name('accounting.ledger.party');
         Route::get('/muhasibat/menfeet-zerer', [AccountingController::class, 'profitLoss'])->name('accounting.pl');
         Route::get('/muhasibat/cash-flow', [AccountingController::class, 'cashFlow'])->name('accounting.cashflow');
         Route::post('/muhasibat/cash-flow/tesnifat', [AccountingController::class, 'classify'])->name('accounting.classify');

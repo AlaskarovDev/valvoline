@@ -6,6 +6,7 @@ use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
 use App\Services\ChartLedgerService;
 use App\Services\FlowClassifier;
+use App\Services\LedgerPartyService;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Services\ReconciliationService;
@@ -244,6 +245,24 @@ class AccountingController extends Controller
             'chart' => DB::table('legacy_accounts as l')->leftJoin('chart_accounts as c', 'c.code', '=', 'l.chart_code')
                 ->where('l.code', $code)->first(['l.chart_code', 'c.name']),
         ]);
+    }
+
+    /**
+     * Dövriyyə vərəqindəki kontragent / sənəd: mühasibat sənədləri, bank hərəkətləri, sistemdəki qarşılığı (popup).
+     */
+    public function ledgerParty(Request $request, string $code, LedgerPartyService $service): View
+    {
+        $party = (string) $request->query('party', '');
+        $document = $request->filled('doc') ? (string) $request->query('doc') : null;
+        abort_if($party === '', 404);
+
+        return view($request->header('X-Modal') ? 'accounting.party' : 'accounting.party-page', array_merge($service->party($code, $party, $document), [
+            'title' => $document ?? $party,
+            'code' => $code,
+            'party' => $party,
+            'document' => $document,
+            'year' => $this->year($request),
+        ]));
     }
 
     public function profitLoss(Request $request, ProfitLossService $pnl): View

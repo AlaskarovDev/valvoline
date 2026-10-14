@@ -6,6 +6,7 @@ use App\Models\ImportBatch;
 use App\Models\User;
 use App\Reports\ReportFilters;
 use App\Services\FlowClassifier;
+use App\Services\LedgerPartyService;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Services\ReconciliationService;
@@ -216,6 +217,11 @@ class AccountingTest extends TestCase
         $this->get(route('accounting.chart', ['section' => '2']))->assertOk()->assertSee('Qısamüddətli aktivlər')->assertSee('900,00');
         $this->get(route('accounting.balance'))->assertOk()->assertSee('Bərabərdir');
         $this->get(route('accounting.ledger', '62'), ['X-Modal' => '1'])->assertOk()->assertSee('MILLA DAIRY')->assertDontSee('<html', false);
+        // kontragent / sənəd → detal: mühasibat sənədləri, bank, sistemdə qarşılığı
+        $this->get(route('accounting.ledger', '62'), ['X-Modal' => '1'])->assertSee('/muhasibat/hesab/62/kontragent', false);
+        $this->get(route('accounting.ledger.party', ['code' => '62', 'party' => 'MILLA DAIRY', 'doc' => 'Mallarin yuklenmesi ve satisi 000082 (10.12.25)']), ['X-Modal' => '1'])
+            ->assertOk()->assertSee('Sistemdə satış sifarişləri')->assertSee('Mallarin yuklenmesi ve satisi 000082 (10.12.25)')->assertSee('Bank hərəkətləri (Cash Flow)');
+        $this->assertSame('2025-12-10', LedgerPartyService::documentDate('Mallarin yuklenmesi ve satisi 000082 (10.12.25)')->toDateString());
         $this->get(route('accounting.pl'))->assertOk()->assertSee('Topdansatışdan gəlir');
         $this->get(route('accounting.cashflow'))->assertOk()->assertSee('Mal alışı / gömrük')->assertSee('ELLIS');
         $this->get(route('accounting.cashflow', ['section' => 'income']))->assertOk()->assertSee('Təsisçidən');
