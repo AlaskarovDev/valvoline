@@ -178,7 +178,7 @@ T = {
         'Header row not found: the file needs "Date" and "In / Out" (or "Debit / Credit", "Amount") columns.'),
     'Çıxarışda əməliyyat sətri tapılmadı.': ('В выписке не найдено строк операций.', 'No transaction rows found in the statement.'),
     'Sonrakı aylarda faylda yoxdur — cəmə daxil deyil': ('В последующих месяцах в файле нет — не входит в итог', 'Missing from the file in later months — not in the total'),
-    'son dəfə :period': ('последний раз :period', 'last seen :period'),
+    'son məlumat :period · cəmə daxil deyil': ('последние данные :period · не входит в итог', 'last data :period · not in the total'),
     # rəsmi gəlirlər, açılış qalıqları, idarə paneli
     '+ Digər daxilolmalar': ('+ Прочие поступления', '+ Other receipts'),
     '+ Müştərilərdən rəsmi daxilolmalar': ('+ Официальные поступления от клиентов', '+ Official receipts from customers'),

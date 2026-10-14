@@ -34,8 +34,8 @@
                         </div>
                         @php $stale = $a->latest && $a->latest->period !== $latestPeriod; @endphp
                         <div class="text-right" @if ($stale) title="{{ __('Sonrakı aylarda faylda yoxdur — cəmə daxil deyil') }}" @endif>
-                            <div @class(['font-semibold tabular-nums', 'text-faint line-through' => $stale])>{{ $a->latest ? Fmt::money($a->latest->amount) : '—' }}</div>
-                            <div class="text-xs text-muted">@if ($a->latest){{ $stale ? __('son dəfə :period', ['period' => Fmt::period($a->latest->period)]) : Fmt::period($a->latest->period) }}@endif @if ($a->currency !== 'AZN')· {{ __('AZN ekv.') }}@endif</div>
+                            <div @class(['font-semibold tabular-nums', 'text-muted' => $stale])>{{ $a->latest ? Fmt::money($a->latest->amount) : '—' }}</div>
+                            <div class="text-xs text-muted">@if ($a->latest){{ $stale ? __('son məlumat :period · cəmə daxil deyil', ['period' => Fmt::period($a->latest->period)]) : Fmt::period($a->latest->period) }}@endif @if ($a->currency !== 'AZN')· {{ __('AZN ekv.') }}@endif</div>
                         </div>
                         <span class="badge {{ $a->currency === 'AZN' ? '' : 'badge-primary' }} justify-self-end">{{ $a->currency }}</span>
                     </a>

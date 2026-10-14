@@ -909,7 +909,7 @@
     "sistemdə satış kimi var — P&L-də satışdadır, təkrar sayılmır": "есть в системе как продажи — уже в P&L, повторно не считается",
     "sistemdə var": "есть в системе",
     "son": "последняя",
-    "son dəfə :period": "последний раз :period",
+    "son məlumat :period · cəmə daxil deyil": "последние данные :period · не входит в итог",
     "tapılmadı": "не найден",
     "təsisçidən — gəlir deyil": "от учредителя — не доход",
     "təxmini": "оценочная",

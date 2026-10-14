@@ -28,13 +28,20 @@
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-px bg-line xl:grid-cols-4">
-                <div class="bg-surface p-4">
-                    <div class="kpi-label">{{ __('Pul vəsaitləri (bank + kassa)') }}</div>
-                    <div class="mt-1 text-xl font-semibold tabular-nums">{{ Fmt::money($official['bank_balance'] + $official['cash_balance']) }}</div>
-                    <dl class="mt-1 space-y-0.5 text-xs">
-                        <div class="flex justify-between gap-2"><dt><a href="{{ route('bank.index') }}" class="text-muted hover:text-primary">{{ __('Bank') }}</a> <span class="text-faint">({{ Fmt::period($official['bank_period']) }})</span></dt><dd class="tabular-nums">{{ Fmt::money($official['bank_balance'], 0) }}</dd></div>
-                        <div class="flex justify-between gap-2"><dt><a href="{{ route('cash.index') }}" class="text-muted hover:text-primary">{{ __('Kassa') }}</a> <span class="text-faint">({{ $official['cash_counted'] ? __('sayım :date', ['date' => Fmt::date($official['cash_date'])]) : Fmt::date($official['cash_date']) }})</span></dt><dd class="tabular-nums">{{ Fmt::money($official['cash_balance'], 0) }}</dd></div>
-                    </dl>
+                {{-- kart: yuxarı hissə → Bank hesabları; Bank / Kassa sətirləri öz səhifələrinə --}}
+                <div class="flex flex-col bg-surface">
+                    <a href="{{ route('bank.index') }}" class="block px-4 pt-4 pb-1 hover:bg-surface-2">
+                        <div class="kpi-label">{{ __('Pul vəsaitləri (bank + kassa)') }}</div>
+                        <div class="mt-1 text-xl font-semibold tabular-nums">{{ Fmt::money($official['bank_balance'] + $official['cash_balance']) }}</div>
+                    </a>
+                    <a href="{{ route('bank.index') }}" class="flex justify-between gap-2 px-4 py-1 text-xs hover:bg-surface-2">
+                        <span class="text-muted">{{ __('Bank') }} <span class="text-faint">({{ Fmt::period($official['bank_period']) }})</span> →</span>
+                        <span class="tabular-nums">{{ Fmt::money($official['bank_balance'], 0) }}</span>
+                    </a>
+                    <a href="{{ route('cash.index') }}" class="flex justify-between gap-2 px-4 pt-1 pb-3 text-xs hover:bg-surface-2">
+                        <span class="text-muted">{{ __('Kassa') }} <span class="text-faint">({{ $official['cash_counted'] ? __('sayım :date', ['date' => Fmt::date($official['cash_date'])]) : Fmt::date($official['cash_date']) }})</span> →</span>
+                        <span class="tabular-nums">{{ Fmt::money($official['cash_balance'], 0) }}</span>
+                    </a>
                 </div>
                 <a href="{{ route('accounting.reconcile') }}" class="block bg-surface p-4 hover:bg-surface-2">
                     <div class="kpi-label">{{ __('Rəsmi daxilolmalar (müştərilər)') }}</div>
