@@ -224,6 +224,12 @@ class AccountingTest extends TestCase
             ->assertSee('Qalıq borc (mühasibat)')->assertSee('= Sənədin tam dəyəri');
         $this->assertSame('2025-12-10', LedgerPartyService::documentDate('Mallarin yuklenmesi ve satisi 000082 (10.12.25)')->toDateString());
         $this->get(route('accounting.pl'))->assertOk()->assertSee('Topdansatışdan gəlir');
+        // MZ xanasına klik → detal: maddənin bank qarşılığı və qrupun tərkibi
+        $this->get(route('accounting.pl'))->assertSee('/muhasibat/menfeet-zerer/detal?year=2025', false);
+        $this->get(route('accounting.pl.detail', ['year' => 2025, 'code' => '221.1.2', 'name' => 'Əmək Haqqı və ona bərabər tutulan ödəmələr']), ['X-Modal' => '1'])
+            ->assertOk()->assertSee('Əmək Haqqı')->assertSee(Fmt::money(4000), false)->assertSee(Fmt::money(2000), false)->assertDontSee('<html', false);
+        $this->get(route('accounting.pl.detail', ['year' => 2025, 'kind' => 'opex']), ['X-Modal' => '1'])->assertOk()->assertSee('221.1.2');
+        $this->get(route('accounting.pl.detail', ['year' => 1999, 'kind' => 'opex']))->assertNotFound();
         $this->get(route('accounting.cashflow'))->assertOk()->assertSee('Mal alışı / gömrük')->assertSee('ELLIS');
         $this->get(route('accounting.cashflow', ['section' => 'income']))->assertOk()->assertSee('Təsisçidən');
         $this->get(route('accounting.cashflow', ['view' => 'sheet']))->assertOk()

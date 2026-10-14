@@ -7,6 +7,7 @@ use App\Reports\SalesSummaryQuery;
 use App\Services\ChartLedgerService;
 use App\Services\FlowClassifier;
 use App\Services\LedgerPartyService;
+use App\Services\MzDetailService;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Services\ReconciliationService;
@@ -266,6 +267,24 @@ class AccountingController extends Controller
         ]));
     }
 
+    /**
+     * MZ xanasının detalı (popup): maddə — bank / sistem qarşılığı; qrup sətri — maddələrin tərkibi.
+     */
+    public function profitLossDetail(Request $request, MzDetailService $service): View
+    {
+        $year = (int) $request->query('year');
+        abort_unless(in_array($year, $this->years(), true), 404);
+        $kind = in_array($request->query('kind'), ['income', 'cogs', 'opex', 'depreciation'], true) ? (string) $request->query('kind') : null;
+        $data = $kind !== null
+            ? ['groupLines' => $service->group($year, $kind), 'kind' => $kind]
+            : $service->line($year, (string) $request->query('code', ''), (string) $request->query('name', ''));
+        $title = $kind !== null
+            ? ['income' => __('Gəlirlər'), 'cogs' => __('Malın dəyəri (daxili + re-eksport)'), 'opex' => __('Əməliyyat xərcləri'), 'depreciation' => __('Amortizasiya')][$kind]
+            : trim($request->query('code', '').' · '.($data['line']->name ?? $request->query('name', '')), ' ·');
+
+        return view($request->header('X-Modal') ? 'accounting.mz-detail' : 'accounting.mz-detail-page', $data + ['title' => $title, 'year' => $year]);
+    }
+
     public function profitLoss(Request $request, ProfitLossService $pnl): View
     {
         $year = $this->year($request);
@@ -309,22 +328,15 @@ class AccountingController extends Controller
     {
         $all = DB::table('acc_pl_lines')->orderBy('row_no')->get();
         $columns = $all->pluck('year')->map(fn ($y) => (int) $y)->unique()->sort()->values()->all();
-        $kind = function (object $l): string {
-            $code = (string) $l->tax_code;
-
-            return match (true) {
-                $l->section === 'income' => 'income',
-                str_starts_with($code, '221.4') || ProfitLossService::isExportLine($l) => 'cogs',
-                str_starts_with($code, '227') || str_starts_with($code, '228') => 'depreciation',
-                default => 'opex',
-            };
-        };
+        $kind = fn (object $l): string => MzDetailService::kind($l);
         $byKind = fn (string $k) => $all->where('section', '!=', 'result')->filter(fn ($l) => $kind($l) === $k);
         $sumBy = fn (Collection $lines) => collect($columns)->mapWithKeys(fn ($y) => [$y => (float) $lines->where('year', $y)->sum('amount')])->all();
         // eyni maddə bütün illərdə bir sətirdə (kod + ad)
         $children = fn (Collection $lines, int $sign = 1) => $lines->groupBy(fn ($l) => ($l->tax_code ?: '').'|'.NameNormalizer::normalize($l->name))
             ->map(fn (Collection $g) => [
                 'label' => trim(($g->first()->tax_code ? $g->first()->tax_code.' · ' : '').$g->sortBy('year')->last()->name),
+                'code' => (string) $g->first()->tax_code,
+                'name' => $g->sortBy('year')->last()->name,
                 'values' => array_map(fn ($v) => $sign * $v, $sumBy($g)),
             ])->values()->all();
         $neg = fn (array $values) => array_map(fn ($v) => -$v, $values);
@@ -342,12 +354,12 @@ class AccountingController extends Controller
         $ratio = fn (array $a) => array_map(fn ($y) => abs($income[$y]) > 0.005 ? $a[$y] / $income[$y] : 0.0, array_combine($columns, $columns) ?: []);
 
         $lines = [
-            ['label' => __('Gəlirlər'), 'values' => $income, 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('income'))],
-            ['label' => __('− Malın dəyəri (daxili + re-eksport)'), 'values' => $neg($cogs), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('cogs'), -1)],
+            ['kind' => 'income', 'label' => __('Gəlirlər'), 'values' => $income, 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('income'))],
+            ['kind' => 'cogs', 'label' => __('− Malın dəyəri (daxili + re-eksport)'), 'values' => $neg($cogs), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('cogs'), -1)],
             ['label' => __('Brüt mənfəət'), 'values' => $gross, 'style' => 'subtotal', 'type' => 'money', 'children' => []],
             ['label' => __('Brüt marja'), 'values' => $ratio($gross), 'style' => 'muted', 'type' => 'pct', 'children' => []],
-            ['label' => __('− Əməliyyat xərcləri'), 'values' => $neg($opex), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('opex'), -1)],
-            ['label' => __('− Amortizasiya'), 'values' => $neg($depreciation), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('depreciation'), -1)],
+            ['kind' => 'opex', 'label' => __('− Əməliyyat xərcləri'), 'values' => $neg($opex), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('opex'), -1)],
+            ['kind' => 'depreciation', 'label' => __('− Amortizasiya'), 'values' => $neg($depreciation), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('depreciation'), -1)],
             ['label' => __('Hesabat dövründə mənfəət (zərər)'), 'values' => $result, 'style' => 'total', 'type' => 'money', 'children' => []],
             ['label' => __('Rentabellik'), 'values' => $ratio($result), 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];

@@ -18,7 +18,7 @@
             <div class="card-head">
                 <div>
                     <h2 class="card-title">{{ __('Mənfəət-zərər (vergi bəyannaməsi) illər üzrə') }}</h2>
-                    <div class="card-sub">{{ __('İllər sütunlarda. Sətirlərə klik — vergi bəyannaməsi kodları ilə maddələr açılır.') }}</div>
+                    <div class="card-sub">{{ __('İllər sütunlarda. Sətirlərə klik — vergi bəyannaməsi kodları ilə maddələr açılır.') }} {{ __('Rəqəmə klik — detal.') }}</div>
                 </div>
             </div>
             <div class="tbl-wrap">
@@ -34,20 +34,34 @@
                             $expandable = $line['style'] === 'expand' && count($line['children']) > 0;
                             $fmt = fn ($v) => $line['type'] === 'pct' ? Fmt::pct($v) : Fmt::money($v, 0, false);
                         @endphp
-                        <tr class="{{ $rowClass }}" @if ($expandable) @click="open[{{ $i }}] = !open[{{ $i }}]" style="cursor: pointer" @endif>
+                        <tr class="{{ $rowClass }}" @if ($expandable) @click="if (! $event.target.closest('a')) open[{{ $i }}] = !open[{{ $i }}]" style="cursor: pointer" @endif>
                             <td @class(['sticky left-0 z-[1] whitespace-normal bg-surface', 'border-t-2 border-line-strong' => $line['style'] === 'total'])>
                                 @if ($expandable)<span class="inline-block w-4 text-faint" x-text="open[{{ $i }}] ? '▾' : '▸'">▸</span>@endif
                                 {{ $line['label'] }}
                             </td>
                             @foreach ($statement['columns'] as $y)
                                 @php $v = $line['values'][$y] ?? 0; @endphp
-                                <td @class(['num', 'border-t-2 border-line-strong' => $line['style'] === 'total', 'neg' => in_array($line['style'], ['total', 'subtotal'], true) && $v < 0, 'bg-primary-soft' => $y === $year])>{{ $fmt($v) }}</td>
+                                <td @class(['num', 'border-t-2 border-line-strong' => $line['style'] === 'total', 'neg' => in_array($line['style'], ['total', 'subtotal'], true) && $v < 0, 'bg-primary-soft' => $y === $year])>
+                                    @if (! empty($line['kind']))
+                                        <a href="{{ route('accounting.pl.detail', ['year' => $y, 'kind' => $line['kind']]) }}" data-modal class="pnl-cell">{{ $fmt($v) }}</a>
+                                    @else
+                                        {{ $fmt($v) }}
+                                    @endif
+                                </td>
                             @endforeach
                         </tr>
                         @foreach ($line['children'] as $child)
                             <tr x-show="open[{{ $i }}]" x-cloak class="text-[12px] text-muted">
                                 <td class="sticky left-0 z-[1] whitespace-normal bg-surface pl-9">{{ $child['label'] }}</td>
-                                @foreach ($statement['columns'] as $y)<td @class(['num', 'bg-primary-soft' => $y === $year])>{{ Fmt::money($child['values'][$y] ?? 0, 0, false) }}</td>@endforeach
+                                @foreach ($statement['columns'] as $y)
+                                    <td @class(['num', 'bg-primary-soft' => $y === $year])>
+                                        @if (abs($child['values'][$y] ?? 0) > 0.005)
+                                            <a href="{{ route('accounting.pl.detail', ['year' => $y, 'code' => $child['code'], 'name' => $child['name']]) }}" data-modal class="pnl-cell">{{ Fmt::money($child['values'][$y], 0, false) }}</a>
+                                        @else
+                                            {{ Fmt::money(0, 0, false) }}
+                                        @endif
+                                    </td>
+                                @endforeach
                             </tr>
                         @endforeach
                     @endforeach
