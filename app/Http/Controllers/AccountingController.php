@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
+use App\Services\ChartLedgerService;
 use App\Services\FlowClassifier;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
@@ -24,9 +25,10 @@ use Illuminate\View\View;
  */
 class AccountingController extends Controller
 {
-    public function chart(Request $request): View
+    public function chart(Request $request, ChartLedgerService $ledger): View
     {
         $year = $this->year($request);
+        $only = $request->boolean('only');
         $section = (string) $request->query('section', '');
         $q = trim((string) $request->query('q', ''));
         $accounts = DB::table('chart_accounts')
@@ -42,8 +44,23 @@ class AccountingController extends Controller
             ->groupBy('l.chart_code')
             ->selectRaw('l.chart_code, SUM(b.amount) AS amount')
             ->pluck('amount', 'chart_code');
+        // rəsmi gəlir / xərc hesabları (6–9 bölmələr) MZ maddələrindən
+        foreach ($year === null ? [] : $ledger->officialTurnover($year) as $code => $parts) {
+            if (! $balances->has($code)) {
+                $balances[$code] = array_sum(array_column($parts, 'amount'));
+            }
+        }
+        // idarəetmə: sistem importları həmin tarixə (balans tarixi; fayl yoxdursa bu gün)
+        $date = $this->ledgerDate($year);
+        $management = collect($ledger->management($date))->map(fn ($parts) => (float) array_sum(array_column($parts, 'amount')));
+        if ($only) {
+            $accounts = $accounts->filter(fn ($a) => $balances->has($a->code) || $management->has($a->code))->values();
+        }
 
         return view('accounting.chart', [
+            'management' => $management,
+            'ledgerDate' => $date,
+            'only' => $only,
             'title' => __('Hesablar planı'),
             'accounts' => $accounts->groupBy('section'),
             'sections' => ChartOfAccounts::sections(),
@@ -62,6 +79,37 @@ class AccountingController extends Controller
     /**
      * Hesablar planındakı qalığın mənbəyi: hansı köhnə balans sətirlərindən və sənədlərdən yaranıb (popup).
      */
+    /**
+     * Hesabın idarəetmə qalığının / dövriyyəsinin mənbəyi — sistem importlarından komponentlər (popup).
+     */
+    public function managementSource(Request $request, string $code, ChartLedgerService $ledger): View
+    {
+        $year = $this->year($request);
+        $account = DB::table('chart_accounts')->where('code', $code)->firstOrFail();
+        $date = $this->ledgerDate($year);
+        $parts = $ledger->management($date)[$code] ?? [];
+
+        return view($request->header('X-Modal') ? 'accounting.mgmt-source' : 'accounting.mgmt-source-page', [
+            'title' => __('Hesab :code — idarəetmə (sistem importları)', ['code' => $code]),
+            'account' => $account,
+            'year' => $year,
+            'date' => $date,
+            'parts' => $parts,
+            'total' => (float) array_sum(array_column($parts, 'amount')),
+            'isTurnover' => in_array(substr($code, 0, 1), ['6', '7', '8', '9'], true) || in_array($code, ['341', '344'], true),
+        ]);
+    }
+
+    /**
+     * Hesablar planının tarixi: seçilmiş ilin balans tarixi (məs. 30.09.2026), fayl yoxdursa bu gün.
+     */
+    private function ledgerDate(?int $year): Carbon
+    {
+        $asOf = $year === null ? null : DB::table('acc_balance_lines')->where('year', $year)->max('as_of');
+
+        return $asOf ? Carbon::parse($asOf) : ($year !== null ? Carbon::create($year)->endOfYear() : now());
+    }
+
     public function accountSource(Request $request, string $code): View
     {
         $year = $this->year($request);
@@ -84,6 +132,8 @@ class AccountingController extends Controller
             'current' => $lines->where('year', $year)->values(),
             'byYear' => $lines->groupBy('year')->map(fn (Collection $l) => (float) $l->sum('amount')),
             'ledger' => $ledger,
+            // gəlir / xərc hesabları üçün MZ maddələri
+            'mzParts' => $year === null ? [] : (app(ChartLedgerService::class)->officialTurnover($year)[$code] ?? []),
         ]);
     }
 

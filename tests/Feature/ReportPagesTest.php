@@ -11,11 +11,13 @@ use App\Models\PurchaseBatch;
 use App\Models\SalesOrder;
 use App\Models\User;
 use App\Reports\ReportFilters;
+use App\Services\ChartLedgerService;
 use App\Services\ProfitLossService;
 use App\Support\DemoWorkbooks;
 use App\Support\Fmt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\BuildsWorkbooks;
@@ -123,6 +125,33 @@ class ReportPagesTest extends TestCase
             ->assertSee(e(route('pnl.detail', $base + ['line' => 'expenses', 'col' => 'total', 'child' => $category])), false);
         $this->get(route('pnl.detail', $base + ['line' => 'expenses', 'col' => 'total', 'child' => $category]))
             ->assertOk()->assertSee('Kassa əməliyyatları')->assertSee(Fmt::money(array_sum($report['expenses'][$category])), false);
+    }
+
+    public function test_chart_of_accounts_shows_system_movements_next_to_official(): void
+    {
+        $this->actingAs($this->admin);
+        $date = now();
+        $ledger = app(ChartLedgerService::class)->management($date);
+        $sum = fn (string $code) => array_sum(array_column($ledger[$code] ?? [], 'amount'));
+
+        // müştəri borcu, mal qalığı və kassa sistem importlarından hesablara düşür
+        $this->assertGreaterThan(0, $sum('211'));
+        $this->assertGreaterThan(0, $sum('205'));
+        $this->assertEqualsWithDelta((float) DB::table('cash_transactions')->where('date', '<=', $date->toDateString())->sum(DB::raw('income - expense')), $sum('221'), 0.01);
+
+        $this->get(route('accounting.chart', ['only' => 1]))->assertOk()->assertSee('İdarəetmə')
+            ->assertSee(e(route('accounting.chart.mgmt', ['code' => '211'])), false)->assertDontSee('hesablar-plani/101/', false);
+        $this->get(route('accounting.chart.mgmt', ['code' => '211']), ['X-Modal' => '1'])->assertOk()
+            ->assertSee('Müştəri borcları')->assertSee(Fmt::money($sum('211')), false)->assertDontSee('<html', false);
+        $this->get(route('accounting.chart.mgmt', ['code' => '101']))->assertOk()->assertSee('Bu hesaba sistem importlarından hərəkət düşmür.');
+
+        // gəlir / xərc hesabları ilin əvvəlindən: 601 = P&L satışları
+        $year = (int) DB::table('sales_lines')->max(DB::raw('SUBSTR(period, 1, 4)'));
+        $yearEnd = Carbon::create($year)->endOfYear();
+        $sales = app(ProfitLossService::class)->build(new ReportFilters(Carbon::create($year)->startOfYear(), $yearEnd, 'custom', direction: 'VALVO'), 'year', false)['lines']['sales'];
+        $this->assertEqualsWithDelta(array_sum($sales), array_sum(array_column(app(ChartLedgerService::class)->management($yearEnd)['601'] ?? [], 'amount')), 0.01);
+        $this->assertSame('711', ChartLedgerService::expenseAccount('Reklam və marketinq'));
+        $this->assertSame('701', ChartLedgerService::mzAccount((object) ['section' => 'expense', 'tax_code' => '221.4', 'name' => 'Malın dəyəri']));
     }
 
     public function test_excel_and_pdf_exports(): void

@@ -1,4 +1,4 @@
-@php use App\Support\Fmt; $total = (float) $current->sum('amount'); $sideLabels = ['asset' => __('Aktiv'), 'liability' => __('Passiv')]; @endphp
+@php use App\Support\Fmt; $total = $current->isNotEmpty() ? (float) $current->sum('amount') : (float) array_sum(array_column($mzParts, 'amount')); $sideLabels = ['asset' => __('Aktiv'), 'liability' => __('Passiv')]; @endphp
 <div class="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
     <div class="min-w-0">
         <h2 class="text-base font-semibold" data-modal-title>{{ $title }}</h2>
@@ -11,6 +11,7 @@
 </div>
 
 <div class="space-y-5 px-5 py-4">
+    @if ($legacy->isNotEmpty() || $mzParts === [])
     <div class="text-sm text-muted">
         {{ __('Bu hesabın qalığı mühasibat faylının BALANS vərəqindəki köhnə (1C) hesablarından yığılır:') }}
         @foreach ($legacy as $l)
@@ -41,6 +42,23 @@
             </table>
         </div>
     </section>
+    @endif
+
+    @if ($mzParts)
+        <section>
+            <h3 class="mb-2 text-sm font-semibold">{{ __('MZ maddələri (vergi bəyannaməsi)') }} — {{ $year }}</h3>
+            <div class="tbl-wrap rounded-lg border border-line">
+                <table class="tbl">
+                    <tbody>
+                    @foreach ($mzParts as $part)
+                        <tr><td class="wrap">{{ $part['label'] }}</td><td class="num {{ $part['amount'] < 0 ? 'neg' : '' }}">{{ Fmt::money($part['amount']) }}</td></tr>
+                    @endforeach
+                    </tbody>
+                    <tfoot><tr><td>{{ __('Cəmi') }}</td><td class="num">{{ Fmt::money(array_sum(array_column($mzParts, 'amount'))) }}</td></tr></tfoot>
+                </table>
+            </div>
+        </section>
+    @endif
 
     @if ($byYear->count() > 1)
         <section>

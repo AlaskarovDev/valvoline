@@ -84,6 +84,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/muhasibat/hesablar-plani', [AccountingController::class, 'chart'])->name('accounting.chart');
         Route::post('/muhasibat/hesablar-plani', [AccountingController::class, 'storeAccount'])->name('accounting.chart.store');
         Route::get('/muhasibat/hesablar-plani/{code}/menbe', [AccountingController::class, 'accountSource'])->name('accounting.chart.source');
+        Route::get('/muhasibat/hesablar-plani/{code}/idareetme', [AccountingController::class, 'managementSource'])->name('accounting.chart.mgmt');
         Route::put('/muhasibat/hesablar-plani/{account}', [AccountingController::class, 'updateAccount'])->name('accounting.chart.update');
         Route::get('/muhasibat/tutusdurma', [AccountingController::class, 'reconcile'])->name('accounting.reconcile');
         Route::post('/muhasibat/tutusdurma/gelir', [AccountingController::class, 'decideRevenue'])->name('accounting.revenue.decide');
