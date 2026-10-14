@@ -14,8 +14,7 @@
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <x-kpi :label="__('Aktivlər')" :value="Fmt::money($totalA)"/>
         <x-kpi :label="__('Öhdəliklər və kapital')" :value="Fmt::money($totalP)"/>
-        <x-kpi class="col-span-2 lg:col-span-1" :label="__('Fərq (aktivlər − öhdəliklər və kapital)')" :value="abs($totalA - $totalP) < 0.01 ? __('Bərabərdir ✓') : Fmt::money($totalA - $totalP)" :tone="abs($totalA - $totalP) < 0.01 ? 'pos' : 'warn'"
-               :meta="abs($totalA - $totalP) < 0.01 ? null : __('importlarda olmayan qalıqlar: bank, malsatan borcları, təsisçi qoyuluşu')"/>
+        <x-kpi class="col-span-2 lg:col-span-1" :label="__('Balans yoxlaması')" :value="abs($totalA - $totalP) < 0.01 ? __('Bərabərdir ✓') : Fmt::money($totalA - $totalP)" :tone="abs($totalA - $totalP) < 0.01 ? 'pos' : 'warn'"/>
     </div>
 
     <div class="grid grid-cols-1 gap-4 2xl:grid-cols-2">
@@ -47,6 +46,6 @@
         @endforeach
     </div>
     <div class="text-xs text-muted">
-        {{ __('205 — anbar qalığı :method mayası ilə; 211 / 542 — müştəri borcları / avansları; 221 — sistemin kassası. 343 — əvvəlki illərin idarəetmə xalis mənfəəti, 341 — cari ilin xalis mənfəəti, 344 — təsisçiyə ödənişlər (bütün illər, kapitalı azaldır). Fərq — importlarda olmayan qalıqlar (bank hesabları, malsatan borcları, təsisçinin qoyuluşu). Məbləğə klik — necə yarandığı.', ['method' => \App\Services\CostingService::methodLabel()]) }}
+        {{ __('205 — anbar qalığı :method mayası ilə; 211 / 542 — müştəri borcları / avansları; 221 — sistemin kassası. 343 — əvvəlki illərin idarəetmə xalis mənfəəti, 341 — cari ilin xalis mənfəəti, 344 — təsisçiyə ödənişlər (bütün illər, kapitalı azaldır). 301 «Keçmiş illərin mənfəəti» — aktiv ilə passiv fərqi: importlardan əvvəlki dövrün mənfəəti və importlarda olmayan qalıqlar (bank, malsatan borcları). Məbləğə klik — necə yarandığı.', ['method' => \App\Services\CostingService::methodLabel()]) }}
     </div>
 </x-layouts.app>

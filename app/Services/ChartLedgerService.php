@@ -83,7 +83,8 @@ class ChartLedgerService
 
     /**
      * İdarəetmə balansı: management() + 343 keçmiş illərin bölüşdürülməmiş mənfəəti (əvvəlki illərin idarəetmə
-     * xalis mənfəəti) + 344-ə keçmiş illərin təsisçiyə ödənişləri (cari ilinki management()-dədir). Süni balanslaşdırıcı sətir yoxdur —
+     * xalis mənfəəti) + 344-ə keçmiş illərin təsisçiyə ödənişləri (cari ilinki management()-dədir)
+     * + 301 «Keçmiş illərin mənfəəti» — aktiv ilə passiv arasındakı fərq (importlardan əvvəlki dövr və importlarda olmayan qalıqlar). Süni balanslaşdırıcı sətir yoxdur —
      * aktiv ilə passiv fərqi importlarda olmayan qalıqları (bank, malsatan borcları, təsisçi qoyuluşu) göstərir.
      *
      * @return array<string, list<array{label: string, amount: float, url: string|null}>>
@@ -113,6 +114,12 @@ class ChartLedgerService
                 }
             }
         }
+
+        // 301 — aktiv ilə passiv arasındakı fərq «keçmiş illərin mənfəəti» kimi (istifadəçinin seçimi)
+        $sum = fn (string $code) => (float) array_sum(array_column($out[$code] ?? [], 'amount'));
+        $difference = $sum('205') + $sum('211') + $sum('221') - $sum('542') - $sum('343') - $sum('341') + $sum('344');
+        $out['301'][] = ['label' => __('Aktiv ilə passiv fərqi: importlardan əvvəlki dövrün mənfəəti və importlarda olmayan qalıqlar (bank, malsatan borcları)'),
+            'amount' => $difference, 'url' => null];
 
         return $out;
     }

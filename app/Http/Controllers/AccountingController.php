@@ -110,7 +110,8 @@ class AccountingController extends Controller
             'parts' => $parts[$code] ?? [],
         ];
         $assets = collect([$row('205'), $row('211'), $row('221')]);
-        $liabilities = collect([$row('542'), $row('343'), $row('341'), $row('344', -1)]);
+        $liabilities = collect([$row('542'), $row('301'), $row('343'), $row('341'), $row('344', -1)]);
+        $liabilities->firstWhere('code', '301')->name = __('Keçmiş illərin mənfəəti');
 
         return view('accounting.balance-mgmt', [
             'title' => __('Balans'),

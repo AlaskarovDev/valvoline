@@ -155,18 +155,18 @@ class ReportPagesTest extends TestCase
         $this->assertSame('701', ChartLedgerService::mzAccount((object) ['section' => 'expense', 'tax_code' => '221.4', 'name' => 'Malın dəyəri']));
     }
 
-    public function test_management_balance_sheet_has_no_artificial_balancing_line(): void
+    public function test_management_balance_sheet_balances_with_prior_years_difference(): void
     {
         $this->actingAs($this->admin);
         $parts = app(ChartLedgerService::class)->managementBalance(now());
         $sum = fn (string $code) => array_sum(array_column($parts[$code] ?? [], 'amount'));
         $assets = $sum('205') + $sum('211') + $sum('221');
-        $liabilities = $sum('542') + $sum('343') + $sum('341') - $sum('344');
-        $this->assertArrayNotHasKey('301', $parts, 'balanslaşdırıcı sətir yoxdur');
+        $liabilities = $sum('542') + $sum('301') + $sum('343') + $sum('341') - $sum('344');
+        $this->assertEqualsWithDelta($assets, $liabilities, 0.01, 'aktiv = öhdəlik + kapital (fərq 301 «Keçmiş illərin mənfəəti»)');
 
         $this->get(route('accounting.balance', ['view' => 'mgmt']))->assertOk()
             ->assertSee('İdarəetmə (sistem importları)')->assertSee(Fmt::money($assets), false)
-            ->assertSee(Fmt::money($assets - $liabilities), false)->assertDontSee('Balanslaşdırıcı fərq');
+            ->assertSee('Keçmiş illərin mənfəəti')->assertSee('Bərabərdir ✓');
 
         // rəqəmə klik → detal: müştərilər, mallar, kassa ayları, mənfəətin hesablanması
         $this->get(route('accounting.chart.mgmt', ['code' => '211']), ['X-Modal' => '1'])->assertOk()->assertSee('Borclu müştərilər')->assertSee(Fmt::money($sum('211')), false);
