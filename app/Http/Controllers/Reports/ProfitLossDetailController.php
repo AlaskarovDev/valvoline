@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Reports;
 
 use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
+use App\Services\CostingService;
 use App\Services\FlowClassifier;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
@@ -91,11 +92,11 @@ class ProfitLossDetailController extends ReportController
             'net_sales' => [__('Xalis satış'), __('Satışlar − Qaytarma'), [
                 $c(__('Satışlar'), $sum('sales')), $c(__('Qaytarma'), -$sum('returns'), '−'),
             ], $netSales, 'money'],
-            'sale_cogs' => [__('Satılan malın mayası'), __('Σ (miqdar × satış anındakı hərəkətli orta maya) satış sətirləri üzrə − qaytarılan malların mayası.'), [
+            'sale_cogs' => [__('Satılan malın mayası'), __('Σ (miqdar × satış anındakı maya, :method üsulu ilə) satış sətirləri üzrə − qaytarılan malların mayası.', ['method' => CostingService::methodLabel()]), [
                 $c(__('Satılan malların mayası'), (float) ($totals->sale_cogs ?? 0)),
                 $c(__('Qaytarılan malların mayası'), -(float) ($totals->return_cogs ?? 0), '−'),
             ], $sum('sale_cogs'), 'money'],
-            'gift_cogs' => [__('Hədiyyə / daxili istifadə mayası'), __('«Hədiyyə / pulsuz» və «Daxili istifadə» sətirlərində verilən malın mayası (miqdar × hərəkətli orta maya). Gəlir gətirmir, brüt mənfəəti azaldır.'), [], $sum('gift_cogs'), 'money'],
+            'gift_cogs' => [__('Hədiyyə / daxili istifadə mayası'), __('«Hədiyyə / pulsuz» və «Daxili istifadə» sətirlərində verilən malın mayası (:method üsulu ilə). Gəlir gətirmir, brüt mənfəəti azaldır.', ['method' => CostingService::methodLabel()]), [], $sum('gift_cogs'), 'money'],
             'gross_profit' => [__('Brüt mənfəət'), __('Xalis satış − Satılan malın mayası − Hədiyyə / daxili istifadə mayası'), [
                 $c(__('Xalis satış'), $netSales), $c(__('Satılan malın mayası'), -$sum('sale_cogs'), '−'), $c(__('Hədiyyə / daxili istifadə mayası'), -$sum('gift_cogs'), '−'),
             ], $grossProfit, 'money'],

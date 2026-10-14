@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * Hesablar planına hərəkətlərin bağlanması.
  *
  * İdarəetmə (sistem importları 01–08), tarixə görə:
- *   205 Mallar — anbar qalığı × hərəkətli orta maya;   211 / 542 — müştəri borcları / alınmış avanslar;
+ *   205 Mallar — anbar qalığı mayası ilə (FIFO və ya hərəkətli orta);   211 / 542 — müştəri borcları / alınmış avanslar;
  *   221 Kassa — kassa qalığı;   601 / 602 — satış / qaytarma;   611 — kassa mədaxili (sair gəlir);
  *   701 — satılan malın və hədiyyə / daxili istifadənin mayası;   711 — reklam, nəqliyyat, yanacaq;
  *   721 — qalan kassa xərcləri;   751 — bank komissiyası;   801 — brüt mənfəət;   341 — xalis mənfəət;   344 — təsisçiyə ödənişlər.

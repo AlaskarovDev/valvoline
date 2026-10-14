@@ -29,6 +29,8 @@ class AcceptanceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // tapşırıqdakı nəzarət rəqəmləri hərəkətli orta maya ilə verilib
+        config(['app.costing_method' => 'average']);
         self::$dir = (string) (getenv('ACCEPTANCE_DIR') ?: storage_path('import'));
         foreach (ImporterRegistry::all() as $importer) {
             if (! is_file(self::$dir.DIRECTORY_SEPARATOR.$importer->fileHint())) {

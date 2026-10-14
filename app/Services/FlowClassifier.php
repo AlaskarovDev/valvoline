@@ -117,7 +117,7 @@ class FlowClassifier
 
         return [
             // xərc olmayanlar
-            ['/ellis enterprises/', 'cogs', null, __('Valvoline idxalı (mal alışı) — maya dəyəri anbar modulunda hərəkətli orta ilə hesablanır'), $high],
+            ['/ellis enterprises/', 'cogs', null, __('Valvoline idxalı (mal alışı) — maya dəyəri anbar modulunda alışlardan hesablanır'), $high],
             ['/^ygb$/', 'cogs', null, __('YGB — yük gömrük bəyannaməsi (gömrük rüsumu + idxal ƏDV-si): malın maya dəyərinə / əvəzləşdirilən vergiyə aiddir'), $low],
             ['/^mv$/', 'tax', null, __('MV — vergi ödənişi (ehtimal: mənfəət vergisi / ƏDV); əməliyyat xərci deyil'), $low],
             ['/^edv\b|\bedv depozit/', 'tax', null, __('ƏDV — əvəzləşdirilən vergi, xərc deyil'), $high],

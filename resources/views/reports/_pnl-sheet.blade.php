@@ -81,7 +81,7 @@
     </div>
     <div class="flex flex-wrap gap-x-4 gap-y-1 border-t border-line px-4 py-2.5 text-xs text-muted">
         <span class="inline-flex items-center"><span class="cf-dot" style="background: var(--positive)"></span>{{ __('Satış faylı') }}</span>
-        <span class="inline-flex items-center"><span class="cf-dot" style="background: var(--faint)"></span>{{ __('Maya (hərəkətli orta)') }}</span>
+        <span class="inline-flex items-center"><span class="cf-dot" style="background: var(--faint)"></span>{{ __('Maya (:method)', ['method' => \App\Services\CostingService::methodLabel()]) }}</span>
         <span class="inline-flex items-center"><span class="cf-dot" style="background: var(--chart-4)"></span>{{ __('Kassa (08 faylı)') }}</span>
         <span class="inline-flex items-center"><span class="cf-dot" style="background: var(--chart-2)"></span>{{ __('Rəsmi (mühasibat)') }}</span>
         <span class="inline-flex items-center"><span class="cf-dot" style="background: var(--chart-5)"></span>{{ __('Təsisçiyə ödəniş') }}</span>

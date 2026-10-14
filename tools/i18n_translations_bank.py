@@ -333,4 +333,12 @@ T = {
     'Gəlirlər (601, 611, 621, 631, 641; qaytarma 602 və güzəşt 603 çıxılır) − xərclər (701–761). Mənfəət vergisindən (Bölmə 9) əvvəl.': ('Доходы (601, 611, 621, 631, 641; возвраты 602 и скидки 603 вычитаются) − расходы (701–761). До налога на прибыль (раздел 9).', 'Income (601, 611, 621, 631, 641; returns 602 and discounts 603 deducted) − expenses (701–761). Before profit tax (section 9).'),
     'Mənfəət (zərər): Bölmə 6 − Bölmə 7': ('Прибыль (убыток): раздел 6 − раздел 7', 'Profit (loss): section 6 − section 7'),
     '− Bölmə 7 — Xərclər': ('− Раздел 7 — Расходы', '− Section 7 — Expenses'),
+    # FIFO maya
+    'FIFO maya hesablanır': ('Расчёт себестоимости FIFO', 'Calculating FIFO cost'),
+    'Maya (:method)': ('Себестоимость (:method)', 'Cost (:method)'),
+    'Sistemin maya dəyəri bu alışlardan :method üsulu ilə hesablanır.': ('Себестоимость в системе считается из этих закупок методом :method.', 'The system cost of goods is calculated from these purchases using :method.'),
+    'Valvoline idxalı (mal alışı) — maya dəyəri anbar modulunda alışlardan hesablanır': ('Импорт Valvoline (закупка товара) — себестоимость считается в складском модуле из закупок', 'Valvoline import (goods purchase) — the cost of goods is calculated from purchases in the stock module'),
+    'hərəkətli orta': ('скользящая средняя', 'moving average'),
+    '«Hədiyyə / pulsuz» və «Daxili istifadə» sətirlərində verilən malın mayası (:method üsulu ilə). Gəlir gətirmir, brüt mənfəəti azaldır.': ('Себестоимость товара в строках «Подарок / бесплатно» и «Внутреннее использование» (метод :method). Дохода не даёт, уменьшает валовую прибыль.', 'Cost of goods in "Gift / free" and "Internal use" lines (:method method). It brings no revenue and reduces gross profit.'),
+    'Σ (miqdar × satış anındakı maya, :method üsulu ilə) satış sətirləri üzrə − qaytarılan malların mayası.': ('Σ (количество × себестоимость на момент продажи, метод :method) по строкам продаж − себестоимость возвращённых товаров.', 'Σ (quantity × cost at the time of sale, :method method) over sales lines − cost of returned goods.'),
 }

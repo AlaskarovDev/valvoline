@@ -80,6 +80,12 @@ return [
 
     'locale' => env('APP_LOCALE', 'az'),
 
+    /*
+    | Maya dəyərinin hesablanma üsulu: fifo (standart) və ya average (hərəkətli orta).
+    */
+
+    'costing_method' => env('COSTING_METHOD', 'fifo'),
+
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'az'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),

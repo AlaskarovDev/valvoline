@@ -13,6 +13,7 @@ use App\Models\SalesOrder;
 use App\Models\User;
 use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
+use App\Services\CostingService;
 use App\Services\ProfitLossService;
 use App\Services\StockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,6 +35,8 @@ class CostingAndBalancesTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow('2024-04-15 12:00:00');
+        // bu ssenarinin rəqəmləri hərəkətli orta üzrədir; FIFO ayrıca testdə
+        config(['app.costing_method' => 'average']);
 
         $this->importFile('products', $this->productsFile([
             ['100001', 'Yağ A 4L', 'GRP1', 'Mühərrik yağı', 4, 4, 50],
@@ -118,6 +121,29 @@ class CostingAndBalancesTest extends TestCase
         $this->assertEqualsWithDelta(6.875, (float) $this->line('S3')->cogs, 0.0001);
         $this->assertEqualsWithDelta(-6.875, (float) $this->line('S3')->gross_profit, 0.0001);
         $this->assertEqualsWithDelta(6.875, (float) $this->line('S7')->cogs, 0.0001);
+    }
+
+    public function test_fifo_issues_oldest_layers_first(): void
+    {
+        config(['app.costing_method' => 'fifo']);
+        $this->rebuild();
+
+        // 10@5 açılış → S1 4 ədəd: 5
+        $this->assertEqualsWithDelta(5.0, (float) $this->line('S1')->unit_cost, 0.0001);
+        // 01.03: 10@8 alış, amma S2 (5 ədəd) əvvəlcə qalan 6@5 partiyasından çıxır
+        $this->assertEqualsWithDelta(5.0, (float) $this->line('S2')->unit_cost, 0.0001);
+        $this->assertEqualsWithDelta(25.0, (float) $this->line('S2')->cogs, 0.0001);
+        // R1 qaytarması sonuncu çıxış mayası (5) ilə girir: 1@5, 10@8, 1@5 → S3 hədiyyə 1@5, S7 daxili 1@8
+        $this->assertEqualsWithDelta(5.0, (float) $this->line('S3')->cogs, 0.0001);
+        $this->assertEqualsWithDelta(8.0, (float) $this->line('S7')->cogs, 0.0001);
+        // 01.06 sayım −2 → 2@8 çıxır; qalan 7@8 + 1@5 → orta 7,625; anbar dəyəri = 61
+        $a = Product::query()->where('code', '100001')->first();
+        $this->assertEqualsWithDelta(8.0, (float) $a->stock_qty, 0.0001);
+        $this->assertEqualsWithDelta(7.625, (float) $a->current_avg_cost, 0.0001);
+        $this->assertEqualsWithDelta(16.0, (float) DB::table('stock_movements')->where('type', 'adjustment')->value('total_cost') * -1, 0.0001);
+        // mayası olmayan B: qrup / ilk alış ehtiyat mayası əvvəlki kimi
+        $this->assertTrue($this->line('S4')->cost_fallback);
+        $this->assertSame('fifo', CostingService::method());
     }
 
     public function test_cost_fallbacks_use_group_average_then_first_purchase(): void

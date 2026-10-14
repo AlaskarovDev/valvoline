@@ -7,8 +7,13 @@ use App\Support\BulkUpdater;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Maya dəyəri — hərəkətli orta (moving weighted average), mal kodu üzrə.
+ * Maya dəyəri, mal kodu üzrə — FIFO (standart) və ya hərəkətli orta (config app.costing_method = fifo | average).
  *
+ * FIFO: hər alış ayrıca partiya (qat) kimi saxlanılır; satış / hədiyyə / daxili istifadə ən köhnə partiyalardan çıxır.
+ * Qaytarma və artıq sayım sonuncu çıxışın mayası ilə yeni partiya kimi girir. Anbar dəyəri = qalan partiyaların cəmi;
+ * stock_movements.running_avg_cost və products.current_avg_cost qalan partiyaların orta mayasıdır.
+ *
+ * Hərəkətli orta:
  * Bütün hərəkətlər qlobal olaraq tarixə görə sıralanır; eyni gündə sıra:
  * alış/açılış (0) → qaytarma (1) → transfer (2) → satış/hədiyyə/daxili (3) → sayım düzəlişi (4).
  *
@@ -44,6 +49,27 @@ class CostingService
     /** @var array<int, float> */
     private array $firstPurchaseCost = [];
 
+    /** @var array<int, list<array{0: float, 1: float}>> FIFO partiyaları: mal => [[miqdar, maya], …] (ən köhnə əvvəldə) */
+    private array $layers = [];
+
+    /** @var array<int, float> FIFO: malın sonuncu çıxış mayası (qaytarma bu maya ilə girir) */
+    private array $lastIssueCost = [];
+
+    private string $method = 'fifo';
+
+    public static function method(): string
+    {
+        return config('app.costing_method') === 'average' ? 'average' : 'fifo';
+    }
+
+    /**
+     * İstifadəçiyə göstərilən üsul adı: «FIFO» və ya «hərəkətli orta».
+     */
+    public static function methodLabel(): string
+    {
+        return self::method() === 'fifo' ? 'FIFO' : __('hərəkətli orta');
+    }
+
     /**
      * @param  callable(string, float): void|null  $progress
      * @return array{movements: int, fallbacks: int, negative_products: int}
@@ -59,7 +85,7 @@ class CostingService
         usort($events, fn ($a, $b) => [$a['date'], $a['priority'], $a['source_order'], $a['source_id'], $a['leg']]
             <=> [$b['date'], $b['priority'], $b['source_order'], $b['source_id'], $b['leg']]);
 
-        $progress(__('Orta maya hesablanır'), 0.25);
+        $progress($this->method === 'fifo' ? __('FIFO maya hesablanır') : __('Orta maya hesablanır'), 0.25);
         $movements = [];
         $salesCosts = [];
         $returnCosts = [];
@@ -72,7 +98,10 @@ class CostingService
             $qtyBefore = $this->qty[$productId] ?? 0.0;
             $fallback = false;
 
-            if ($event['type'] === 'purchase' || $event['type'] === 'opening') {
+            if ($this->method === 'fifo') {
+                [$unitCost, $fallback] = $this->fifo($event, $qtyBefore);
+                $fallbacks += $fallback ? 1 : 0;
+            } elseif ($event['type'] === 'purchase' || $event['type'] === 'opening') {
                 $unitCost = (float) $event['unit_cost'];
                 if ($event['qty'] > 0) {
                     $baseQty = max($qtyBefore, 0.0);
@@ -142,8 +171,76 @@ class CostingService
         return ['movements' => count($movements), 'fallbacks' => $fallbacks, 'negative_products' => $negative];
     }
 
+    /**
+     * FIFO üzrə bir hərəkət: partiyaları yeniləyir, hərəkətin vahid mayasını qaytarır.
+     *
+     * @param  array<string, mixed>  $event
+     * @return array{0: float, 1: bool} [vahid maya, ehtiyat maya istifadə olunub]
+     */
+    private function fifo(array $event, float $qtyBefore): array
+    {
+        $productId = $event['product_id'];
+        $qty = (float) $event['qty'];
+        $fallback = false;
+
+        if ($event['type'] === 'transfer_out' || $event['type'] === 'transfer_in') {
+            return [$this->avg[$productId] ?? 0.0, false];
+        }
+        if ($qty > 0) {
+            // giriş: alış öz mayası ilə; qaytarma / artıq sayım — sonuncu çıxış mayası ilə
+            $unitCost = in_array($event['type'], ['purchase', 'opening'], true)
+                ? (float) $event['unit_cost']
+                : ($this->lastIssueCost[$productId] ?? $this->avg[$productId] ?? null);
+            if ($unitCost === null) {
+                $unitCost = $this->fallbackCost($productId);
+                $fallback = true;
+            }
+            // mənfi qalıq varsa (mayasız çıxılmış miqdar) giriş əvvəlcə onu bağlayır
+            $layerQty = $qty - max(0.0, -$qtyBefore);
+            if ($layerQty > 0.0000001) {
+                $this->layers[$productId][] = [$layerQty, $unitCost];
+            }
+        } else {
+            $need = -$qty;
+            $cost = 0.0;
+            while ($need > 0.0000001 && ! empty($this->layers[$productId])) {
+                $take = min($need, $this->layers[$productId][0][0]);
+                $cost += $take * $this->layers[$productId][0][1];
+                $this->layers[$productId][0][0] -= $take;
+                $need -= $take;
+                if ($this->layers[$productId][0][0] <= 0.0000001) {
+                    array_shift($this->layers[$productId]);
+                }
+            }
+            if ($need > 0.0000001) {
+                // partiya çatmır: son məlum maya, o da yoxdursa qrupun / ilk alışın mayası
+                $known = $this->avg[$productId] ?? null;
+                if ($known === null) {
+                    $known = $this->fallbackCost($productId);
+                    $fallback = $cost < 0.0000001;
+                }
+                $cost += $need * $known;
+            }
+            $unitCost = $qty < 0 ? $cost / -$qty : 0.0;
+            $this->lastIssueCost[$productId] = $unitCost;
+        }
+
+        // qalan partiyaların orta mayası (anbar dəyəri üçün); partiya qalmayıbsa son məlum maya
+        $layerQty = array_sum(array_column($this->layers[$productId] ?? [], 0));
+        if ($layerQty > 0.0000001) {
+            $this->avg[$productId] = array_sum(array_map(fn ($l) => $l[0] * $l[1], $this->layers[$productId])) / $layerQty;
+        } else {
+            $this->avg[$productId] ??= $unitCost;
+        }
+
+        return [$unitCost, $fallback];
+    }
+
     private function reset(): void
     {
+        $this->method = self::method();
+        $this->layers = [];
+        $this->lastIssueCost = [];
         $this->qty = [];
         $this->avg = [];
         $this->warehouseQty = [];

@@ -147,7 +147,7 @@ class ReconciliationService
         $mzExport = (float) $pl->where('section', 'expense')->filter(fn ($l) => ProfitLossService::isExportLine($l))->sum('amount');
 
         return [
-            (object) ['label' => __('İdxal alışları (03 faylı, maya ilə)'), 'amount' => $system, 'note' => __('Sistemin maya dəyəri bu alışlardan hərəkətli orta ilə hesablanır.')],
+            (object) ['label' => __('İdxal alışları (03 faylı, maya ilə)'), 'amount' => $system, 'note' => __('Sistemin maya dəyəri bu alışlardan :method üsulu ilə hesablanır.', ['method' => CostingService::methodLabel()])],
             (object) ['label' => __('Mal / gömrük ödənişləri (bank: ELLIS, YGB)'), 'amount' => $bankGoods, 'note' => __('Ödəniş tarixi alış tarixindən fərqlənə bilər; re-eksport malları da buradadır.')],
             (object) ['label' => __('MZ: satılmış malın dəyəri (daxili)'), 'amount' => $mzGoods, 'note' => __('Rəsmi uçotda daxili satışın mayası (221.4).')],
             (object) ['label' => __('MZ: re-eksportla bağlı xərclər'), 'amount' => $mzExport, 'note' => __('232.1 — re-eksport malının mayası və xərcləri; P&L-də re-eksport blokundadır.')],
