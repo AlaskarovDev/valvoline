@@ -341,6 +341,32 @@
     .cf-sheet tbody tr:not(.cf-band):not(.cf-section):not(.cf-sum):hover td {
         background: var(--primary-soft);
     }
+    /* P&L Excel görünüşü: ayın əvvəlinə qalıq xanası (əl ilə) */
+    .cf-sheet .cf-input {
+        width: 100%;
+        min-width: 6.5rem;
+        background: transparent;
+        border: 1px dashed color-mix(in srgb, var(--cf-band-text) 35%, transparent);
+        border-radius: 4px;
+        padding: 0.1rem 0.3rem;
+        text-align: right;
+        font: inherit;
+        color: inherit;
+    }
+    .cf-sheet .cf-input::placeholder {
+        color: inherit;
+        opacity: 0.85;
+    }
+    .cf-sheet .cf-input:focus {
+        outline: 2px solid var(--primary);
+        background: var(--surface);
+        color: var(--text);
+    }
+    .cf-sheet .cf-input-manual {
+        border-style: solid;
+        background: color-mix(in srgb, var(--surface) 55%, transparent);
+    }
+
     .cf-dot {
         display: inline-block;
         width: 0.5rem;

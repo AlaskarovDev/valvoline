@@ -61,6 +61,7 @@ PAGES = [
     ("mz", "/muhasibat/menfeet-zerer", 0),
     ("cash-flow", "/muhasibat/cash-flow", 1),
     ("iller", "/muhasibat/iller", 1),
+    ("pul-axini", "/pul-axini", 0),
     ("cash-flow-cedvel", "/muhasibat/cash-flow?view=sheet", 0),
     ("tutusdurma", "/muhasibat/tutusdurma", 0),
     ("bank-hesablari", "/bank-hesablari", 1),

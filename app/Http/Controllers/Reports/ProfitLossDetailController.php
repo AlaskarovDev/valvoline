@@ -33,7 +33,7 @@ class ProfitLossDetailController extends ReportController
         $child = $request->filled('child') ? (string) $request->query('child') : null;
 
         $cell = $this->cell = $this->cellFilters($filters, $col, $granularity);
-        $report = $pnl->build($cell, 'year');
+        $report = $pnl->build($cell, 'year', $request->query('resmi') !== 'xaric');
         $sum = fn (string $key) => (float) array_sum($report['lines'][$key] ?? []);
         $set = fn (string $key) => array_map(fn ($values) => (float) array_sum($values), $report[$key] ?? []);
         $totals = SalesSummaryQuery::totals($cell);

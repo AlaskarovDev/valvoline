@@ -26,9 +26,10 @@ class ProfitLossService
 {
     /**
      * @param  'month'|'year'  $granularity
+     * @param  bool  $withOfficial  rəsmi (bank) xərclər daxil edilsinmi — P&L-in yuxarısındakı düymə
      * @return array{columns: list<string>, lines: array<string, array<string, float>>, expenses: array<string, array<string, float>>, other_income: array<string, array<string, float>>, founder: array<string, array<string, float>>}
      */
-    public function build(ReportFilters $filters, string $granularity = 'month'): array
+    public function build(ReportFilters $filters, string $granularity = 'month', bool $withOfficial = true): array
     {
         $sales = SalesSummaryQuery::base($filters)
             ->groupBy(DB::raw($granularity === 'year' ? 'SUBSTR(s.period, 1, 4)' : 's.period'))
@@ -38,8 +39,8 @@ class ProfitLossService
         $expenses = $this->cashByCategory($filters, $granularity, 'expense');
         $otherIncome = $this->cashByCategory($filters, $granularity, 'income');
         $founder = $this->cashByCategory($filters, $granularity, 'founder');
-        $bank = $this->bankExpensesByGroup($filters, $granularity);
-        $bankRows = $this->bankExpensesByCounterparty($filters, $granularity);
+        $bank = $withOfficial ? $this->bankExpensesByGroup($filters, $granularity) : [];
+        $bankRows = $withOfficial ? $this->bankExpensesByCounterparty($filters, $granularity) : [];
         $export = $this->exportByColumn($filters, $granularity);
         $officialExtra = app(OfficialRevenueService::class)->extraByColumn($filters, $granularity);
 

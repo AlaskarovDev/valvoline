@@ -1,6 +1,6 @@
 @php use App\Support\Fmt; @endphp
 <x-layouts.app :title="$title">
-    <x-filters :filters="$filters" :show="['direction', 'manager', 'category']" :own="['gran']">
+    <x-filters :filters="$filters" :show="['direction', 'manager', 'category']" :own="['gran', 'view', 'resmi']">
         <label class="sr-only" for="gran">{{ __('Dövr') }}</label>
         <select id="gran" name="gran" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()">
             <option value="month" @selected($granularity === 'month')>{{ __('Aylıq') }}</option>
@@ -8,6 +8,21 @@
         </select>
     </x-filters>
 
+    <div class="flex flex-wrap items-center gap-2">
+        <nav class="flex gap-1.5" aria-label="{{ __('Görünüş') }}">
+            <a href="{{ route('pnl.index', request()->except(['view'])) }}" @class(['chip', 'active' => $view === 'report'])>{{ __('Hesabat') }}</a>
+            <a href="{{ route('flowsheet.index', request()->except(['view', 'gran'])) }}" @class(['chip', 'active' => $view === 'sheet'])>{{ __('Cədvəl (Excel görünüşü)') }}</a>
+        </nav>
+        <div class="ml-auto flex items-center gap-1.5" role="group" aria-label="{{ __('Rəsmi xərclər') }}">
+            <span class="text-xs text-muted">{{ __('Rəsmi xərclər (bank)') }}:</span>
+            <a href="{{ request()->fullUrlWithQuery(['resmi' => null]) }}" @class(['chip', 'active' => $withOfficial])>{{ __('Daxil') }}</a>
+            <a href="{{ request()->fullUrlWithQuery(['resmi' => 'xaric']) }}" @class(['chip', 'active' => ! $withOfficial])>{{ __('Xaric') }}</a>
+        </div>
+    </div>
+
+    @if ($view === 'sheet')
+        @include('reports._pnl-sheet')
+    @else
     <x-chart :title="__('Brüt mənfəət, xərclər və xalis mənfəət')" :sub="$filters->label().' · '.__('xərclər').': '.($filters->direction && $filters->direction !== 'all' ? $filters->direction : __('bütün istiqamətlər'))" :spec="$chart" :height="300"/>
 
     <section class="card overflow-hidden" x-data="{ open: {} }">
@@ -67,6 +82,8 @@
             {{ __('Məbləğlər AZN, tam ədədə yuvarlaqlaşdırılıb (hesablama 4 onluq dəqiqliklə). Hədiyyə / daxili istifadə mayası brüt mənfəəti azaldır. «Mənfəətə təsir: Xeyr» olan kassa əməliyyatları burada görünmür — yalnız Kassa hesabatında.') }}
         </div>
     </section>
+
+    @endif
 
     @if ($official)
         @include('reports._pnl-official')

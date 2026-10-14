@@ -58,7 +58,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/xercler', ExpenseController::class)->name('expenses.index');
         Route::get('/xercler/detal', ExpenseDetailController::class)->name('expenses.detail');
         Route::get('/menfeet-zerer', ProfitLossController::class)->name('pnl.index');
+        Route::get('/pul-axini', ProfitLossController::class)->name('flowsheet.index');
         Route::get('/menfeet-zerer/detal', ProfitLossDetailController::class)->name('pnl.detail');
+        Route::post('/menfeet-zerer/qaliqlar', [ProfitLossController::class, 'saveOpenings'])->name('pnl.openings');
         Route::get('/kassa', CashController::class)->name('cash.index');
         Route::get('/melumat-keyfiyyeti', DataQualityController::class)->name('quality.index');
 

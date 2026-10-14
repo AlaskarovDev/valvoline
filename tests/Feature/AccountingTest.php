@@ -342,6 +342,31 @@ class AccountingTest extends TestCase
         $this->post(route('accounting.revenue.decide'), ['normalized' => 'x', 'counterparty' => 'x', 'decision' => 'bogus'])->assertSessionHasErrors('decision');
     }
 
+    public function test_pnl_sheet_view_with_manual_openings_and_official_toggle(): void
+    {
+        $this->upload($this->workbook());
+        $range = ['from' => '2025-01-01', 'to' => '2025-12-31'];
+
+        // yanvar: yalnız rəsmi xərclər 1600 → xalis −1600; əl ilə açılış 1000 → son qalıq −600, fevral oradan davam edir
+        $this->post(route('pnl.openings'), ['opening' => ['2025-01' => '1000', 'bogus' => '5']])->assertRedirect();
+        $this->assertSame(['2025-01'], DB::table('pnl_openings')->pluck('period')->all());
+        $this->get(route('flowsheet.index', $range))->assertOk()->assertSee('Cash Flow (idarəetmə)')
+            ->assertSee('Mənfəət-zərər — Excel görünüşü')->assertSee('Dövrün əvvəlinə qalıq')->assertSee('Naməlum Firma MMC')
+            ->assertSee('value="1000"', false)->assertSee('placeholder="-600.00"', false)->assertSee(Fmt::money(-600, 2, false), false);
+
+        $this->post(route('pnl.openings'), ['opening' => ['2025-01' => '']])->assertRedirect();
+        $this->assertSame(0, DB::table('pnl_openings')->count(), 'boş xana əl ilə qalığı silir');
+
+        // «Rəsmi xərclər: Xaric» — bank xərcləri P&L-dən çıxır
+        $pnl = app(ProfitLossService::class);
+        $this->assertEqualsWithDelta(0.0, array_sum($pnl->build($this->filters(), 'month', false)['lines']['bank_expenses'] ?? []), 0.001);
+        $this->assertEqualsWithDelta(0.0, array_sum($pnl->build($this->filters(), 'month', false)['lines']['net_profit'] ?? []), 0.001);
+        $this->get(route('pnl.index', $range + ['resmi' => 'xaric', 'gran' => 'year']))->assertOk()->assertDontSee('− Rəsmi xərclər (bank)');
+        $this->get(route('pnl.index', $range + ['gran' => 'year']))->assertOk()->assertSee('− Rəsmi xərclər (bank)');
+        $this->get(route('pnl.detail', $range + ['resmi' => 'xaric', 'line' => 'net_profit', 'col' => 'total']), ['X-Modal' => '1'])
+            ->assertOk()->assertSee(Fmt::money(0), false);
+    }
+
     public function test_xls_upload_is_only_allowed_for_the_accounting_file(): void
     {
         $ole = "\xD0\xCF\x11\xE0".str_repeat("\0", 60);

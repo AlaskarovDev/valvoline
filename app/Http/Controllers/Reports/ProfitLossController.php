@@ -7,7 +7,9 @@ use App\Services\ProfitLossService;
 use App\Support\Fmt;
 use App\Support\Spreadsheet;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,8 +19,12 @@ class ProfitLossController extends ReportController
     public function __invoke(Request $request, ProfitLossService $pnl): View|Response
     {
         $filters = $this->filters($request, 'this_year', 'VALVO');
-        $granularity = $request->query('gran') === 'year' ? 'year' : 'month';
-        $report = $pnl->build($filters, $granularity);
+        // «Cash Flow (idarəetmə)» menyu bəndi — eyni P&L, Excel görünüşündə
+        $view = $request->routeIs('flowsheet.index') || $request->query('view') === 'sheet' ? 'sheet' : 'report';
+        // Excel görünüşü aylar üzrədir (ayın əvvəlinə qalıq aylıqdır)
+        $granularity = $view === 'report' && $request->query('gran') === 'year' ? 'year' : 'month';
+        $withOfficial = $request->query('resmi') !== 'xaric';
+        $report = $pnl->build($filters, $granularity, $withOfficial);
         $columns = $report['columns'];
         $labels = array_map(fn ($c) => $granularity === 'year' ? (string) $c : Fmt::period((string) $c), $columns);
 
@@ -41,7 +47,7 @@ class ProfitLossController extends ReportController
         ];
 
         return view('reports.pnl', [
-            'title' => __('Mənfəət-zərər (P&L)'),
+            'title' => $view === 'sheet' ? __('Cash Flow (idarəetmə)') : __('Mənfəət-zərər (P&L)'),
             'filters' => $filters,
             'granularity' => $granularity,
             'columns' => $columns,
@@ -49,9 +55,84 @@ class ProfitLossController extends ReportController
             'lines' => $lines,
             'chart' => $chart,
             // xanaya klik → hesablama popup-u (eyni filtrlər)
-            'detailQuery' => $filters->query(['gran' => $granularity]),
+            'detailQuery' => $filters->query(['gran' => $granularity, 'resmi' => $withOfficial ? null : 'xaric']),
+            'view' => $view,
+            'withOfficial' => $withOfficial,
+            'sheet' => $view === 'sheet' ? $this->sheet($report) : null,
             'official' => app(OfficialRevenueService::class)->cashSummary($filters),
         ]);
+    }
+
+    /**
+     * Ayın əvvəlinə qalıqları saxlayır (boş xana — əl ilə qalıq silinir, əvvəlki aydan davam edir).
+     */
+    public function saveOpenings(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'opening' => ['array'],
+            'opening.*' => ['nullable', 'numeric', 'between:-999999999,999999999'],
+        ]);
+        foreach ($data['opening'] ?? [] as $period => $amount) {
+            if (! preg_match('/^\d{4}-\d{2}$/', (string) $period)) {
+                continue;
+            }
+            $amount === null || $amount === ''
+                ? DB::table('pnl_openings')->where('period', $period)->delete()
+                : DB::table('pnl_openings')->updateOrInsert(['period' => $period], ['amount' => $amount, 'user_id' => $request->user()->id, 'updated_at' => now(), 'created_at' => now()]);
+        }
+
+        return back()->with('status', __('Dövrün əvvəlinə qalıqlar saxlanıldı.'));
+    }
+
+    /**
+     * Excel (Cash Flow) görünüşü: ayın əvvəlinə qalıq + gəlirlər − xərclər − təsisçiyə ödənişlər = ayın sonuna qalıq.
+     * Gəlir və xərc sətirləri P&L-in özüdür; «Xalis mənfəət» sətri P&L ilə eynidir.
+     *
+     * @param  array<string, mixed>  $report
+     * @return array<string, mixed>
+     */
+    private function sheet(array $report): array
+    {
+        $l = $report['lines'];
+        $columns = $report['columns'];
+        $neg = fn (array $values) => array_map(fn ($v) => -$v, $values);
+        $rows = fn (array $set, string $kind) => array_map(fn ($name, $values) => ['label' => (string) $name, 'values' => $values, 'kind' => $kind], array_keys($set), array_values($set));
+
+        $income = array_values(array_filter(array_merge(
+            [['label' => __('Satışlar'), 'values' => $l['sales'] ?? [], 'kind' => 'sales'],
+                ['label' => __('− Qaytarma'), 'values' => $neg($l['returns'] ?? []), 'kind' => 'sales']],
+            $rows($report['other_income'], 'cash'),
+            [['label' => __('Re-eksport gəliri (rəsmi MZ)'), 'values' => $l['export_revenue'] ?? [], 'kind' => 'official'],
+                ['label' => __('Rəsmi gəlir — sistemdə olmayan satış'), 'values' => $l['official_extra'] ?? [], 'kind' => 'official']],
+        ), fn ($r) => abs(array_sum($r['values'])) > 0.005 || $r['kind'] === 'sales'));
+        $expense = array_values(array_filter(array_merge(
+            [['label' => __('Satılan malın mayası'), 'values' => $l['sale_cogs'] ?? [], 'kind' => 'cogs'],
+                ['label' => __('Hədiyyə / daxili istifadə mayası'), 'values' => $l['gift_cogs'] ?? [], 'kind' => 'cogs']],
+            $rows($report['expenses'], 'cash'),
+            $rows($report['bank_rows'], 'official'),
+            [['label' => __('Re-eksport xərcləri (rəsmi MZ)'), 'values' => $l['export_cost'] ?? [], 'kind' => 'official']],
+        ), fn ($r) => abs(array_sum($r['values'])) > 0.005 || $r['kind'] === 'cogs'));
+        $founder = $rows($report['founder'], 'cash');
+
+        $sum = fn (array $list, string $c) => array_sum(array_map(fn ($r) => $r['values'][$c] ?? 0.0, $list));
+        $manual = DB::table('pnl_openings')->pluck('amount', 'period')->map(fn ($v) => (float) $v);
+        $openings = [];
+        $closings = [];
+        $previous = null;
+        foreach ($columns as $c) {
+            // əl ilə qalıq varsa o, yoxdursa əvvəlki ayın son qalığı (ilk ay üçün 0)
+            $openings[$c] = $manual[$c] ?? ($previous ?? 0.0);
+            $closings[$c] = $openings[$c] + ($l['net_profit'][$c] ?? 0.0) - ($l['founder'][$c] ?? 0.0);
+            $previous = $closings[$c];
+        }
+
+        return [
+            'income' => $income, 'expense' => $expense, 'founder' => $founder,
+            'incomeTotal' => array_combine($columns, array_map(fn ($c) => $sum($income, $c), $columns)) ?: [],
+            'expenseTotal' => array_combine($columns, array_map(fn ($c) => $sum($expense, $c), $columns)) ?: [],
+            'net' => $l['net_profit'] ?? [],
+            'openings' => $openings, 'closings' => $closings, 'manual' => $manual->all(),
+        ];
     }
 
     /**

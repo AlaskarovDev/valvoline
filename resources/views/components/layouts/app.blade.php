@@ -43,6 +43,7 @@
         __('Maliyyə') => [
             ['expenses.index', __('Xərclər'), 'expenses', $isAdmin],
             ['pnl.index', __('Mənfəət-zərər (P&L)'), 'pnl', $isAdmin],
+            ['flowsheet.index', __('Cash Flow (idarəetmə)'), 'cash', $isAdmin],
             ['cash.index', __('Kassa'), 'cash', $isAdmin],
         ],
         __('Mühasibat') => [
