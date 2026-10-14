@@ -14,30 +14,50 @@
                    :tone="($result->amount ?? $incomeTotal - $expenseTotal) < 0 ? 'neg' : 'pos'" :big="true"/>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            @foreach ([__('Gəlirlər') => $income, __('Xərclər') => $expenses] as $heading => $list)
-                <section class="card overflow-hidden">
-                    <div class="card-head"><h2 class="card-title">{{ $heading }}</h2></div>
-                    <div class="tbl-wrap">
-                        <table class="tbl">
-                            <thead><tr><th>{{ __('Kod') }}</th><th>{{ __('Maddə') }}</th><th class="num">{{ __('Məbləğ') }}</th><th class="num">{{ __('Pay') }}</th></tr></thead>
-                            <tbody>
-                            @php $sum = $list->sum('amount'); @endphp
-                            @foreach ($list as $line)
-                                <tr>
-                                    <td class="font-mono text-xs">{{ $line->tax_code }}</td>
-                                    <td class="wrap">{{ $line->name }}</td>
-                                    <td class="num {{ $line->amount < 0 ? 'neg' : '' }}">{{ Fmt::money($line->amount) }}</td>
-                                    <td class="num text-muted">{{ $sum != 0 ? Fmt::pct($line->amount / $sum) : '—' }}</td>
-                                </tr>
+        <section class="card overflow-hidden" x-data="{ open: {} }">
+            <div class="card-head">
+                <div>
+                    <h2 class="card-title">{{ __('Mənfəət-zərər (vergi bəyannaməsi) illər üzrə') }}</h2>
+                    <div class="card-sub">{{ __('İllər sütunlarda. Sətirlərə klik — vergi bəyannaməsi kodları ilə maddələr açılır.') }}</div>
+                </div>
+            </div>
+            <div class="tbl-wrap">
+                <table class="tbl">
+                    <thead><tr>
+                        <th class="sticky left-0 z-[2] min-w-36 bg-surface-2 sm:min-w-72">{{ __('Göstərici') }}</th>
+                        @foreach ($statement['columns'] as $y)<th @class(['num', 'bg-primary-soft' => $y === $year])>{{ $statement['labels'][$y] }}</th>@endforeach
+                    </tr></thead>
+                    <tbody>
+                    @foreach ($statement['lines'] as $i => $line)
+                        @php
+                            $rowClass = match ($line['style']) { 'subtotal' => 'font-semibold', 'total' => 'font-bold', 'muted' => 'text-muted', default => '' };
+                            $expandable = $line['style'] === 'expand' && count($line['children']) > 0;
+                            $fmt = fn ($v) => $line['type'] === 'pct' ? Fmt::pct($v) : Fmt::money($v, 0, false);
+                        @endphp
+                        <tr class="{{ $rowClass }}" @if ($expandable) @click="open[{{ $i }}] = !open[{{ $i }}]" style="cursor: pointer" @endif>
+                            <td @class(['sticky left-0 z-[1] whitespace-normal bg-surface', 'border-t-2 border-line-strong' => $line['style'] === 'total'])>
+                                @if ($expandable)<span class="inline-block w-4 text-faint" x-text="open[{{ $i }}] ? '▾' : '▸'">▸</span>@endif
+                                {{ $line['label'] }}
+                            </td>
+                            @foreach ($statement['columns'] as $y)
+                                @php $v = $line['values'][$y] ?? 0; @endphp
+                                <td @class(['num', 'border-t-2 border-line-strong' => $line['style'] === 'total', 'neg' => in_array($line['style'], ['total', 'subtotal'], true) && $v < 0, 'bg-primary-soft' => $y === $year])>{{ $fmt($v) }}</td>
                             @endforeach
-                            </tbody>
-                            <tfoot><tr><td colspan="2">{{ __('Cəmi') }}</td><td class="num">{{ Fmt::money($sum) }}</td><td></td></tr></tfoot>
-                        </table>
-                    </div>
-                </section>
-            @endforeach
-        </div>
+                        </tr>
+                        @foreach ($line['children'] as $child)
+                            <tr x-show="open[{{ $i }}]" x-cloak class="text-[12px] text-muted">
+                                <td class="sticky left-0 z-[1] whitespace-normal bg-surface pl-9">{{ $child['label'] }}</td>
+                                @foreach ($statement['columns'] as $y)<td @class(['num', 'bg-primary-soft' => $y === $year])>{{ Fmt::money($child['values'][$y] ?? 0, 0, false) }}</td>@endforeach
+                            </tr>
+                        @endforeach
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="border-t border-line px-4 py-2.5 text-xs text-muted">
+                {{ __('Məbləğlər AZN, mühasibat faylındakı MZ vərəqindən. «Malın dəyəri» — 221.4 və re-eksportla bağlı xərclər (232.1); «Amortizasiya» — 227 / 228; qalan xərclər — «Əməliyyat xərcləri». Seçilmiş il rəngli sütundadır.') }}
+            </div>
+        </section>
 
         @if ($comparison)
             <section class="card overflow-hidden">

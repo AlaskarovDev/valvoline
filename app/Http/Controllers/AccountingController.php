@@ -179,7 +179,69 @@ class AccountingController extends Controller
             'expenses' => $lines->where('section', 'expense')->values(),
             'result' => $lines->firstWhere('section', 'result'),
             'comparison' => $comparison,
+            'statement' => $this->plStatement(),
         ]);
+    }
+
+    /**
+     * MZ illər üzrə, idarəetmə P&L-i kimi: Gəlirlər → Malın dəyəri → Brüt mənfəət → Əməliyyat xərcləri → Amortizasiya → Mənfəət.
+     * Hər qrup açılır — içində vergi bəyannaməsi kodları ilə maddələr.
+     *
+     * @return array{columns: list<int>, labels: array<int, string>, lines: list<array<string, mixed>>}
+     */
+    private function plStatement(): array
+    {
+        $all = DB::table('acc_pl_lines')->orderBy('row_no')->get();
+        $columns = $all->pluck('year')->map(fn ($y) => (int) $y)->unique()->sort()->values()->all();
+        $kind = function (object $l): string {
+            $code = (string) $l->tax_code;
+
+            return match (true) {
+                $l->section === 'income' => 'income',
+                str_starts_with($code, '221.4') || ProfitLossService::isExportLine($l) => 'cogs',
+                str_starts_with($code, '227') || str_starts_with($code, '228') => 'depreciation',
+                default => 'opex',
+            };
+        };
+        $byKind = fn (string $k) => $all->where('section', '!=', 'result')->filter(fn ($l) => $kind($l) === $k);
+        $sumBy = fn (Collection $lines) => collect($columns)->mapWithKeys(fn ($y) => [$y => (float) $lines->where('year', $y)->sum('amount')])->all();
+        // eyni maddə bütün illərdə bir sətirdə (kod + ad)
+        $children = fn (Collection $lines, int $sign = 1) => $lines->groupBy(fn ($l) => ($l->tax_code ?: '').'|'.NameNormalizer::normalize($l->name))
+            ->map(fn (Collection $g) => [
+                'label' => trim(($g->first()->tax_code ? $g->first()->tax_code.' · ' : '').$g->sortBy('year')->last()->name),
+                'values' => array_map(fn ($v) => $sign * $v, $sumBy($g)),
+            ])->values()->all();
+        $neg = fn (array $values) => array_map(fn ($v) => -$v, $values);
+
+        $income = $sumBy($byKind('income'));
+        $cogs = $sumBy($byKind('cogs'));
+        $opex = $sumBy($byKind('opex'));
+        $depreciation = $sumBy($byKind('depreciation'));
+        $gross = array_map(fn ($y) => $income[$y] - $cogs[$y], array_combine($columns, $columns) ?: []);
+        $result = [];
+        foreach ($columns as $y) {
+            $fileResult = $all->where('year', $y)->firstWhere('section', 'result');
+            $result[$y] = $fileResult ? (float) $fileResult->amount : $gross[$y] - $opex[$y] - $depreciation[$y];
+        }
+        $ratio = fn (array $a) => array_map(fn ($y) => abs($income[$y]) > 0.005 ? $a[$y] / $income[$y] : 0.0, array_combine($columns, $columns) ?: []);
+
+        $lines = [
+            ['label' => __('Gəlirlər'), 'values' => $income, 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('income'))],
+            ['label' => __('− Malın dəyəri (daxili + re-eksport)'), 'values' => $neg($cogs), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('cogs'), -1)],
+            ['label' => __('Brüt mənfəət'), 'values' => $gross, 'style' => 'subtotal', 'type' => 'money', 'children' => []],
+            ['label' => __('Brüt marja'), 'values' => $ratio($gross), 'style' => 'muted', 'type' => 'pct', 'children' => []],
+            ['label' => __('− Əməliyyat xərcləri'), 'values' => $neg($opex), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('opex'), -1)],
+            ['label' => __('− Amortizasiya'), 'values' => $neg($depreciation), 'style' => 'expand', 'type' => 'money', 'children' => $children($byKind('depreciation'), -1)],
+            ['label' => __('Hesabat dövründə mənfəət (zərər)'), 'values' => $result, 'style' => 'total', 'type' => 'money', 'children' => []],
+            ['label' => __('Rentabellik'), 'values' => $ratio($result), 'style' => 'muted', 'type' => 'pct', 'children' => []],
+        ];
+        $labels = $this->asOfLabels();
+
+        return [
+            'columns' => $columns,
+            'labels' => collect($columns)->mapWithKeys(fn ($y) => [$y => isset($labels[$y]) && ! str_starts_with($labels[$y], '31.12') ? $y.' ('.$labels[$y].')' : (string) $y])->all(),
+            'lines' => array_values(array_filter($lines, fn ($l) => $l['type'] === 'pct' || $l['style'] !== 'expand' || array_sum(array_map('abs', $l['values'])) > 0.005)),
+        ];
     }
 
     /**

@@ -303,4 +303,10 @@ T = {
     'Bank (köçürmə)': ('Банк (перевод)', 'Bank (transfer)'),
     'Müştəri ödənişləri': ('Оплаты клиентов', 'Customer payments'),
     'sayım :date': ('пересчёт :date', 'count :date'),
+    'Məbləğlər AZN, mühasibat faylındakı MZ vərəqindən. «Malın dəyəri» — 221.4 və re-eksportla bağlı xərclər (232.1); «Amortizasiya» — 227 / 228; qalan xərclər — «Əməliyyat xərcləri». Seçilmiş il rəngli sütundadır.': ('Суммы в AZN, с листа MZ бухгалтерского файла. «Себестоимость» — 221.4 и расходы реэкспорта (232.1); «Амортизация» — 227 / 228; остальные расходы — «Операционные расходы». Выбранный год выделен цветом.', 'Amounts in AZN, from the MZ sheet of the accounting file. "Cost of goods" — 221.4 and re-export costs (232.1); "Depreciation" — 227 / 228; the rest — "Operating expenses". The selected year is highlighted.'),
+    'Mənfəət-zərər (vergi bəyannaməsi) illər üzrə': ('Прибыли и убытки (налоговая декларация) по годам', 'Profit & loss (tax return) by year'),
+    'Rentabellik': ('Рентабельность', 'Profitability'),
+    'İllər sütunlarda. Sətirlərə klik — vergi bəyannaməsi kodları ilə maddələr açılır.': ('Годы в столбцах. Нажмите на строку — откроются статьи с кодами налоговой декларации.', 'Years in columns. Click a row to open the items with tax-return codes.'),
+    '− Amortizasiya': ('− Амортизация', '− Depreciation'),
+    '− Malın dəyəri (daxili + re-eksport)': ('− Себестоимость товаров (внутр. + реэкспорт)', '− Cost of goods (domestic + re-export)'),
 }
