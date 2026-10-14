@@ -33,16 +33,13 @@
                 <tbody>
                 @foreach ($lines as $i => $line)
                     @php
-                        $rowClass = match ($line['style']) { 'subtotal' => 'font-semibold', 'total' => 'font-bold', 'muted' => 'text-muted', 'info' => 'text-muted', default => '' };
-                        $expandable = in_array($line['style'], ['expand', 'info'], true) && count($line['children']) > 0;
-                        // «info» — mənfəətə ayrıca təsir etməyən məlumat bloku, standart açıq
-                        $shown = $line['style'] === 'info' ? "open[{$i}] !== false" : "open[{$i}]";
+                        $rowClass = match ($line['style']) { 'subtotal' => 'font-semibold', 'total' => 'font-bold', 'muted' => 'text-muted', default => '' };
+                        $expandable = $line['style'] === 'expand' && count($line['children']) > 0;
                     @endphp
-                    <tr class="{{ $rowClass }}" @if($expandable) @click="open[{{ $i }}] = !({{ $shown }})" style="cursor: pointer" @endif>
-                        <td @class(['sticky left-0 z-[1] whitespace-normal', 'bg-surface' => $line['style'] !== 'info', 'bg-surface-2' => $line['style'] === 'info', 'border-t-2 border-line-strong' => $line['style'] === 'total'])>
-                            @if ($expandable)<span class="inline-block w-4 text-faint" x-text="{{ $shown }} ? '▾' : '▸'">▸</span>@endif
+                    <tr class="{{ $rowClass }}" @if($expandable) @click="open[{{ $i }}] = !open[{{ $i }}]" style="cursor: pointer" @endif>
+                        <td class="sticky left-0 z-[1] whitespace-normal bg-surface {{ $line['style'] === 'total' ? 'border-t-2 border-line-strong' : '' }}">
+                            @if ($expandable)<span class="inline-block w-4 text-faint" x-text="open[{{ $i }}] ? '▾' : '▸'">▸</span>@endif
                             {{ $line['label'] }}
-                            @if (! empty($line['note']))<div class="pl-4 text-xs font-normal text-faint">{{ $line['note'] }}</div>@endif
                         </td>
                         @foreach ($columns as $c)
                             @php $v = $line['values'][$c] ?? 0; @endphp
@@ -55,7 +52,7 @@
                         </td>
                     </tr>
                     @foreach ($line['children'] as $child)
-                        <tr x-show="{{ $shown }}" @if ($line['style'] !== 'info') x-cloak @endif class="text-[12px] text-muted">
+                        <tr x-show="open[{{ $i }}]" x-cloak class="text-[12px] text-muted">
                             <td class="sticky left-0 z-[1] bg-surface pl-9">{{ $child['label'] }}</td>
                             @foreach ($columns as $c)<td class="num">{{ Fmt::money($child['values'][$c] ?? 0, 0, false) }}</td>@endforeach
                             <td class="num">{{ Fmt::money(array_sum($child['values']), 0, false) }}</td>

@@ -64,29 +64,12 @@ class ProfitLossController extends ReportController
         $l = $report['lines'];
         $children = fn (array $set) => array_map(fn ($name, $values) => ['label' => $name, 'values' => $values], array_keys($set), array_values($set));
 
-        // Excel «Gəlirlər» bölməsi: hər ödəyici və onun mənfəətə münasibəti (satışlarda var / əlavə olunub / gəlir deyil)
-        $tags = [
-            OfficialRevenueService::INCLUDED => __('✓ satışlarda var'),
-            OfficialRevenueService::EXTRA => __('+ P&L-ə əlavə olunub'),
-            OfficialRevenueService::PENDING => __('⚠ yoxlanılmalı'),
-            OfficialRevenueService::NOT_REVENUE => __('gəlir deyil'),
-        ];
-        $kindTags = ['founder' => __('təsisçi borcu, gəlir deyil'), 'export' => __('re-eksport blokunda')];
-        $officialInfo = [];
-        foreach ($report['official'] as $r) {
-            foreach ($r->values as $c => $v) {
-                $officialInfo[$c] = ($officialInfo[$c] ?? 0.0) + $v;
-            }
-        }
         $net = array_sum($l['net_sales'] ?? []);
         $netWithExport = $net + array_sum($l['export_revenue'] ?? []) + array_sum($l['official_extra'] ?? []);
         $lines = [
             ['label' => __('Satışlar'), 'values' => $l['sales'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
             ['label' => __('− Qaytarma'), 'values' => array_map(fn ($v) => -$v, $l['returns'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
             ['label' => __('Xalis satış'), 'values' => $l['net_sales'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
-            ['key' => 'official_info', 'label' => __('Rəsmi daxilolmalar — mühasibat Excel «Gəlirlər» (bank)'), 'values' => $officialInfo, 'style' => 'info', 'type' => 'money',
-                'note' => __('Məlumat üçün: «✓ satışlarda var» olanlar yuxarıdakı satışın pulu olduğu üçün mənfəətə ikinci dəfə yazılmır; «+ P&L-ə əlavə olunub» olanlar aşağıda «Rəsmi gəlir» sətrindədir.'),
-                'children' => array_map(fn ($r) => ['label' => $r->label.' — '.($kindTags[$r->kind] ?? $tags[$r->decision] ?? ''), 'values' => $r->values], $report['official'])],
             ['label' => __('− Satılan malın mayası'), 'values' => array_map(fn ($v) => -$v, $l['sale_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
             ['label' => __('− Hədiyyə / daxili istifadə mayası'), 'values' => array_map(fn ($v) => -$v, $l['gift_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
             ['label' => __('Brüt mənfəət'), 'values' => $l['gross_profit'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
@@ -100,8 +83,7 @@ class ProfitLossController extends ReportController
                 ['label' => __('Gəlir — AR hüdudlarından kənar satış'), 'values' => $l['export_revenue'] ?? []],
                 ['label' => __('Xərc — re-eksportla bağlı (maya, daşınma)'), 'values' => array_map(fn ($v) => -$v, $l['export_cost'] ?? [])],
             ]],
-            ['key' => 'official_extra', 'label' => __('+ Rəsmi gəlir — sistemdə olmayan satış (bank)'), 'values' => $l['official_extra'] ?? [], 'style' => 'expand', 'type' => 'money',
-                'children' => array_values(array_map(fn ($r) => ['label' => $r->label, 'values' => $r->values], array_filter($report['official'], fn ($r) => $r->decision === OfficialRevenueService::EXTRA)))],
+            ['key' => 'official_extra', 'label' => __('+ Rəsmi gəlir — sistemdə olmayan satış (bank)'), 'values' => $l['official_extra'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
             ['label' => __('Xalis mənfəət'), 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
             ['key' => 'net_margin', 'label' => __('Xalis marja'), 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];
@@ -127,7 +109,6 @@ class ProfitLossController extends ReportController
             'bank' => $line['children'] !== [],
             'export' => abs(array_sum($l['export_revenue'] ?? [])) + abs(array_sum($l['export_cost'] ?? [])) > 0.005,
             'official_extra' => abs(array_sum($l['official_extra'] ?? [])) > 0.005,
-            'official_info' => $line['children'] !== [],
             default => true,
         }));
 

@@ -39,9 +39,7 @@ class ProfitLossService
         $founder = $this->cashByCategory($filters, $granularity, 'founder');
         $bank = $this->bankExpensesByGroup($filters, $granularity);
         $export = $this->exportByColumn($filters, $granularity);
-        $official = app(OfficialRevenueService::class);
-        $officialRows = $official->matrix($filters, $granularity);
-        $officialExtra = $official->extraByColumn($filters, $granularity);
+        $officialExtra = app(OfficialRevenueService::class)->extraByColumn($filters, $granularity);
 
         $columns = array_unique(array_merge(
             $sales->keys()->map(fn ($k) => (string) $k)->all(),
@@ -51,7 +49,6 @@ class ProfitLossService
             array_merge(...array_map('array_keys', array_values($bank) ?: [[]])),
             array_keys($export['revenue']),
             array_keys($officialExtra),
-            array_merge(...array_map(fn ($r) => array_keys($r->values), $officialRows ?: [(object) ['values' => []]])),
         ));
         sort($columns);
 
@@ -84,7 +81,7 @@ class ProfitLossService
             $lines['retained'][$column] = $lines['net_profit'][$column] - $founderTotal;
         }
 
-        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome, 'founder' => $founder, 'bank' => $bank, 'official' => $officialRows];
+        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome, 'founder' => $founder, 'bank' => $bank];
     }
 
     /**

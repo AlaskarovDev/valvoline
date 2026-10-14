@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * Rəsmi gəlirlər — mühasibat Cash Flow-dakı müştəri daxilolmaları (bank) və onların sistemlə tutuşdurulması.
  *
  * Satış gəliri sistemdə satış faylından hesablanır; bank daxilolması isə həmin satışların (və ya keçmiş borcun) pulu ola bilər.
- * Ona görə daxilolma P&L-ə yalnız ödəyicinin satışı sistemdə tapılmayanda əlavə olunur (istifadəçi qərarı dəyişə bilər).
+ * Ona görə daxilolma P&L-ə yalnız ödəyici sistemdə tapılmayanda və istifadəçi «sistemdə olmayan satış» seçəndə əlavə olunur.
  * Dövrün əvvəlinə qalıq keçmiş illərin pulu olduğu üçün heç vaxt gəlir sayılmır.
  */
 class OfficialRevenueService
@@ -23,10 +23,7 @@ class OfficialRevenueService
 
     public const PENDING = 'pending';
 
-    public const DECISIONS = [self::INCLUDED, self::EXTRA, self::PENDING, self::NOT_REVENUE];
-
-    /** @var array<int, Collection<int, object>> il => ödəyicilər (sorğu daxilində təkrar hesablanmasın) */
-    private array $payersCache = [];
+    public const DECISIONS = [self::INCLUDED, self::EXTRA, self::NOT_REVENUE];
 
     /**
      * @return array<string, string>
@@ -47,14 +44,6 @@ class OfficialRevenueService
      * @return Collection<int, object>
      */
     public function payers(int $year): Collection
-    {
-        return $this->payersCache[$year] ??= $this->computePayers($year);
-    }
-
-    /**
-     * @return Collection<int, object>
-     */
-    private function computePayers(int $year): Collection
     {
         $rows = $this->receiptLines($year.'-01', $year.'-12');
         if ($rows->isEmpty()) {
@@ -78,8 +67,8 @@ class OfficialRevenueService
             $auto = match (true) {
                 $customer !== null && $yearSales > 0 => [self::INCLUDED, __('Müştərinin bu il satışları sistemdədir — ödəniş həmin satışların pulu.')],
                 $customer !== null && $earlierSales > 0 => [self::INCLUDED, __('Müştərinin əvvəlki illərdə satışı var — ödəniş keçmiş borcun pulu ola bilər, gəlir artıq sayılıb.')],
-                $customer !== null => [self::EXTRA, __('Müştəri tapıldı, amma sistemdə satışı yoxdur — rəsmi gəlir kimi P&L-ə əlavə olunur.')],
-                default => [self::EXTRA, __('Ödəyici sistemdə tapılmadı — rəsmi gəlir kimi P&L-ə əlavə olunur. Satış başqa adla yazılıbsa «Sistemdə satış kimi var» seçin.')],
+                $customer !== null => [self::PENDING, __('Müştəri tapıldı, amma sistemdə satışı yoxdur.')],
+                default => [self::PENDING, __('Ödəyici sistemdəki müştərilərə bənzəmir — satış başqa adla yazılıb və ya ümumiyyətlə yazılmayıb.')],
             };
             $manual = $decisions[$normalized] ?? null;
 
@@ -109,58 +98,22 @@ class OfficialRevenueService
      */
     public function extraByColumn(ReportFilters $filters, string $granularity = 'month'): array
     {
+        if ($filters->direction !== null && ! in_array($filters->direction, ['all', 'VALVO'], true)) {
+            return [];
+        }
+        $extra = DB::table('revenue_decisions')->where('decision', self::EXTRA)->pluck('normalized')->flip();
+        if ($extra->isEmpty()) {
+            return [];
+        }
         $result = [];
-        foreach ($this->matrix($filters, $granularity) as $row) {
-            if ($row->decision === self::EXTRA) {
-                foreach ($row->values as $column => $amount) {
-                    $result[$column] = ($result[$column] ?? 0.0) + $amount;
-                }
+        foreach ($this->receiptLines($filters->fromPeriod(), $filters->toPeriod()) as $row) {
+            if (isset($extra[$row->normalized])) {
+                $column = $granularity === 'year' ? substr($row->period, 0, 4) : $row->period;
+                $result[$column] = ($result[$column] ?? 0.0) + (float) $row->amount;
             }
         }
 
         return $result;
-    }
-
-    /**
-     * Excel-in «Gəlirlər» bölməsi P&L sütunları üzrə: hər ödəyici (qərarı ilə), təsisçi və re-eksport alıcısı.
-     *
-     * @param  'month'|'year'  $granularity
-     * @return list<object{label: string, kind: string, decision: string, values: array<string, float>}>
-     */
-    public function matrix(ReportFilters $filters, string $granularity = 'month'): array
-    {
-        if ($filters->direction !== null && ! in_array($filters->direction, ['all', 'VALVO'], true)) {
-            return [];
-        }
-        [$from, $to] = [$filters->fromPeriod(), $filters->toPeriod()];
-        $column = fn (string $period) => $granularity === 'year' ? substr($period, 0, 4) : $period;
-        $rows = [];
-        foreach (range((int) substr($from, 0, 4), (int) substr($to, 0, 4)) as $year) {
-            foreach ($this->payers($year) as $payer) {
-                $key = $payer->normalized.'|'.$payer->decision;
-                $rows[$key] ??= (object) ['label' => $payer->counterparty, 'kind' => 'customer', 'decision' => $payer->decision, 'values' => []];
-                foreach ($payer->months as $period => $amount) {
-                    if ($period >= $from && $period <= $to) {
-                        $rows[$key]->values[$column($period)] = ($rows[$key]->values[$column($period)] ?? 0.0) + $amount;
-                    }
-                }
-            }
-        }
-        $classifier = new FlowClassifier;
-        foreach (DB::table('bank_flow_lines')->where('section', 'income')->whereBetween('period', [$from, $to])->where('amount', '!=', 0)->orderBy('row_no')->get() as $f) {
-            $kind = match (true) {
-                self::isExportBuyer((string) $f->normalized) => 'export',
-                $classifier->classify((string) $f->counterparty, 'income')['type'] === 'financing' => 'founder',
-                default => null,
-            };
-            if ($kind !== null) {
-                $key = $kind.'|'.$f->normalized;
-                $rows[$key] ??= (object) ['label' => $f->counterparty, 'kind' => $kind, 'decision' => self::NOT_REVENUE, 'values' => []];
-                $rows[$key]->values[$column($f->period)] = ($rows[$key]->values[$column($f->period)] ?? 0.0) + (float) $f->amount;
-            }
-        }
-
-        return array_values(array_filter($rows, fn ($r) => $r->values !== []));
     }
 
     /**
@@ -183,13 +136,11 @@ class OfficialRevenueService
             return $f;
         });
         $decisionOf = [];
-        foreach (range((int) substr($from, 0, 4), (int) substr($to, 0, 4)) as $year) {
-            foreach ($this->payers($year) as $payer) {
-                $decisionOf[$year.'|'.$payer->normalized] = $payer->decision;
-            }
+        foreach ($this->payersForRange($from, $to) as $payer) {
+            $decisionOf[$payer->normalized] = $payer->decision;
         }
         $customer = $income->where('type', 'revenue')->reject(fn ($f) => self::isExportBuyer($f->normalized));
-        $by = fn (string $decision) => (float) $customer->filter(fn ($f) => ($decisionOf[substr($f->period, 0, 4).'|'.$f->normalized] ?? self::EXTRA) === $decision)->sum('amount');
+        $by = fn (string $decision) => (float) $customer->filter(fn ($f) => ($decisionOf[$f->normalized] ?? self::PENDING) === $decision)->sum('amount');
         $opening = $flows->where('section', 'opening')->sortBy('period')->first();
         // faylda gələcək aylar əvvəlki qalığın təkrarıdır — son qalıq hərəkəti olan son ayındır
         $lastActive = $flows->whereIn('section', ['income', 'payment'])->where('amount', '!=', 0)->max('period');
@@ -238,7 +189,6 @@ class OfficialRevenueService
 
     public function decide(string $normalized, string $counterparty, ?string $decision, ?int $userId): void
     {
-        $this->payersCache = [];
         if ($decision === null || $decision === 'auto') {
             DB::table('revenue_decisions')->where('normalized', $normalized)->delete();
 
@@ -270,5 +220,13 @@ class OfficialRevenueService
             ->orderBy('row_no')->get(['year', 'period', 'counterparty', 'normalized', 'amount'])
             ->filter(fn ($f) => ! self::isExportBuyer((string) $f->normalized) && $classifier->classify((string) $f->counterparty, 'income')['type'] === 'revenue')
             ->values();
+    }
+
+    /**
+     * @return Collection<int, object>
+     */
+    private function payersForRange(string $from, string $to): Collection
+    {
+        return collect(range((int) substr($from, 0, 4), (int) substr($to, 0, 4)))->flatMap(fn ($y) => $this->payers($y))->keyBy('normalized');
     }
 }
