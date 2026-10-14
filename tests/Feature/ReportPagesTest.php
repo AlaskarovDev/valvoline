@@ -139,7 +139,8 @@ class ReportPagesTest extends TestCase
         $this->assertGreaterThan(0, $sum('205'));
         $this->assertEqualsWithDelta((float) DB::table('cash_transactions')->where('date', '<=', $date->toDateString())->sum(DB::raw('income - expense')), $sum('221'), 0.01);
 
-        $this->get(route('accounting.chart', ['only' => 1]))->assertOk()->assertSee('İdarəetmə')
+        $this->get(route('accounting.chart', ['only' => 1]))->assertOk()->assertSee('İdarəetmə')->assertSee('Bölmə 2 cəmi')
+            ->assertSee('Mənfəət (zərər): Bölmə 6 − Bölmə 7')
             ->assertSee(e(route('accounting.chart.mgmt', ['code' => '211'])), false)->assertDontSee('hesablar-plani/101/', false);
         $this->get(route('accounting.chart.mgmt', ['code' => '211']), ['X-Modal' => '1'])->assertOk()
             ->assertSee('Müştəri borcları')->assertSee(Fmt::money($sum('211')), false)->assertDontSee('<html', false);

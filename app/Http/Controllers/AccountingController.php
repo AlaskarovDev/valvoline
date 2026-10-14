@@ -57,7 +57,18 @@ class AccountingController extends Controller
             $accounts = $accounts->filter(fn ($a) => $balances->has($a->code) || $management->has($a->code))->values();
         }
 
+        // mənfəət: Bölmə 6 (gəlirlər, 602 / 603 çıxılır) − Bölmə 7 (xərclər) — hər iki sütun üçün
+        $signed = fn (string $code, float $v) => in_array($code, ChartLedgerService::CONTRA_INCOME, true) ? -$v : $v;
+        $sectionSum = fn (Collection $values, string $prefix) => (float) $values->filter(fn ($v, $code) => str_starts_with((string) $code, $prefix))
+            ->map(fn ($v, $code) => $signed((string) $code, (float) $v))->sum();
+        $profit = [];
+        foreach (['official' => $balances, 'management' => $management] as $key => $values) {
+            $profit[$key] = ['income' => $sectionSum($values, '6'), 'expense' => $sectionSum($values, '7')];
+            $profit[$key]['result'] = $profit[$key]['income'] - $profit[$key]['expense'];
+        }
+
         return view('accounting.chart', [
+            'profit' => $profit,
             'management' => $management,
             'ledgerDate' => $date,
             'only' => $only,

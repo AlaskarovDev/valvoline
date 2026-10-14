@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\DB;
  */
 class ChartLedgerService
 {
+    /** Gəliri azaldan (kontr-gəlir) hesablar: qaytarma və güzəştlər — cəmlərdə çıxılır. */
+    public const CONTRA_INCOME = ['602', '603'];
+
     public function __construct(private ProfitLossService $pnl, private StockService $stock) {}
 
     /**

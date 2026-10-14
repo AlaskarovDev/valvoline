@@ -327,4 +327,10 @@ T = {
     'qalıq :date tarixinə': ('остаток на :date', 'balance as of :date'),
     '«Rəsmi» — mühasibat faylı: :date tarixinə balans, gəlir və xərc hesabları MZ-dən. «İdarəetmə» — sistem importları (satış, qaytarma, ödəniş, kassa, anbar) eyni tarixə; gəlir və xərclər ilin əvvəlindən. Məbləğə klik — necə yarandığı.': ('«Официальный» — бухгалтерский файл: баланс на :date, счета доходов и расходов из P&L. «Управленческий» — импорты системы (продажи, возвраты, оплаты, касса, склад) на ту же дату; доходы и расходы с начала года. Нажмите на сумму — как она сложилась.', '"Official" — the accounting file: balance as of :date, income and expense accounts from the P&L. "Management" — the system imports (sales, returns, payments, cash desk, stock) at the same date; income and expenses from the start of the year. Click an amount to see how it is built.'),
     'İdarəetmə': ('Управленческий', 'Management'),
+    '= Mənfəət (zərər)': ('= Прибыль (убыток)', '= Profit (loss)'),
+    'Bölmə 6 — Gəlirlər': ('Раздел 6 — Доходы', 'Section 6 — Income'),
+    'Bölmə :n cəmi': ('Итого раздел :n', 'Section :n total'),
+    'Gəlirlər (601, 611, 621, 631, 641; qaytarma 602 və güzəşt 603 çıxılır) − xərclər (701–761). Mənfəət vergisindən (Bölmə 9) əvvəl.': ('Доходы (601, 611, 621, 631, 641; возвраты 602 и скидки 603 вычитаются) − расходы (701–761). До налога на прибыль (раздел 9).', 'Income (601, 611, 621, 631, 641; returns 602 and discounts 603 deducted) − expenses (701–761). Before profit tax (section 9).'),
+    'Mənfəət (zərər): Bölmə 6 − Bölmə 7': ('Прибыль (убыток): раздел 6 − раздел 7', 'Profit (loss): section 6 − section 7'),
+    '− Bölmə 7 — Xərclər': ('− Раздел 7 — Расходы', '− Section 7 — Expenses'),
 }

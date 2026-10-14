@@ -29,11 +29,24 @@
         <button class="btn btn-sm btn-primary">{{ __('Tətbiq et') }}</button>
     </form>
 
+    @php
+        // qrup / bölmə cəmi: 602 və 603 (qaytarma, güzəşt) gəlirdən çıxılır
+        $contra = \App\Services\ChartLedgerService::CONTRA_INCOME;
+        $total = fn ($items, $values) => $items->sum(fn ($a) => isset($values[$a->code]) ? (in_array($a->code, $contra, true) ? -1 : 1) * (float) $values[$a->code] : 0.0);
+        $has = fn ($items, $values) => $items->contains(fn ($a) => isset($values[$a->code]));
+        $sumCell = fn ($items, $values) => $has($items, $values) ? Fmt::money($total($items, $values)) : '—';
+    @endphp
     @forelse ($accounts as $sec => $list)
         <section class="card overflow-hidden">
             <div class="card-head">
                 <h2 class="card-title">{{ __('Bölmə') }} {{ $sec }}. {{ $sections[$sec] ?? '' }}</h2>
                 <span class="card-sub">{{ __(':n hesab', ['n' => $list->count()]) }}</span>
+            </div>
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-4 border-b border-line bg-primary-soft px-4 py-2 text-sm font-semibold md:grid-cols-[56px_minmax(0,1fr)_100px_130px_130px_auto] md:gap-x-3">
+                <span class="md:col-span-3">{{ __('Bölmə :n cəmi', ['n' => $sec]) }}</span>
+                <span @class(['text-right tabular-nums', 'neg' => $total($list, $balances) < 0])>{{ $sumCell($list, $balances) }}</span>
+                <span @class(['text-right tabular-nums', 'neg' => $total($list, $management) < 0])>{{ $sumCell($list, $management) }}</span>
+                <span class="hidden w-[38px] md:block"></span>
             </div>
             <div class="hidden grid-cols-[56px_minmax(0,1fr)_100px_130px_130px_auto] gap-x-3 border-b border-line bg-surface-2 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted md:grid">
                 <span>{{ __('Hesab') }}</span><span>{{ __('Ad') }}</span><span>{{ __('Xarakter') }}</span>
@@ -41,7 +54,12 @@
             </div>
             <ul class="divide-y divide-line">
                 @foreach ($list->groupBy('group_code') as $group => $items)
-                    <li class="bg-surface-2 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted">{{ $group }} · {{ $groups[$group] ?? '' }}</li>
+                    <li class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 bg-surface-2 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted md:grid-cols-[56px_minmax(0,1fr)_100px_130px_130px_auto] md:gap-x-3">
+                        <span class="md:col-span-3">{{ $group }} · {{ $groups[$group] ?? '' }}</span>
+                        <span @class(['text-right normal-case tabular-nums', 'text-ink' => $total($items, $balances) >= 0, 'neg' => $total($items, $balances) < 0])>{{ $sumCell($items, $balances) }}</span>
+                        <span @class(['text-right normal-case tabular-nums', 'text-ink' => $total($items, $management) >= 0, 'neg' => $total($items, $management) < 0])>{{ $sumCell($items, $management) }}</span>
+                        <span class="hidden w-[38px] md:block"></span>
+                    </li>
                     @foreach ($items as $a)
                         <li class="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 px-4 py-2 text-sm md:grid-cols-[56px_minmax(0,1fr)_100px_130px_130px_auto]" x-data="{ edit: false }">
                             <span class="font-mono font-semibold {{ $a->is_active ? '' : 'text-faint line-through' }}">{{ $a->code }}</span>
@@ -81,6 +99,28 @@
     @empty
         <div class="card px-4 py-10 text-center text-sm text-muted">{{ __('Tapılmadı') }}</div>
     @endforelse
+
+    {{-- mənfəət: gəlirlər (60–64) − xərclər (70–76) --}}
+    <section class="card overflow-hidden">
+        <div class="card-head"><div>
+            <h2 class="card-title">{{ __('Mənfəət (zərər): Bölmə 6 − Bölmə 7') }}</h2>
+            <div class="card-sub">{{ __('Gəlirlər (601, 611, 621, 631, 641; qaytarma 602 və güzəşt 603 çıxılır) − xərclər (701–761). Mənfəət vergisindən (Bölmə 9) əvvəl.') }}</div>
+        </div></div>
+        <div class="tbl-wrap">
+            <table class="tbl">
+                <thead><tr><th></th><th class="num">{{ __('Rəsmi') }}</th><th class="num">{{ __('İdarəetmə') }}</th></tr></thead>
+                <tbody>
+                <tr><td>{{ __('Bölmə 6 — Gəlirlər') }}</td><td class="num pos">{{ Fmt::money($profit['official']['income']) }}</td><td class="num pos">{{ Fmt::money($profit['management']['income']) }}</td></tr>
+                <tr><td>{{ __('− Bölmə 7 — Xərclər') }}</td><td class="num neg">{{ Fmt::money(-$profit['official']['expense']) }}</td><td class="num neg">{{ Fmt::money(-$profit['management']['expense']) }}</td></tr>
+                </tbody>
+                <tfoot><tr class="text-base">
+                    <td>{{ __('= Mənfəət (zərər)') }}</td>
+                    <td @class(['num', 'neg' => $profit['official']['result'] < 0, 'pos' => $profit['official']['result'] >= 0])>{{ Fmt::money($profit['official']['result']) }}</td>
+                    <td @class(['num', 'neg' => $profit['management']['result'] < 0, 'pos' => $profit['management']['result'] >= 0])>{{ Fmt::money($profit['management']['result']) }}</td>
+                </tr></tfoot>
+            </table>
+        </div>
+    </section>
 
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section class="card">
