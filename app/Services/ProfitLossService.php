@@ -6,6 +6,7 @@ use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
 use App\Support\NameNormalizer;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -17,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Əməliyyat xərcləri  = kassa: Emeliyyat_Tipi = Xərc  və effektiv Mənfəətə təsir = Bəli (istiqamət filtri ilə).
  * Digər gəlirlər      = kassa: Emeliyyat_Tipi = Mədaxil və effektiv Mənfəətə təsir = Bəli.
- * Rəsmi xərclər       = mühasibat Cash Flow-dan (bank) «əməliyyat xərci» təsnifatlı ödənişlər.
+ * Rəsmi xərclər       = mühasibat Cash Flow-un «Ödənişlər» bölməsi (mal alışı / gömrük xaric — onlar mayadadır).
  * Re-eksport          = mühasibat MZ-dəki AR hüdudlarından kənar gəlir və onunla bağlı xərc (satış faylında yoxdur).
  * Rəsmi əlavə gəlir   = bank daxilolması, ödəyicisi sistemdə olmayan və «sistemdə olmayan satış» seçilmiş (OfficialRevenueService).
  */
@@ -38,6 +39,7 @@ class ProfitLossService
         $otherIncome = $this->cashByCategory($filters, $granularity, 'income');
         $founder = $this->cashByCategory($filters, $granularity, 'founder');
         $bank = $this->bankExpensesByGroup($filters, $granularity);
+        $bankRows = $this->bankExpensesByCounterparty($filters, $granularity);
         $export = $this->exportByColumn($filters, $granularity);
         $officialExtra = app(OfficialRevenueService::class)->extraByColumn($filters, $granularity);
 
@@ -81,39 +83,71 @@ class ProfitLossService
             $lines['retained'][$column] = $lines['net_profit'][$column] - $founderTotal;
         }
 
-        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome, 'founder' => $founder, 'bank' => $bank];
+        return ['columns' => $columns, 'lines' => $lines, 'expenses' => $expenses, 'other_income' => $otherIncome, 'founder' => $founder, 'bank' => $bank, 'bank_rows' => $bankRows];
     }
 
     /**
-     * Mühasibat Cash Flow-dan (bank) yalnız «əməliyyat xərci» təsnifatlı ödənişlər, xərc qrupu üzrə.
-     * Bank məlumatı «VALVOLINE AZ» MMC-yə aiddir — istiqamət filtri VALVO və ya «hamısı» olanda daxil edilir.
+     * Rəsmi xərclər: mühasibat Cash Flow-un «Ödənişlər» bölməsi, P&L qrupu üzrə (FlowClassifier::pnlGroup).
+     * Mal alışı / gömrük çıxılır. Bank məlumatı «VALVOLINE AZ» MMC-yə aiddir — istiqamət VALVO və ya «hamısı» olanda.
      *
      * @param  'month'|'year'  $granularity
      * @return array<string, array<string, float>> qrup => sütun => məbləğ
      */
     public function bankExpensesByGroup(ReportFilters $filters, string $granularity = 'month'): array
     {
-        if ($filters->direction !== null && ! in_array($filters->direction, ['all', 'VALVO'], true)) {
-            return [];
-        }
-        $rows = DB::table('bank_flow_lines')->where('section', 'payment')
-            ->whereBetween('period', [$filters->fromPeriod(), $filters->toPeriod()])
-            ->get(['period', 'counterparty', 'amount']);
-        $classifier = new FlowClassifier;
-        $memo = [];
         $result = [];
-        foreach ($rows as $row) {
-            $c = $memo[$row->counterparty] ??= $classifier->classify($row->counterparty, 'payment');
-            if ($c['type'] !== FlowClassifier::EXPENSE) {
-                continue;
-            }
-            $group = $c['group'] ?: 'Sair xərclər';
+        foreach ($this->bankPaymentLines($filters) as $row) {
             $column = $granularity === 'year' ? substr($row->period, 0, 4) : $row->period;
-            $result[$group][$column] = ($result[$group][$column] ?? 0.0) + (float) $row->amount;
+            $result[$row->pnl_group][$column] = ($result[$row->pnl_group][$column] ?? 0.0) + (float) $row->amount;
         }
         uasort($result, fn ($a, $b) => array_sum($b) <=> array_sum($a));
 
         return $result;
+    }
+
+    /**
+     * Eyni məbləğ Excel-dəki kimi kontragent sətirləri üzrə (faylın sırası ilə).
+     *
+     * @param  'month'|'year'  $granularity
+     * @return array<string, array<string, float>> kontragent => sütun => məbləğ
+     */
+    public function bankExpensesByCounterparty(ReportFilters $filters, string $granularity = 'month'): array
+    {
+        $result = [];
+        foreach ($this->bankPaymentLines($filters) as $row) {
+            $column = $granularity === 'year' ? substr($row->period, 0, 4) : $row->period;
+            $result[$row->counterparty][$column] = ($result[$row->counterparty][$column] ?? 0.0) + (float) $row->amount;
+        }
+
+        return $result;
+    }
+
+    /**
+     * P&L-ə düşən bank ödənişi sətirləri (təsnifat və P&L qrupu ilə).
+     *
+     * @return Collection<int, object>
+     */
+    public function bankPaymentLines(ReportFilters $filters): Collection
+    {
+        if ($filters->direction !== null && ! in_array($filters->direction, ['all', 'VALVO'], true)) {
+            return collect();
+        }
+        $classifier = new FlowClassifier;
+        $memo = [];
+
+        return DB::table('bank_flow_lines')->where('section', 'payment')->where('amount', '!=', 0)
+            ->whereBetween('period', [$filters->fromPeriod(), $filters->toPeriod()])
+            ->orderBy('year')->orderBy('row_no')->orderBy('period')
+            ->get(['year', 'period', 'counterparty', 'amount', 'row_no'])
+            ->map(function ($row) use ($classifier, &$memo) {
+                $c = $memo[$row->counterparty] ??= $classifier->classify($row->counterparty, 'payment');
+                $row->type = $c['type'];
+                $row->note = $c['note'];
+                $row->pnl_group = FlowClassifier::pnlGroup($c);
+
+                return $row;
+            })
+            ->filter(fn ($row) => $row->pnl_group !== null)->values();
     }
 
     public function bankExpenseTotal(ReportFilters $filters): float

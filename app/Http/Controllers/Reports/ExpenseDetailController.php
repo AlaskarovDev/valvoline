@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Reports;
 
+use App\Reports\ReportFilters;
 use App\Services\FlowClassifier;
 use App\Services\ProfitLossService;
 use App\Support\Fmt;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 /**
@@ -67,18 +68,8 @@ class ExpenseDetailController extends ReportController
             $granularity === 'year' => [max($from, $col.'-01'), min($to, $col.'-12')],
             default => [$col, $col],
         };
-        $classifier = new FlowClassifier;
-        $rows = DB::table('bank_flow_lines')->where('section', 'payment')->whereBetween('period', [$from, $to])
-            ->orderBy('period')->orderBy('row_no')->get(['period', 'counterparty', 'amount'])
-            ->map(function ($r) use ($classifier) {
-                $c = $classifier->classify($r->counterparty, 'payment');
-                $r->type = $c['type'];
-                $r->group = $c['group'] ?: 'Sair xərclər';
-                $r->note = $c['note'];
-
-                return $r;
-            })
-            ->filter(fn ($r) => $r->type === FlowClassifier::EXPENSE && $r->group === $group)->values();
+        $cell = new ReportFilters(Carbon::parse($from.'-01')->startOfMonth(), Carbon::parse($to.'-01')->endOfMonth(), 'custom', direction: 'VALVO');
+        $rows = app(ProfitLossService::class)->bankPaymentLines($cell)->where('pnl_group', $group)->values();
 
         return view($page ?? 'reports.expense-detail-bank', [
             'partial' => 'reports.expense-detail-bank',

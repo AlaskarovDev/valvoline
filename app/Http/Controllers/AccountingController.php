@@ -327,8 +327,9 @@ class AccountingController extends Controller
             })->sortBy('row_no')->values();
 
         $byType = $rows->groupBy(fn ($r) => $r->section.'|'.$r->type)->map(fn ($g) => $g->sum('total'));
-        $expenseByGroup = $rows->where('section', 'payment')->where('type', FlowClassifier::EXPENSE)
-            ->groupBy(fn ($r) => $r->group ?: 'Sair xərclər')->map(fn ($g) => $g->sum('total'))->sortDesc();
+        // P&L-ə «Rəsmi xərclər» kimi düşən ödənişlər (mal alışı / gömrük xaric), qrup üzrə
+        $expenseByGroup = $rows->where('section', 'payment')->reject(fn ($r) => $r->type === 'cogs')
+            ->groupBy(fn ($r) => FlowClassifier::pnlGroup(['type' => $r->type, 'group' => $r->group]))->map(fn ($g) => $g->sum('total'))->sortDesc();
         $paymentChart = [
             'type' => 'bar',
             'stacked' => true,

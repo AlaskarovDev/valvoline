@@ -164,17 +164,17 @@ class AccountingTest extends TestCase
         $this->assertSame('uncertain', $classifier->classify('Naməlum Firma MMC', 'payment')['type']);
         $this->assertSame('uncertain', $classifier->classify('Murad İsmayılov Məmməd', 'payment')['type'], 'alıcı kimi də ödəyən şəxs');
 
-        // P&L: yalnız əmək haqqı 2000 + DSMF 440 + icarə 300
+        // P&L: Excel-in bütün ödənişləri 8470 − mal alışı / gömrük (ELLIS 4500 + YGB 400) = 3570
         $pnl = app(ProfitLossService::class);
-        $this->assertEqualsWithDelta(2740.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
-        $this->assertEqualsWithDelta(2740.0, $pnl->bankExpenseTotal($this->filters('all')), 0.001);
+        $this->assertEqualsWithDelta(3570.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+        $this->assertEqualsWithDelta(3570.0, $pnl->bankExpenseTotal($this->filters('all')), 0.001);
         $this->assertEqualsWithDelta(0.0, $pnl->bankExpenseTotal($this->filters('TIR')), 0.001, 'TIR istiqamətinə bank xərci düşmür');
         $report = $pnl->build($this->filters(), 'month');
-        $this->assertEqualsWithDelta(1520.0, $report['lines']['bank_expenses']['2025-01'], 0.001);
-        $this->assertEqualsWithDelta(-2740.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(1600.0, $report['lines']['bank_expenses']['2025-01'], 0.001);
+        $this->assertEqualsWithDelta(-3570.0, array_sum($report['lines']['net_profit']), 0.001);
 
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
-            ->assertOk()->assertSee('Rəsmi xərclər (bank)')->assertSee('Əmək haqqı')->assertDontSee('Re-eksport nəticəsi');
+            ->assertOk()->assertSee('Rəsmi xərclər (bank)')->assertSee('Əmək Haqqı')->assertSee('Naməlum Firma MMC')->assertDontSee('ELLIS ENTERPRISES')->assertDontSee('Re-eksport nəticəsi');
     }
 
     public function test_manual_classification_changes_pnl_and_can_be_reset(): void
@@ -184,14 +184,17 @@ class AccountingTest extends TestCase
         $this->actingAs($this->admin)->post(route('accounting.classify'), [
             'normalized' => 'namelum firma mmc', 'counterparty' => 'Naməlum Firma MMC', 'type' => 'expense', 'expense_group' => 'Reklam və marketinq',
         ])->assertRedirect();
-        $this->assertEqualsWithDelta(2820.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+        // növ / qrup dəyişir, məbləğ P&L-də qalır — Excel-in bütün ödənişləri rəsmi xərcdir
+        $this->assertEqualsWithDelta(3570.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
         $this->assertSame('Reklam və marketinq', (new FlowClassifier)->classify('Naməlum Firma MMC', 'payment')['group']);
+        $this->assertEqualsWithDelta(80.0, $pnl->bankExpensesByGroup($this->filters())['Reklam və marketinq']['2025-01'], 0.001);
 
-        $this->post(route('accounting.classify'), ['normalized' => 'emek haqqi', 'counterparty' => 'Əmək Haqqı', 'type' => 'financing'])->assertRedirect();
-        $this->assertEqualsWithDelta(820.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+        // yalnız «mal alışı / gömrük» seçiləndə P&L-dən çıxır (maya dəyərindədir)
+        $this->post(route('accounting.classify'), ['normalized' => 'emek haqqi', 'counterparty' => 'Əmək Haqqı', 'type' => 'cogs'])->assertRedirect();
+        $this->assertEqualsWithDelta(1570.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
 
         $this->post(route('accounting.classify'), ['normalized' => 'emek haqqi', 'counterparty' => 'Əmək Haqqı', 'type' => 'reset'])->assertRedirect();
-        $this->assertEqualsWithDelta(2820.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
+        $this->assertEqualsWithDelta(3570.0, $pnl->bankExpenseTotal($this->filters()), 0.001);
     }
 
     public function test_reimport_of_same_year_replaces_data(): void
@@ -265,7 +268,7 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta(1200.0, $report['lines']['export_revenue']['2025-02'], 0.001);
         $this->assertEqualsWithDelta(1000.0, $report['lines']['export_cost']['2025-02'], 0.001);
         $this->assertEqualsWithDelta(0.0, $report['lines']['export_revenue']['2025-01'], 0.001);
-        $this->assertEqualsWithDelta(-2740.0 + 200.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(-3570.0 + 200.0, array_sum($report['lines']['net_profit']), 0.001);
         $this->assertEqualsWithDelta(0.0, $pnl->exportResultTotal($this->filters('TIR')), 0.001);
 
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
@@ -278,7 +281,7 @@ class AccountingTest extends TestCase
         $range = ['from' => '2025-01-01', 'to' => '2025-12-31'];
 
         $this->get(route('expenses.index', $range))->assertOk()
-            ->assertSee('Rəsmi')->assertSee('Sosial sığorta (DSMF)')->assertSee(Fmt::money(2740), false);
+            ->assertSee('Rəsmi')->assertSee('Sosial sığorta (DSMF)')->assertSee(Fmt::money(3570), false);
         $this->get(route('expenses.index', $range + ['src' => 'cash']))->assertOk()->assertDontSee('Sosial sığorta (DSMF)');
 
         $this->get(route('expenses.detail', $range + ['src' => 'bank', 'name' => 'Əmək haqqı', 'col' => '2025-01']), ['X-Modal' => '1'])
@@ -315,12 +318,12 @@ class AccountingTest extends TestCase
         $this->assertSame(OfficialRevenueService::PENDING, $payer->decision);
         $this->assertEqualsWithDelta(3000.0, $payer->total, 0.001);
         $this->assertNull($official->payers(2025)->firstWhere('counterparty', 'Təsisçidən'), 'təsisçi borcu gəlir deyil');
-        $this->assertEqualsWithDelta(-2740.0, array_sum($pnl->build($this->filters())['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(-3570.0, array_sum($pnl->build($this->filters())['lines']['net_profit']), 0.001);
 
         $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'extra'])->assertRedirect();
         $report = $pnl->build($this->filters(), 'month');
         $this->assertEqualsWithDelta(2000.0, $report['lines']['official_extra']['2025-01'], 0.001);
-        $this->assertEqualsWithDelta(-2740.0 + 3000.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(-3570.0 + 3000.0, array_sum($report['lines']['net_profit']), 0.001);
         $this->assertEqualsWithDelta(0.0, array_sum($pnl->build($this->filters('TIR'))['lines']['official_extra'] ?? []), 0.001);
 
         $summary = $official->cashSummary($this->filters());
@@ -332,7 +335,7 @@ class AccountingTest extends TestCase
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))->assertOk()
             ->assertSee('Rəsmi gəlir — sistemdə olmayan satış (bank)')->assertSee('Rəsmi pul axını (mühasibat Cash Flow)')->assertSee('Dövrün əvvəlinə qalıq');
         $this->get(route('dashboard', ['from' => '2025-01-01', 'to' => '2025-12-31']))->assertOk()
-            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(-2740.0 + 3000.0), false);
+            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(-3570.0 + 3000.0), false);
 
         $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'auto'])->assertRedirect();
         $this->assertSame(0, DB::table('revenue_decisions')->count());

@@ -112,6 +112,11 @@ class ReportPagesTest extends TestCase
         $this->get(route('pnl.detail', $base + ['line' => 'gross_margin', 'col' => $month]), ['X-Modal' => '1'])
             ->assertSee(Fmt::pct($report['lines']['margin'][$month]), false);
 
+        // maya sətirləri qaimə və müştəri ilə
+        $sale = DB::table('sales_lines')->where('period', $month)->where('op_type', 'sale')->orderByDesc('cogs')->first();
+        $this->get(route('pnl.detail', $base + ['line' => 'sale_cogs', 'col' => $month]), ['X-Modal' => '1'])
+            ->assertSee('Qaimələr üzrə sətirlər')->assertSee(e($sale->invoice_no ?? $sale->order_no), false)->assertSee(e($sale->customer_name), false);
+
         // kateqoriya → kassa əməliyyatları
         $category = array_key_first($report['expenses']);
         $this->get(route('pnl.detail', $base + ['line' => 'expenses', 'col' => 'total']), ['X-Modal' => '1'])

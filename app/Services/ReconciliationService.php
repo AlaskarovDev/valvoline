@@ -40,6 +40,7 @@ class ReconciliationService
                 $c = $classifier->classify($f->counterparty, $f->section);
                 $f->type = $c['type'];
                 $f->group = $c['group'] ?: 'Sair xərclər';
+                $f->pnl_group = $f->section === 'payment' ? FlowClassifier::pnlGroup($c) : null;
 
                 return $f;
             });
@@ -100,8 +101,8 @@ class ReconciliationService
             $cash[$group] = ($cash[$group] ?? 0.0) + array_sum($values);
             $cashCategories[$group][] = $category;
         }
-        $bank = $flows->where('section', 'payment')->where('type', FlowClassifier::EXPENSE)
-            ->groupBy('group')->map(fn ($g) => (float) $g->sum('amount'))->all();
+        $bank = $flows->where('section', 'payment')->whereNotNull('pnl_group')
+            ->groupBy('pnl_group')->map(fn ($g) => (float) $g->sum('amount'))->all();
         $mz = [];
         foreach ($pl->where('section', 'expense') as $line) {
             $group = self::mzGroup((string) $line->tax_code, (string) $line->name);

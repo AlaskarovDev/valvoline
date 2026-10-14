@@ -46,13 +46,13 @@
             <div class="tbl-wrap max-h-[50vh] rounded-lg border border-line">
                 <table class="tbl">
                     <thead><tr>
-                        @foreach ($records['columns'] as $i => $column)<th @class(['num' => $i > 0])>{{ $column }}</th>@endforeach
+                        @foreach ($records['columns'] as $i => $column)<th @class(['num' => in_array($i, $records['numeric'], true)])>{{ $column }}</th>@endforeach
                     </tr></thead>
                     <tbody>
                     @forelse ($records['rows'] as $row)
                         <tr>
                             @foreach ($row as $i => $value)
-                                <td @class(['num' => $i > 0, 'wrap' => $i === 0])>{{ is_float($value) ? Fmt::money($value) : $value }}</td>
+                                <td @class(['num' => in_array($i, $records['numeric'], true), 'wrap' => ! in_array($i, $records['numeric'], true)])>{{ is_float($value) ? Fmt::money($value) : $value }}</td>
                             @endforeach
                         </tr>
                     @empty

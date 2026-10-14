@@ -19,6 +19,8 @@ use Illuminate\View\View;
  */
 class ProfitLossDetailController extends ReportController
 {
+    private ReportFilters $cell;
+
     public const LINES = ['sales', 'returns', 'net_sales', 'sale_cogs', 'gift_cogs', 'gross_profit', 'gross_margin', 'expenses', 'bank',
         'other_income', 'export', 'official_extra', 'net_profit', 'net_margin', 'founder', 'retained'];
 
@@ -30,7 +32,7 @@ class ProfitLossDetailController extends ReportController
         $col = preg_match('/^\d{4}(-\d{2})?$/', (string) $request->query('col')) ? (string) $request->query('col') : 'total';
         $child = $request->filled('child') ? (string) $request->query('child') : null;
 
-        $cell = $this->cellFilters($filters, $col, $granularity);
+        $cell = $this->cell = $this->cellFilters($filters, $col, $granularity);
         $report = $pnl->build($cell, 'year');
         $sum = fn (string $key) => (float) array_sum($report['lines'][$key] ?? []);
         $set = fn (string $key) => array_map(fn ($values) => (float) array_sum($values), $report[$key] ?? []);
@@ -75,6 +77,7 @@ class ProfitLossDetailController extends ReportController
             $key = ['expenses' => 'expenses', 'bank' => 'bank', 'other_income' => 'other_income', 'founder' => 'founder'][$line];
             $value = $set($key)[$child] ?? 0.0;
             $title = $line === 'bank' ? FlowClassifier::groupLabel($child) : $child;
+            $value = $line === 'bank' && ! isset($set($key)[$child]) ? (float) app(ProfitLossService::class)->bankPaymentLines($this->cell)->where('counterparty', $child)->sum('amount') : $value;
 
             return [$title, __('Bu kateqoriyanın həmin dövrdəki əməliyyatlarının cəmi — siyahı aşağıdadır.'), [], $value, 'money'];
         }
@@ -101,7 +104,7 @@ class ProfitLossDetailController extends ReportController
             ], abs($netSales) > 0.005 ? $grossProfit / $netSales : 0.0, 'pct'],
             'expenses' => [__('Əməliyyat xərcləri'), __('Kassa (08 Xərclər faylı): «Xərc» tipli və «Mənfəətə təsir = Bəli» olan əməliyyatlar, kateqoriya üzrə (məxaric − mədaxil). Kateqoriyaya klik — əməliyyatlar.'),
                 $categories($set('expenses'), ''), $sum('expenses'), 'money'],
-            'bank' => [__('Rəsmi xərclər (bank)'), __('Mühasibat Cash Flow-da bankdan ödənilmiş və «Əməliyyat xərci» təsnifatlı ödənişlər, qrup üzrə. Mal alışı, vergi, təsisçi və əsas vəsait daxil deyil. Qrupa klik — ödənişlər.'),
+            'bank' => [__('Rəsmi xərclər (bank)'), __('Mühasibat Excel-in «Ödənişlər» bölməsi — fayldakı bütün ödənişlər. Yalnız mal alışı / gömrük (ELLIS, YGB) çıxılır: o mallar «Satılan malın mayası»nda artıq var. Qrupa klik — ödənişlər.'),
                 $categories($set('bank'), '', true), $sum('bank_expenses'), 'money'],
             'other_income' => [__('Digər gəlirlər'), __('Kassa: «Mədaxil» tipli və mənfəətə təsir edən əməliyyatlar (mədaxil − məxaric), kateqoriya üzrə.'),
                 $categories($set('other_income'), ''), $sum('other_income'), 'money'],
@@ -147,15 +150,36 @@ class ProfitLossDetailController extends ReportController
                     $rows->take($limit)->map(fn ($r) => [$r->name ?? '—', Fmt::number($r->n), (float) $r->amount])->all(), $rows->count(), $limit);
             case 'sale_cogs':
             case 'gift_cogs':
-                $kinds = $line === 'sale_cogs' ? ['sale', 'return_customer'] : ['gift', 'internal'];
-                $rows = $raw()->whereIn('s.kind', $kinds)->groupBy('s.product_id', 'p.code', 'p.name')
-                    ->selectRaw("p.code AS code, p.name AS name,
-                        SUM(CASE WHEN s.kind = 'return_customer' THEN -s.qty ELSE s.qty END) AS qty,
-                        SUM(CASE WHEN s.kind = 'return_customer' THEN -s.cogs ELSE s.cogs END) AS cogs")
-                    ->orderByDesc('cogs')->get();
+                // sətir-sətir: tarix, qaimə, müştəri, mal; satış mayasında qaytarmalar mənfi sətir kimi
+                $lines = DB::table('sales_lines as l')->leftJoin('products as p', 'p.id', '=', 'l.product_id')
+                    ->whereBetween('l.date', [$cell->fromDate(), $cell->toDate()])
+                    ->whereIn('l.op_type', $line === 'sale_cogs' ? ['sale'] : ['gift', 'internal'])
+                    ->tap(fn ($q) => SalesSummaryQuery::applyDimensions($q, $cell, 'l', 'p'))
+                    ->selectRaw('l.date, COALESCE(l.invoice_no, l.order_no) AS doc, l.customer_name, p.code, COALESCE(p.name, l.product_name) AS name,
+                        l.qty, COALESCE(l.cogs, 0) AS cogs, l.op_type AS kind')
+                    ->get();
+                if ($line === 'sale_cogs') {
+                    $lines = $lines->concat(DB::table('sales_returns as r')->leftJoin('products as p', 'p.id', '=', 'r.product_id')
+                        ->whereBetween('r.date', [$cell->fromDate(), $cell->toDate()])->where('r.op_type', 'customer')
+                        ->tap(fn ($q) => SalesSummaryQuery::applyDimensions($q, $cell, 'r', 'p'))
+                        ->selectRaw("r.date, r.return_no AS doc, r.customer_name, p.code, COALESCE(p.name, r.product_name) AS name,
+                            -r.qty AS qty, -COALESCE(r.cogs, 0) AS cogs, 'return' AS kind")
+                        ->get());
+                }
+                $kindLabel = ['gift' => __('Hədiyyə'), 'internal' => __('Daxili istifadə'), 'return' => __('Qaytarma'), 'sale' => ''];
+                $rows = $lines->sortBy(fn ($r) => $r->date.'|'.$r->doc)->values();
+                $cap = 1000;
 
-                return $this->table(__('Mallar üzrə (qaytarma çıxılıb)'), [__('Mal'), __('Miqdar'), __('Orta maya'), __('Maya')],
-                    $rows->take($limit)->map(fn ($r) => [trim(($r->code ?? '').' '.($r->name ?? '—')), Fmt::qty($r->qty), abs((float) $r->qty) > 0.0001 ? (float) $r->cogs / (float) $r->qty : 0.0, (float) $r->cogs])->all(), $rows->count(), $limit);
+                return $this->table(__('Qaimələr üzrə sətirlər'), [__('Tarix'), __('Qaimə'), __('Müştəri'), __('Mal'), __('Miqdar'), __('Orta maya'), __('Maya')],
+                    $rows->take($cap)->map(fn ($r) => [
+                        Fmt::date($r->date),
+                        trim(($r->doc ?? '—').' '.($kindLabel[$r->kind] ?? '')),
+                        $r->customer_name ?? '—',
+                        trim(($r->code ?? '').' '.($r->name ?? '—')),
+                        Fmt::qty($r->qty),
+                        abs((float) $r->qty) > 0.0001 ? (float) $r->cogs / (float) $r->qty : 0.0,
+                        (float) $r->cogs,
+                    ])->all(), $rows->count(), $cap, [4, 5, 6]);
             case 'expenses':
             case 'other_income':
             case 'founder':
@@ -168,22 +192,16 @@ class ProfitLossDetailController extends ReportController
                 $rows = $query->orderBy('c.date')->orderBy('c.id')->get(['c.date', 'c.subcategory', 'c.description', 'c.income', 'c.expense', 'c.direction']);
 
                 return $this->table(__('Kassa əməliyyatları'), [__('Tarix'), __('Təsvir'), __('Məxaric'), __('Mədaxil')],
-                    $rows->map(fn ($r) => [Fmt::date($r->date), trim(($r->subcategory ? $r->subcategory.' · ' : '').($r->description ?? '')) ?: '—', (float) $r->expense, (float) $r->income])->all(), $rows->count(), 500);
+                    $rows->map(fn ($r) => [Fmt::date($r->date), trim(($r->subcategory ? $r->subcategory.' · ' : '').($r->description ?? '')) ?: '—', (float) $r->expense, (float) $r->income])->all(), $rows->count(), 500, [2, 3]);
             case 'bank':
                 if ($child === null) {
                     return null;
                 }
-                $classifier = new FlowClassifier;
-                $rows = DB::table('bank_flow_lines')->where('section', 'payment')->whereBetween('period', [$cell->fromPeriod(), $cell->toPeriod()])
-                    ->orderBy('period')->orderBy('row_no')->get()
-                    ->filter(function ($r) use ($classifier, $child) {
-                        $c = $classifier->classify($r->counterparty, 'payment');
+                // alt sətir Excel-dəki kontragentdir (P&L) və ya qrupdur (komponent siyahısı)
+                $rows = app(ProfitLossService::class)->bankPaymentLines($cell)->filter(fn ($r) => $r->counterparty === $child || $r->pnl_group === $child)->values();
 
-                        return $c['type'] === FlowClassifier::EXPENSE && ($c['group'] ?: 'Sair xərclər') === $child;
-                    });
-
-                return $this->table(__('Bank ödənişləri (mühasibat Cash Flow)'), [__('Ay'), __('Kontragent'), __('Məbləğ')],
-                    $rows->map(fn ($r) => [Fmt::period($r->period), $r->counterparty, (float) $r->amount])->values()->all(), $rows->count(), 500);
+                return $this->table(__('Bank ödənişləri (mühasibat Cash Flow)'), [__('Ay'), __('Kontragent'), __('Qrup'), __('Məbləğ')],
+                    $rows->map(fn ($r) => [Fmt::period($r->period), $r->counterparty, FlowClassifier::groupLabel($r->pnl_group), (float) $r->amount])->all(), $rows->count(), 500, [3]);
             case 'official_extra':
                 $rows = collect(app(OfficialRevenueService::class)->payers((int) substr($cell->fromPeriod(), 0, 4)))
                     ->merge(substr($cell->fromPeriod(), 0, 4) !== substr($cell->toPeriod(), 0, 4) ? app(OfficialRevenueService::class)->payers((int) substr($cell->toPeriod(), 0, 4)) : [])
@@ -211,11 +229,17 @@ class ProfitLossDetailController extends ReportController
 
     /**
      * @param  list<list<mixed>>  $rows
-     * @return array{title: string, columns: list<string>, rows: list<list<mixed>>, note: string|null}
+     * @param  list<int>|null  $numeric
+     * @return array{title: string, columns: list<string>, rows: list<list<mixed>>, numeric: list<int>, note: string|null}
      */
-    private function table(string $title, array $columns, array $rows, int $count, int $limit): array
+    private function table(string $title, array $columns, array $rows, int $count, int $limit, ?array $numeric = null): array
     {
-        return ['title' => $title, 'columns' => $columns, 'rows' => $rows, 'note' => $count > $limit ? __('Ən böyük :n sətir göstərilir (cəmi :total).', ['n' => $limit, 'total' => $count]) : null];
+        return [
+            'title' => $title, 'columns' => $columns, 'rows' => $rows,
+            // rəqəm sütunları sağa düzülür; standart — birincidən başqa hamısı
+            'numeric' => $numeric ?? range(1, max(1, count($columns) - 1)),
+            'note' => $count > $limit ? __('Ən böyük :n sətir göstərilir (cəmi :total).', ['n' => $limit, 'total' => $count]) : null,
+        ];
     }
 
     /**

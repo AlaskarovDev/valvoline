@@ -51,6 +51,26 @@ class FlowClassifier
     }
 
     /**
+     * Bank ödənişinin P&L-dəki «Rəsmi xərclər» qrupu. Mühasibat faylındakı bütün ödənişlər rəsmi xərc kimi göstərilir;
+     * yalnız mal alışı / gömrük çıxılır — onlar satılan malın mayasında artıq var (ikinci dəfə sayılmasın).
+     *
+     * @param  array{type: string, group: string|null}  $classification
+     */
+    public static function pnlGroup(array $classification): ?string
+    {
+        return match ($classification['type']) {
+            'cogs' => null,
+            self::EXPENSE, 'revenue' => $classification['group'] ?: 'Sair xərclər',
+            'tax' => 'Vergilər',
+            'financing' => 'Təsisçiyə ödənişlər (bank)',
+            'capex' => 'Əsas vəsait alışı',
+            'refund' => 'Müştəriyə geri ödəniş',
+            'fx' => 'Valyuta əməliyyatları',
+            default => 'Təsnif olunmamış ödənişlər',
+        };
+    }
+
+    /**
      * Xərc qrupunun cari dildə adı (qrupun özü DB-də Azərbaycanca saxlanılır).
      */
     public static function groupLabel(?string $group): string
@@ -74,6 +94,12 @@ class FlowClassifier
             'Ofis və təsərrüfat' => __('Ofis və təsərrüfat'),
             'Fiziki şəxslərə xidmət haqqı' => __('Fiziki şəxslərə xidmət haqqı'),
             'Sair xərclər' => __('Sair xərclər'),
+            'Vergilər' => __('Vergilər'),
+            'Təsisçiyə ödənişlər (bank)' => __('Təsisçiyə ödənişlər (bank)'),
+            'Əsas vəsait alışı' => __('Əsas vəsait alışı'),
+            'Müştəriyə geri ödəniş' => __('Müştəriyə geri ödəniş'),
+            'Valyuta əməliyyatları' => __('Valyuta əməliyyatları'),
+            'Təsnif olunmamış ödənişlər' => __('Təsnif olunmamış ödənişlər'),
             null, '' => '—',
             default => $group,
         };

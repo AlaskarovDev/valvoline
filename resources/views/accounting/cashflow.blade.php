@@ -4,11 +4,11 @@
     $sectionLabels = ['income' => __('Mədaxil'), 'payment' => __('Ödəniş'), 'other' => __('Digər')];
     $typeClass = ['expense' => 'badge-neg', 'cogs' => 'badge-primary', 'tax' => 'badge-warn', 'financing' => 'badge-warn', 'capex' => '', 'refund' => '', 'revenue' => 'badge-pos', 'fx' => '', 'uncertain' => 'badge-warn'];
     $paymentTotal = $byType->filter(fn ($v, $k) => str_starts_with($k, 'payment|'))->sum();
-    $expenseTotal = $byType['payment|expense'] ?? 0;
+    $expenseTotal = $paymentTotal - ($byType['payment|cogs'] ?? 0);
 @endphp
 <x-layouts.app :title="$title">
     <div class="flex flex-wrap items-center gap-3">
-        <span class="text-xs text-muted">{{ __('Bank / kassa hərəkətləri (mühasibat faylı). Yalnız «Əməliyyat xərci» növü P&L-ə «Bank xərcləri» kimi düşür.') }}</span>
+        <span class="text-xs text-muted">{{ __('Bank / kassa hərəkətləri (mühasibat faylı). Ödənişlərin hamısı P&L-ə «Rəsmi xərclər» kimi düşür — yalnız mal alışı / gömrük çıxılır (maya dəyərindədir).') }}</span>
         <div class="ml-auto">@include('accounting._year')</div>
     </div>
 
@@ -18,7 +18,7 @@
             <x-kpi :label="__('Mədaxil')" :value="Fmt::money($byType->filter(fn ($v, $k) => str_starts_with($k, 'income|'))->sum())" tone="pos"
                    :meta="__('o cümlədən təsisçidən: :sum', ['sum' => Fmt::money($byType['income|financing'] ?? 0)])"/>
             <x-kpi :label="__('Ödənişlər')" :value="Fmt::money($paymentTotal)" tone="neg"
-                   :meta="__('əməliyyat xərci: :sum', ['sum' => Fmt::money($expenseTotal)])"/>
+                   :meta="__('P&L-də rəsmi xərc: :sum', ['sum' => Fmt::money($expenseTotal)])"/>
             <x-kpi :label="__('Dövrün sonuna qalıq')" :value="Fmt::money($closing)"/>
         </div>
 
@@ -45,7 +45,7 @@
                         <div class="kpi-label">{{ $typeLabels[$type] }}</div>
                         <div class="mt-1 text-lg font-semibold tabular-nums {{ $type === 'expense' ? 'neg' : ($type === 'uncertain' && $sum > 0 ? 'warn' : '') }}">{{ Fmt::money($sum) }}</div>
                         <div class="text-xs text-muted">{{ $paymentTotal > 0 ? Fmt::pct($sum / $paymentTotal) : '' }}
-                            @if ($type === 'expense') · {{ __('P&L-ə düşür') }} @else · {{ __('P&L-ə düşmür') }} @endif</div>
+                            @if ($type !== 'cogs') · {{ __('P&L-ə düşür') }} @else · {{ __('mayadadır') }} @endif</div>
                     </a>
                 @endforeach
             </div>
@@ -57,7 +57,7 @@
         <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
             <x-chart class="xl:col-span-2" :title="__('Aylıq ödənişlər növ üzrə')" :spec="$paymentChart" :height="320"/>
             <section class="card overflow-hidden">
-                <div class="card-head"><h2 class="card-title">{{ __('Əməliyyat xərcləri qrup üzrə') }}</h2><span class="card-sub">{{ Fmt::money($expenseTotal) }}</span></div>
+                <div class="card-head"><h2 class="card-title">{{ __('Rəsmi xərclər (P&L) qrup üzrə') }}</h2><span class="card-sub">{{ Fmt::money($expenseTotal) }}</span></div>
                 <ul class="divide-y divide-line text-sm">
                     @foreach ($expenseByGroup as $group => $sum)
                         <li class="flex items-center justify-between gap-3 px-4 py-2">

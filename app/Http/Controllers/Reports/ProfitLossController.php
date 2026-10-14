@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Reports;
 
-use App\Services\FlowClassifier;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Support\Fmt;
@@ -80,7 +79,7 @@ class ProfitLossController extends ReportController
             ['key' => 'expenses', 'label' => __('− Əməliyyat xərcləri'), 'values' => array_map(fn ($v) => -$v, $l['expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
                 'children' => array_map(fn ($c) => ['label' => $c['label'], 'name' => $c['name'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['expenses']))],
             ['key' => 'bank', 'label' => __('− Rəsmi xərclər (bank)'), 'values' => array_map(fn ($v) => -$v, $l['bank_expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
-                'children' => array_map(fn ($c) => ['label' => FlowClassifier::groupLabel($c['label']), 'name' => $c['name'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['bank']))],
+                'children' => array_map(fn ($c) => ['label' => $c['label'], 'name' => $c['name'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['bank_rows']))],
             ['key' => 'other_income', 'label' => __('+ Digər gəlirlər'), 'values' => $l['other_income'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => $children($report['other_income'])],
             ['key' => 'export', 'label' => __('+ Re-eksport nəticəsi (rəsmi MZ)'), 'values' => $l['export_result'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => [
                 ['label' => __('Gəlir — AR hüdudlarından kənar satış'), 'values' => $l['export_revenue'] ?? []],
