@@ -20,6 +20,7 @@ use App\Http\Controllers\Reports\MovementController;
 use App\Http\Controllers\Reports\OrderController;
 use App\Http\Controllers\Reports\PaymentController;
 use App\Http\Controllers\Reports\ProfitLossController;
+use App\Http\Controllers\Reports\ProfitLossDetailController;
 use App\Http\Controllers\Reports\PurchaseController;
 use App\Http\Controllers\Reports\ReturnController;
 use App\Http\Controllers\Reports\SalesController;
@@ -57,6 +58,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/xercler', ExpenseController::class)->name('expenses.index');
         Route::get('/xercler/detal', ExpenseDetailController::class)->name('expenses.detail');
         Route::get('/menfeet-zerer', ProfitLossController::class)->name('pnl.index');
+        Route::get('/menfeet-zerer/detal', ProfitLossDetailController::class)->name('pnl.detail');
         Route::get('/kassa', CashController::class)->name('cash.index');
         Route::get('/melumat-keyfiyyeti', DataQualityController::class)->name('quality.index');
 

@@ -14,7 +14,7 @@
         <div class="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
             <div>
                 <h2 class="card-title">{{ __('Mənfəət-zərər hesabatı') }}</h2>
-                <div class="card-sub">{{ $granularity === 'year' ? __('İllər sütunlarda, cəmi sonda.') : __('Aylar sütunlarda, cəmi sonda.') }} {{ __('Xərc və gəlir sətirlərinə klik — kateqoriyalar açılır.') }}</div>
+                <div class="card-sub">{{ $granularity === 'year' ? __('İllər sütunlarda, cəmi sonda.') : __('Aylar sütunlarda, cəmi sonda.') }} {{ __('Xərc və gəlir sətirlərinə klik — kateqoriyalar açılır.') }} {{ __('Rəqəmə klik — necə hesablandığı.') }}</div>
             </div>
             <div class="ml-auto flex gap-1.5 no-print">
                 <a href="{{ request()->fullUrlWithQuery(['export' => 'xlsx']) }}" class="btn btn-sm"><x-icon name="download" size="14"/> {{ __('Excel') }}</a>
@@ -36,7 +36,7 @@
                         $rowClass = match ($line['style']) { 'subtotal' => 'font-semibold', 'total' => 'font-bold', 'muted' => 'text-muted', default => '' };
                         $expandable = $line['style'] === 'expand' && count($line['children']) > 0;
                     @endphp
-                    <tr class="{{ $rowClass }}" @if($expandable) @click="open[{{ $i }}] = !open[{{ $i }}]" style="cursor: pointer" @endif>
+                    <tr class="{{ $rowClass }}" @if($expandable) @click="if (! $event.target.closest('a')) open[{{ $i }}] = !open[{{ $i }}]" style="cursor: pointer" @endif>
                         <td class="sticky left-0 z-[1] whitespace-normal bg-surface {{ $line['style'] === 'total' ? 'border-t-2 border-line-strong' : '' }}">
                             @if ($expandable)<span class="inline-block w-4 text-faint" x-text="open[{{ $i }}] ? '▾' : '▸'">▸</span>@endif
                             {{ $line['label'] }}
@@ -44,18 +44,19 @@
                         @foreach ($columns as $c)
                             @php $v = $line['values'][$c] ?? 0; @endphp
                             <td class="num {{ $line['style'] === 'total' ? 'border-t-2 border-line-strong' : '' }} {{ in_array($line['style'], ['total', 'subtotal'], true) && $v < 0 ? 'neg' : '' }}">
-                                {{ $line['type'] === 'pct' ? Fmt::pct($v) : Fmt::money($v, 0, false) }}
+                                <a href="{{ route('pnl.detail', $detailQuery + ['line' => $line['key'], 'col' => $c]) }}" data-modal class="pnl-cell">{{ $line['type'] === 'pct' ? Fmt::pct($v) : Fmt::money($v, 0, false) }}</a>
                             </td>
                         @endforeach
                         <td class="num font-semibold {{ $line['style'] === 'total' ? 'border-t-2 border-line-strong' : '' }} {{ ($line['total'] ?? 0) < 0 && in_array($line['style'], ['total', 'subtotal'], true) ? 'neg' : '' }}">
-                            {{ $line['type'] === 'pct' ? Fmt::pct($line['total']) : Fmt::money($line['total'], 0, false) }}
+                            <a href="{{ route('pnl.detail', $detailQuery + ['line' => $line['key'], 'col' => 'total']) }}" data-modal class="pnl-cell">{{ $line['type'] === 'pct' ? Fmt::pct($line['total']) : Fmt::money($line['total'], 0, false) }}</a>
                         </td>
                     </tr>
                     @foreach ($line['children'] as $child)
                         <tr x-show="open[{{ $i }}]" x-cloak class="text-[12px] text-muted">
                             <td class="sticky left-0 z-[1] bg-surface pl-9">{{ $child['label'] }}</td>
-                            @foreach ($columns as $c)<td class="num">{{ Fmt::money($child['values'][$c] ?? 0, 0, false) }}</td>@endforeach
-                            <td class="num">{{ Fmt::money(array_sum($child['values']), 0, false) }}</td>
+                            @php $childQuery = $detailQuery + ['line' => $line['key'], 'child' => $child['name'] ?? $child['label']]; @endphp
+                            @foreach ($columns as $c)<td class="num"><a href="{{ route('pnl.detail', $childQuery + ['col' => $c]) }}" data-modal class="pnl-cell">{{ Fmt::money($child['values'][$c] ?? 0, 0, false) }}</a></td>@endforeach
+                            <td class="num"><a href="{{ route('pnl.detail', $childQuery + ['col' => 'total']) }}" data-modal class="pnl-cell">{{ Fmt::money(array_sum($child['values']), 0, false) }}</a></td>
                         </tr>
                     @endforeach
                 @endforeach

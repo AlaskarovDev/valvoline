@@ -49,6 +49,8 @@ class ProfitLossController extends ReportController
             'labels' => $labels,
             'lines' => $lines,
             'chart' => $chart,
+            // xanaya klik → hesablama popup-u (eyni filtrlər)
+            'detailQuery' => $filters->query(['gran' => $granularity]),
             'official' => app(OfficialRevenueService::class)->cashSummary($filters),
         ]);
     }
@@ -62,35 +64,36 @@ class ProfitLossController extends ReportController
     private function lines(array $report): array
     {
         $l = $report['lines'];
-        $children = fn (array $set) => array_map(fn ($name, $values) => ['label' => $name, 'values' => $values], array_keys($set), array_values($set));
+        // «name» — popup üçün xam açar (kateqoriya / bank qrupu), «label» — göstərilən ad
+        $children = fn (array $set) => array_map(fn ($name, $values) => ['label' => (string) $name, 'name' => (string) $name, 'values' => $values], array_keys($set), array_values($set));
 
         $net = array_sum($l['net_sales'] ?? []);
         $netWithExport = $net + array_sum($l['export_revenue'] ?? []) + array_sum($l['official_extra'] ?? []);
         $lines = [
-            ['label' => __('Satışlar'), 'values' => $l['sales'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
-            ['label' => __('− Qaytarma'), 'values' => array_map(fn ($v) => -$v, $l['returns'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
-            ['label' => __('Xalis satış'), 'values' => $l['net_sales'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
-            ['label' => __('− Satılan malın mayası'), 'values' => array_map(fn ($v) => -$v, $l['sale_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
-            ['label' => __('− Hədiyyə / daxili istifadə mayası'), 'values' => array_map(fn ($v) => -$v, $l['gift_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
-            ['label' => __('Brüt mənfəət'), 'values' => $l['gross_profit'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
+            ['key' => 'sales', 'label' => __('Satışlar'), 'values' => $l['sales'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
+            ['key' => 'returns', 'label' => __('− Qaytarma'), 'values' => array_map(fn ($v) => -$v, $l['returns'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
+            ['key' => 'net_sales', 'label' => __('Xalis satış'), 'values' => $l['net_sales'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
+            ['key' => 'sale_cogs', 'label' => __('− Satılan malın mayası'), 'values' => array_map(fn ($v) => -$v, $l['sale_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
+            ['key' => 'gift_cogs', 'label' => __('− Hədiyyə / daxili istifadə mayası'), 'values' => array_map(fn ($v) => -$v, $l['gift_cogs'] ?? []), 'style' => 'muted', 'type' => 'money', 'children' => []],
+            ['key' => 'gross_profit', 'label' => __('Brüt mənfəət'), 'values' => $l['gross_profit'] ?? [], 'style' => 'subtotal', 'type' => 'money', 'children' => []],
             ['key' => 'gross_margin', 'label' => __('Brüt marja'), 'values' => $l['margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
-            ['label' => __('− Əməliyyat xərcləri'), 'values' => array_map(fn ($v) => -$v, $l['expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
-                'children' => array_map(fn ($c) => ['label' => $c['label'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['expenses']))],
+            ['key' => 'expenses', 'label' => __('− Əməliyyat xərcləri'), 'values' => array_map(fn ($v) => -$v, $l['expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
+                'children' => array_map(fn ($c) => ['label' => $c['label'], 'name' => $c['name'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['expenses']))],
             ['key' => 'bank', 'label' => __('− Rəsmi xərclər (bank)'), 'values' => array_map(fn ($v) => -$v, $l['bank_expenses'] ?? []), 'style' => 'expand', 'type' => 'money',
-                'children' => array_map(fn ($c) => ['label' => FlowClassifier::groupLabel($c['label']), 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['bank']))],
-            ['label' => __('+ Digər gəlirlər'), 'values' => $l['other_income'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => $children($report['other_income'])],
+                'children' => array_map(fn ($c) => ['label' => FlowClassifier::groupLabel($c['label']), 'name' => $c['name'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['bank']))],
+            ['key' => 'other_income', 'label' => __('+ Digər gəlirlər'), 'values' => $l['other_income'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => $children($report['other_income'])],
             ['key' => 'export', 'label' => __('+ Re-eksport nəticəsi (rəsmi MZ)'), 'values' => $l['export_result'] ?? [], 'style' => 'expand', 'type' => 'money', 'children' => [
                 ['label' => __('Gəlir — AR hüdudlarından kənar satış'), 'values' => $l['export_revenue'] ?? []],
                 ['label' => __('Xərc — re-eksportla bağlı (maya, daşınma)'), 'values' => array_map(fn ($v) => -$v, $l['export_cost'] ?? [])],
             ]],
             ['key' => 'official_extra', 'label' => __('+ Rəsmi gəlir — sistemdə olmayan satış (bank)'), 'values' => $l['official_extra'] ?? [], 'style' => '', 'type' => 'money', 'children' => []],
-            ['label' => __('Xalis mənfəət'), 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
+            ['key' => 'net_profit', 'label' => __('Xalis mənfəət'), 'values' => $l['net_profit'] ?? [], 'style' => 'total', 'type' => 'money', 'children' => []],
             ['key' => 'net_margin', 'label' => __('Xalis marja'), 'values' => $l['net_margin'] ?? [], 'style' => 'muted', 'type' => 'pct', 'children' => []],
         ];
         if (array_sum($l['founder'] ?? []) != 0.0) {
-            $lines[] = ['label' => __('− Təsisçiyə ödənişlər'), 'values' => array_map(fn ($v) => -$v, $l['founder']), 'style' => 'expand', 'type' => 'money',
-                'children' => array_map(fn ($c) => ['label' => $c['label'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['founder']))];
-            $lines[] = ['label' => __('Bölüşdürülməmiş mənfəət'), 'values' => $l['retained'], 'style' => 'subtotal', 'type' => 'money', 'children' => []];
+            $lines[] = ['key' => 'founder', 'label' => __('− Təsisçiyə ödənişlər'), 'values' => array_map(fn ($v) => -$v, $l['founder']), 'style' => 'expand', 'type' => 'money',
+                'children' => array_map(fn ($c) => ['label' => $c['label'], 'name' => $c['name'], 'values' => array_map(fn ($v) => -$v, $c['values'])], $children($report['founder']))];
+            $lines[] = ['key' => 'retained', 'label' => __('Bölüşdürülməmiş mənfəət'), 'values' => $l['retained'], 'style' => 'subtotal', 'type' => 'money', 'children' => []];
         }
         foreach ($lines as &$line) {
             $line['total'] = $line['type'] === 'money' ? array_sum($line['values']) : null;

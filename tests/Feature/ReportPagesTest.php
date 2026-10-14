@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Reports\ProfitLossDetailController;
 use App\Models\Customer;
 use App\Models\ImportBatch;
 use App\Models\Manager;
@@ -9,7 +10,10 @@ use App\Models\Product;
 use App\Models\PurchaseBatch;
 use App\Models\SalesOrder;
 use App\Models\User;
+use App\Reports\ReportFilters;
+use App\Services\ProfitLossService;
 use App\Support\DemoWorkbooks;
+use App\Support\Fmt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +87,37 @@ class ReportPagesTest extends TestCase
         $this->get(route('debts.index', ['tab' => 'advances']))->assertOk();
         $this->get(route('stock.index', ['asof' => '2025-06-30', 'only' => 'all']))->assertOk();
         $this->get(route('orders.index', ['from' => '2025-02-03', 'to' => '2025-05-17', 'orders_sort' => 'margin', 'orders_dir' => 'asc', 'orders_q' => 'MMC']))->assertOk();
+    }
+
+    public function test_every_pnl_number_opens_its_calculation(): void
+    {
+        $this->actingAs($this->admin);
+        $base = ['preset' => 'all', 'direction' => 'all'];
+        $filters = ReportFilters::fromRequest(request()->merge($base), 'this_year', 'VALVO');
+        $report = app(ProfitLossService::class)->build($filters, 'month');
+
+        $this->get(route('pnl.index', $base))->assertOk()->assertSee(e(route('pnl.detail', $base + ['gran' => 'month', 'line' => 'net_profit', 'col' => 'total'])), false);
+        foreach (ProfitLossDetailController::LINES as $line) {
+            $this->get(route('pnl.detail', $base + ['line' => $line, 'col' => 'total']), ['X-Modal' => '1'])
+                ->assertOk()->assertSee('Necə hesablanır')->assertDontSee('<html', false);
+        }
+
+        // xananın nəticəsi P&L cədvəlindəki rəqəmlə eynidir
+        $this->get(route('pnl.detail', $base + ['line' => 'net_profit', 'col' => 'total']), ['X-Modal' => '1'])
+            ->assertSee(Fmt::money(array_sum($report['lines']['net_profit'])), false)->assertSee('Brüt mənfəət');
+        $month = array_key_last(array_filter($report['lines']['sales']));
+        $customer = (string) DB::table('sales_lines')->where('period', $month)->where('op_type', 'sale')->value('customer_name');
+        $this->get(route('pnl.detail', $base + ['line' => 'sales', 'col' => $month]), ['X-Modal' => '1'])
+            ->assertSee(Fmt::money($report['lines']['sales'][$month]), false)->assertSee('Müştərilər üzrə')->assertSee(e($customer), false);
+        $this->get(route('pnl.detail', $base + ['line' => 'gross_margin', 'col' => $month]), ['X-Modal' => '1'])
+            ->assertSee(Fmt::pct($report['lines']['margin'][$month]), false);
+
+        // kateqoriya → kassa əməliyyatları
+        $category = array_key_first($report['expenses']);
+        $this->get(route('pnl.detail', $base + ['line' => 'expenses', 'col' => 'total']), ['X-Modal' => '1'])
+            ->assertSee(e(route('pnl.detail', $base + ['line' => 'expenses', 'col' => 'total', 'child' => $category])), false);
+        $this->get(route('pnl.detail', $base + ['line' => 'expenses', 'col' => 'total', 'child' => $category]))
+            ->assertOk()->assertSee('Kassa əməliyyatları')->assertSee(Fmt::money(array_sum($report['expenses'][$category])), false);
     }
 
     public function test_excel_and_pdf_exports(): void
