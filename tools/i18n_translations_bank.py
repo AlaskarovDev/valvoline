@@ -380,4 +380,12 @@ T = {
     'Mədaxil / ödəniş': ('Приход / платёж', 'In / out'),
     'Mühasibatda bütün sənədləri (hesab :code)': ('Все документы в бухгалтерии (счёт :code)', 'All documents in accounting (account :code)'),
     'Mühasibat faylındakı dövriyyə vərəqində sənədin yalnız adı və məbləği var — mal sətirləri sistemdəki sifariş / partiyada.': ('В оборотной ведомости бухгалтерского файла есть только название и сумма документа — строки товаров в заказе / партии системы.', 'The ledger sheet in the accounting file only has the document name and amount — the goods lines are in the system order / batch.'),
+    'Qalıq borc (mühasibat)': ('Остаток долга (бухгалтерия)', 'Outstanding balance (accounting)'),
+    'Bankdan daxil olub (:from – :to)': ('Поступило через банк (:from – :to)', 'Received via bank (:from – :to)'),
+    'Bankdan ödənilib (:from – :to)': ('Оплачено через банк (:from – :to)', 'Paid via bank (:from – :to)'),
+    '+ Qalıq borc (mühasibat, il sonuna)': ('+ Остаток долга (бухгалтерия, на конец года)', '+ Outstanding balance (accounting, year end)'),
+    '= Sənədin tam dəyəri': ('= Полная стоимость документа', '= Full document value'),
+    'Sistemdə: :ref': ('В системе: :ref', 'In the system: :ref'),
+    'Bu dövrdə bank hərəkəti (:sum) var, amma sistemlə müqayisə göstərir ki, o, başqa sənədlərə aiddir — bu sənəd ödənilməyib.': ('В этом периоде есть банковские движения (:sum), но сверка с системой показывает, что они относятся к другим документам — этот документ не оплачен.', 'There are bank movements (:sum) in this period, but the comparison with the system shows they belong to other documents — this document is unpaid.'),
+    'Dövriyyə vərəqindəki məbləğ sənədin dəyəri deyil, il sonuna qalıq borcdur (ödənişlər çıxılıb). Mal sətirləri sistemdəki sifariş / partiyada.': ('Сумма в оборотной ведомости — не стоимость документа, а остаток долга на конец года (за вычетом оплат). Строки товаров — в заказе / партии системы.', 'The amount in the ledger sheet is not the document value but the outstanding balance at year end (payments deducted). The goods lines are in the system order / batch.'),
 }

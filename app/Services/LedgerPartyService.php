@@ -18,7 +18,7 @@ class LedgerPartyService
     private const WINDOW_DAYS = ['62' => 3, 'default' => 10];
 
     /**
-     * @return array{documents: Collection<int, object>, bank: Collection<int, object>, customer: object|null, matches: Collection<int, object>, kind: string, focus: Collection<int, object>}
+     * @return array{documents: Collection<int, object>, bank: Collection<int, object>, customer: object|null, matches: Collection<int, object>, kind: string, focus: Collection<int, object>, settlement: array<string, mixed>|null}
      */
     public function party(string $code, string $counterparty, ?string $document): array
     {
@@ -57,7 +57,51 @@ class LedgerPartyService
                     'amount' => (float) $b->total_cost, 'exact' => abs((float) $b->total_cost - abs($d->amount)) < 1]))->values();
         }
 
-        return ['documents' => $documents, 'bank' => $bank, 'customer' => $customer, 'matches' => $matches, 'kind' => $kind, 'focus' => $focus];
+        return ['documents' => $documents, 'bank' => $bank, 'customer' => $customer, 'matches' => $matches, 'kind' => $kind, 'focus' => $focus,
+            'settlement' => $this->settlement($kind, $focus, $bank, $matches)];
+    }
+
+    /**
+     * Dövriyyə vərəqindəki məbləğ sənədin dəyəri deyil, il sonuna QALIQ borcdur. Sənədin tam dəyəri:
+     * sənəd ayından il sonuna qədər bankdan ödənilən (alıcıda — daxil olan) + qalıq; sistemdəki qarşılıqla müqayisə.
+     *
+     * @param  Collection<int, object>  $focus
+     * @param  Collection<int, object>  $bank
+     * @param  Collection<int, object>  $matches
+     * @return array{paid: float, bank_period: float, remaining: float, total: float, system: float|null, system_ref: string|null, diff: float|null, from: string, to: string}|null
+     */
+    private function settlement(string $kind, Collection $focus, Collection $bank, Collection $matches): ?array
+    {
+        $doc = $focus->count() === 1 ? $focus->first() : null;
+        if ($doc === null || $doc->doc_date === null || $kind === 'other') {
+            return null;
+        }
+        $from = $doc->doc_date->format('Y-m');
+        $to = $doc->year.'-12';
+        $paid = (float) $bank->where('section', $kind === 'customer' ? 'income' : 'payment')
+            ->filter(fn ($f) => $f->period >= $from && $f->period <= $to)->sum('amount');
+        $remaining = abs((float) $doc->amount);
+        // iki ehtimal: sənəd hələ ödənilməyib (qalıq = tam dəyər) və ya ödənişlər bu sənədə aiddir (ödənilən + qalıq).
+        // Sistemdəki qeydə hansı yaxındırsa o seçilir; qeyd yoxdursa malsatanda ödənişlər, alıcıda ödənilməmiş sayılır
+        // (alıcının daxilolmaları çox vaxt köhnə sənədləri bağlayır).
+        $candidates = $paid > 0.005 ? [0.0, $paid] : [0.0];
+        $best = null;
+        foreach ($candidates as $assumedPaid) {
+            $total = $assumedPaid + $remaining;
+            $system = $matches->sortBy(fn ($m) => abs($m->amount - $total))->first();
+            $diff = $system ? abs($system->amount - $total) : INF;
+            if ($best === null || $diff < $best['score']) {
+                $best = ['score' => $diff, 'paid' => $assumedPaid, 'system' => $system];
+            }
+        }
+        if ($best['system'] === null) {
+            $best['paid'] = $kind === 'supplier' ? $paid : 0.0;
+        }
+        $total = $best['paid'] + $remaining;
+        $system = $best['system'];
+
+        return ['paid' => $best['paid'], 'bank_period' => $paid, 'remaining' => $remaining, 'total' => $total, 'from' => $from, 'to' => $to,
+            'system' => $system?->amount, 'system_ref' => $system?->ref, 'diff' => $system ? $system->amount - $total : null];
     }
 
     /**

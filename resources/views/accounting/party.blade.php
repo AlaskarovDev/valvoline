@@ -10,12 +10,32 @@
         <div class="text-xs text-muted">{{ __('Hesab :code', ['code' => $code]) }}@if ($document) · {{ $document }}@endif</div>
     </div>
     <div class="shrink-0 text-right">
-        <div class="text-xs text-muted">{{ $document ? __('Sənəd') : __('Mühasibat qalığı') . ($year ? ' · '.$year : '') }}</div>
+        <div class="text-xs text-muted">{{ __('Qalıq borc (mühasibat)') }}{{ ! $document && $year ? ' · '.$year : '' }}</div>
         <div class="text-lg font-semibold tabular-nums {{ $docTotal < 0 ? 'neg' : '' }}">{{ Fmt::money(abs($docTotal)) }}</div>
     </div>
 </div>
 
 <div class="space-y-5 px-5 py-4">
+    @if ($settlement)
+        {{-- dövriyyə vərəqindəki məbləğ qalıqdır: ödənilən + qalıq = sənədin tam dəyəri --}}
+        <section class="overflow-hidden rounded-lg border border-line">
+            <table class="tbl">
+                <tbody>
+                <tr><td>{{ $kind === 'customer' ? __('Bankdan daxil olub (:from – :to)', ['from' => Fmt::period($settlement['from']), 'to' => Fmt::period($settlement['to'])]) : __('Bankdan ödənilib (:from – :to)', ['from' => Fmt::period($settlement['from']), 'to' => Fmt::period($settlement['to'])]) }}</td><td class="num">{{ Fmt::money($settlement['paid']) }}</td></tr>
+                <tr><td>{{ __('+ Qalıq borc (mühasibat, il sonuna)') }}</td><td class="num">{{ Fmt::money($settlement['remaining']) }}</td></tr>
+                @if ($settlement['paid'] < 0.005 && $settlement['bank_period'] > 0.005)
+                    <tr><td colspan="2" class="wrap text-xs text-muted">{{ __('Bu dövrdə bank hərəkəti (:sum) var, amma sistemlə müqayisə göstərir ki, o, başqa sənədlərə aiddir — bu sənəd ödənilməyib.', ['sum' => Fmt::money($settlement['bank_period'])]) }}</td></tr>
+                @endif
+                <tr class="font-semibold"><td>{{ __('= Sənədin tam dəyəri') }}</td><td class="num">{{ Fmt::money($settlement['total']) }}</td></tr>
+                @if ($settlement['system'] !== null)
+                    <tr><td>{{ __('Sistemdə: :ref', ['ref' => $settlement['system_ref']]) }}</td><td class="num">{{ Fmt::money($settlement['system']) }}</td></tr>
+                    <tr @class(['font-semibold', 'pos' => abs($settlement['diff']) < 1, 'warn' => abs($settlement['diff']) >= 1])><td>{{ __('Fərq') }}</td><td class="num">{{ abs($settlement['diff']) < 0.005 ? '✓' : Fmt::money($settlement['diff']) }}</td></tr>
+                @endif
+                </tbody>
+            </table>
+        </section>
+    @endif
+
     {{-- sistemdəki qarşılığı --}}
     @if ($kind !== 'other')
         <section>
@@ -29,7 +49,7 @@
             </h3>
             <div class="tbl-wrap rounded-lg border border-line">
                 <table class="tbl">
-                    <thead><tr><th>{{ __('Sənəd (mühasibat)') }}</th><th>{{ __('Tarix') }}</th><th>{{ $kind === 'customer' ? __('Sifariş') : __('Partiya') }}</th><th class="num">{{ __('Sistemdə') }}</th><th class="num">{{ __('Mühasibatda') }}</th></tr></thead>
+                    <thead><tr><th>{{ __('Sənəd (mühasibat)') }}</th><th>{{ __('Tarix') }}</th><th>{{ $kind === 'customer' ? __('Sifariş') : __('Partiya') }}</th><th class="num">{{ __('Sistemdə') }}</th><th class="num">{{ __('Qalıq borc (mühasibat)') }}</th></tr></thead>
                     <tbody>
                     @forelse ($matches as $m)
                         <tr @class(['font-semibold' => $m->exact])>
@@ -93,6 +113,6 @@
                 </tbody>
             </table>
         </div>
-        <div class="mt-1 text-xs text-muted">{{ __('Mühasibat faylındakı dövriyyə vərəqində sənədin yalnız adı və məbləği var — mal sətirləri sistemdəki sifariş / partiyada.') }}</div>
+        <div class="mt-1 text-xs text-muted">{{ __('Dövriyyə vərəqindəki məbləğ sənədin dəyəri deyil, il sonuna qalıq borcdur (ödənişlər çıxılıb). Mal sətirləri sistemdəki sifariş / partiyada.') }}</div>
     </section>
 </div>

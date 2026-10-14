@@ -220,7 +220,8 @@ class AccountingTest extends TestCase
         // kontragent / sənəd → detal: mühasibat sənədləri, bank, sistemdə qarşılığı
         $this->get(route('accounting.ledger', '62'), ['X-Modal' => '1'])->assertSee('/muhasibat/hesab/62/kontragent', false);
         $this->get(route('accounting.ledger.party', ['code' => '62', 'party' => 'MILLA DAIRY', 'doc' => 'Mallarin yuklenmesi ve satisi 000082 (10.12.25)']), ['X-Modal' => '1'])
-            ->assertOk()->assertSee('Sistemdə satış sifarişləri')->assertSee('Mallarin yuklenmesi ve satisi 000082 (10.12.25)')->assertSee('Bank hərəkətləri (Cash Flow)');
+            ->assertOk()->assertSee('Sistemdə satış sifarişləri')->assertSee('Mallarin yuklenmesi ve satisi 000082 (10.12.25)')->assertSee('Bank hərəkətləri (Cash Flow)')
+            ->assertSee('Qalıq borc (mühasibat)')->assertSee('= Sənədin tam dəyəri');
         $this->assertSame('2025-12-10', LedgerPartyService::documentDate('Mallarin yuklenmesi ve satisi 000082 (10.12.25)')->toDateString());
         $this->get(route('accounting.pl'))->assertOk()->assertSee('Topdansatışdan gəlir');
         $this->get(route('accounting.cashflow'))->assertOk()->assertSee('Mal alışı / gömrük')->assertSee('ELLIS');
