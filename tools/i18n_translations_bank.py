@@ -227,4 +227,13 @@ T = {
     'əvvəlki il faylı yoxdur': ('файла прошлого года нет', 'no file for the previous year'),
     'əvvəlki ilin sonu ilə eynidir': ('совпадает с концом прошлого года', "matches last year's closing"),
     '− Ödənişlər (bütün növlər)': ('− Платежи (все типы)', '− Payments (all types)'),
+    '+ P&L-ə əlavə olunub': ('+ добавлено в P&L', '+ added to the P&L'),
+    'Müştəri tapıldı, amma sistemdə satışı yoxdur — rəsmi gəlir kimi P&L-ə əlavə olunur.': ('Клиент найден, но продаж в системе нет — добавляется в P&L как официальный доход.', 'Customer found but has no sales in the system — added to the P&L as official revenue.'),
+    'Məlumat üçün: «✓ satışlarda var» olanlar yuxarıdakı satışın pulu olduğu üçün mənfəətə ikinci dəfə yazılmır; «+ P&L-ə əlavə olunub» olanlar aşağıda «Rəsmi gəlir» sətrindədir.': ('Для информации: «✓ есть в продажах» — это оплата продаж выше, в прибыль повторно не идёт; «+ добавлено в P&L» — в строке «Офиц. доход» ниже.', 'For information: "✓ in sales" are payments for the sales above and are not counted again; "+ added to the P&L" are in the "Official revenue" line below.'),
+    'Rəsmi daxilolmalar — mühasibat Excel «Gəlirlər» (bank)': ('Официальные поступления — бухгалтерский Excel «Доходы» (банк)', 'Official receipts — accounting Excel "Income" (bank)'),
+    're-eksport blokunda': ('в блоке реэкспорта', 'in the re-export block'),
+    'təsisçi borcu, gəlir deyil': ('заём учредителя, не доход', 'founder loan, not revenue'),
+    'Ödəyici sistemdə tapılmadı — rəsmi gəlir kimi P&L-ə əlavə olunur. Satış başqa adla yazılıbsa «Sistemdə satış kimi var» seçin.': ('Плательщик не найден в системе — добавляется в P&L как официальный доход. Если продажа записана под другим именем, выберите «Есть в системе как продажа».', 'Payer not found in the system — added to the P&L as official revenue. If the sale is recorded under another name, choose "In the system as a sale".'),
+    '⚠ yoxlanılmalı': ('⚠ требует проверки', '⚠ to check'),
+    '✓ satışlarda var': ('✓ есть в продажах', '✓ in sales'),
 }

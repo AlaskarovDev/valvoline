@@ -171,7 +171,7 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $pnl->bankExpenseTotal($this->filters('TIR')), 0.001, 'TIR istiqamətinə bank xərci düşmür');
         $report = $pnl->build($this->filters(), 'month');
         $this->assertEqualsWithDelta(1520.0, $report['lines']['bank_expenses']['2025-01'], 0.001);
-        $this->assertEqualsWithDelta(-2740.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(-2740.0 + 3100.0, array_sum($report['lines']['net_profit']), 0.001, 'bank xərcləri + sistemdə olmayan rəsmi gəlir');
 
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
             ->assertOk()->assertSee('Rəsmi xərclər (bank)')->assertSee('Əmək haqqı')->assertDontSee('Re-eksport nəticəsi');
@@ -265,7 +265,7 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta(1200.0, $report['lines']['export_revenue']['2025-02'], 0.001);
         $this->assertEqualsWithDelta(1000.0, $report['lines']['export_cost']['2025-02'], 0.001);
         $this->assertEqualsWithDelta(0.0, $report['lines']['export_revenue']['2025-01'], 0.001);
-        $this->assertEqualsWithDelta(-2740.0 + 200.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(-2740.0 + 200.0 + 3100.0, array_sum($report['lines']['net_profit']), 0.001);
         $this->assertEqualsWithDelta(0.0, $pnl->exportResultTotal($this->filters('TIR')), 0.001);
 
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))
@@ -304,35 +304,43 @@ class AccountingTest extends TestCase
         $this->assertEqualsWithDelta(1100.0, collect($rows['purchases'])->get(2)->amount, 0.001);
     }
 
-    public function test_official_receipts_reach_pnl_only_when_marked_as_missing_sales(): void
+    public function test_official_receipts_missing_from_system_reach_pnl_and_are_shown_by_payer(): void
     {
         $this->upload($this->workbook());
         $pnl = app(ProfitLossService::class);
         $official = app(OfficialRevenueService::class);
 
-        // ödəyici sistemdə tapılmır → yoxlanılmalı, P&L-ə düşmür (satış gəliri sistemdə satış faylından gəlir)
+        // ödəyicinin satışı sistemdə yoxdur → rəsmi gəlir kimi P&L-ə düşür
         $payer = $official->payers(2025)->firstWhere('counterparty', 'Müştəri Bir MMC');
-        $this->assertSame(OfficialRevenueService::PENDING, $payer->decision);
+        $this->assertSame(OfficialRevenueService::EXTRA, $payer->decision);
         $this->assertEqualsWithDelta(3000.0, $payer->total, 0.001);
         $this->assertNull($official->payers(2025)->firstWhere('counterparty', 'Təsisçidən'), 'təsisçi borcu gəlir deyil');
-        $this->assertEqualsWithDelta(-2740.0, array_sum($pnl->build($this->filters())['lines']['net_profit']), 0.001);
-
-        $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'extra'])->assertRedirect();
         $report = $pnl->build($this->filters(), 'month');
-        $this->assertEqualsWithDelta(2000.0, $report['lines']['official_extra']['2025-01'], 0.001);
-        $this->assertEqualsWithDelta(-2740.0 + 3000.0, array_sum($report['lines']['net_profit']), 0.001);
+        $this->assertEqualsWithDelta(2100.0, $report['lines']['official_extra']['2025-01'], 0.001);
+        $this->assertEqualsWithDelta(-2740.0 + 3100.0, array_sum($report['lines']['net_profit']), 0.001);
         $this->assertEqualsWithDelta(0.0, array_sum($pnl->build($this->filters('TIR'))['lines']['official_extra'] ?? []), 0.001);
+        $this->assertSame(['customer', 'customer', 'founder'], array_map(fn ($r) => $r->kind, $report['official']));
 
-        $summary = $official->cashSummary($this->filters());
+        // P&L-də Excel «Gəlirlər» hər ödəyici ilə görünür, təsisçi «gəlir deyil» kimi
+        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))->assertOk()
+            ->assertSee('Rəsmi daxilolmalar — mühasibat Excel «Gəlirlər» (bank)')->assertSee('Müştəri Bir MMC — + P&L-ə əlavə olunub')
+            ->assertSee('Təsisçidən — təsisçi borcu, gəlir deyil')
+            ->assertSee('Rəsmi gəlir — sistemdə olmayan satış (bank)')->assertSee('Rəsmi pul axını (mühasibat Cash Flow)');
+
+        // satış başqa adla sistemdədirsə — təkrar sayılmır
+        $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'included'])->assertRedirect();
+        $this->assertEqualsWithDelta(-2740.0 + 100.0, array_sum(app(ProfitLossService::class)->build($this->filters())['lines']['net_profit']), 0.001);
+        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))->assertOk()->assertSee('Müştəri Bir MMC — ✓ satışlarda var');
+
+        $summary = app(OfficialRevenueService::class)->cashSummary($this->filters());
         $this->assertEqualsWithDelta(500.0, $summary['opening'], 0.001, 'açılış — yanvarın əvvəlinə qalıq');
         $this->assertEqualsWithDelta(1712.0, $summary['closing'], 0.001);
-        $this->assertEqualsWithDelta(3000.0, $summary['extra'], 0.001);
+        $this->assertEqualsWithDelta(3000.0, $summary['included'], 0.001);
+        $this->assertEqualsWithDelta(100.0, $summary['extra'], 0.001);
         $this->assertEqualsWithDelta(5000.0, $summary['founder'], 0.001);
 
-        $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))->assertOk()
-            ->assertSee('Rəsmi gəlir — sistemdə olmayan satış (bank)')->assertSee('Rəsmi pul axını (mühasibat Cash Flow)')->assertSee('Dövrün əvvəlinə qalıq');
         $this->get(route('dashboard', ['from' => '2025-01-01', 'to' => '2025-12-31']))->assertOk()
-            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(-2740.0 + 3000.0), false);
+            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(-2740.0 + 100.0), false);
 
         $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'auto'])->assertRedirect();
         $this->assertSame(0, DB::table('revenue_decisions')->count());
