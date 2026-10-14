@@ -155,19 +155,26 @@ class ReportPagesTest extends TestCase
         $this->assertSame('701', ChartLedgerService::mzAccount((object) ['section' => 'expense', 'tax_code' => '221.4', 'name' => 'Malın dəyəri']));
     }
 
-    public function test_management_balance_sheet_balances(): void
+    public function test_management_balance_sheet_has_no_artificial_balancing_line(): void
     {
         $this->actingAs($this->admin);
         $parts = app(ChartLedgerService::class)->managementBalance(now());
         $sum = fn (string $code) => array_sum(array_column($parts[$code] ?? [], 'amount'));
         $assets = $sum('205') + $sum('211') + $sum('221');
-        $equityAndLiabilities = $sum('542') + $sum('343') + $sum('341') - $sum('344') + $sum('301');
-        $this->assertEqualsWithDelta($assets, $equityAndLiabilities, 0.01, 'aktiv = öhdəlik + kapital (301 balanslaşdırıcı)');
-        $this->assertNotEqualsWithDelta(0.0, $assets, 0.01);
+        $liabilities = $sum('542') + $sum('343') + $sum('341') - $sum('344');
+        $this->assertArrayNotHasKey('301', $parts, 'balanslaşdırıcı sətir yoxdur');
 
         $this->get(route('accounting.balance', ['view' => 'mgmt']))->assertOk()
-            ->assertSee('İdarəetmə (sistem importları)')->assertSee('Bərabərdir ✓')->assertSee(Fmt::money($assets), false);
-        $this->get(route('accounting.chart.mgmt', ['code' => '301']), ['X-Modal' => '1'])->assertOk()->assertSee('Balanslaşdırıcı fərq');
+            ->assertSee('İdarəetmə (sistem importları)')->assertSee(Fmt::money($assets), false)
+            ->assertSee(Fmt::money($assets - $liabilities), false)->assertDontSee('Balanslaşdırıcı fərq');
+
+        // rəqəmə klik → detal: müştərilər, mallar, kassa ayları, mənfəətin hesablanması
+        $this->get(route('accounting.chart.mgmt', ['code' => '211']), ['X-Modal' => '1'])->assertOk()->assertSee('Borclu müştərilər')->assertSee(Fmt::money($sum('211')), false);
+        $this->get(route('accounting.chart.mgmt', ['code' => '205']), ['X-Modal' => '1'])->assertOk()->assertSee('Mallar üzrə qalıq');
+        $this->get(route('accounting.chart.mgmt', ['code' => '221']), ['X-Modal' => '1'])->assertOk()->assertSee('Kassa — aylar üzrə');
+        $this->get(route('accounting.chart.mgmt', ['code' => '341']), ['X-Modal' => '1'])->assertOk()->assertSee('= Xalis mənfəət');
+        $detail = app(ChartLedgerService::class)->detail('211', now());
+        $this->assertEqualsWithDelta($sum('211'), end($detail['foot']), 0.01);
     }
 
     public function test_excel_and_pdf_exports(): void

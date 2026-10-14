@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Reports\ReportFilters;
+use App\Support\Fmt;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -80,17 +82,15 @@ class ChartLedgerService
     }
 
     /**
-     * İdarəetmə balansı: management() + kapital hesabları ki, aktiv = öhdəlik + kapital olsun.
-     *   343 — keçmiş illərin bölüşdürülməmiş mənfəəti (əvvəlki illərin idarəetmə xalis mənfəəti − təsisçiyə ödənişlər);
-     *   301 — balanslaşdırıcı fərq: təsisçinin qoyuluşu və importlarda olmayan qalıqlar (bank, malsatan borcları …).
+     * İdarəetmə balansı: management() + 343 keçmiş illərin bölüşdürülməmiş mənfəəti
+     * (əvvəlki illərin idarəetmə xalis mənfəəti − təsisçiyə ödənişlər). Süni balanslaşdırıcı sətir yoxdur —
+     * aktiv ilə passiv fərqi importlarda olmayan qalıqları (bank, malsatan borcları, təsisçi qoyuluşu) göstərir.
      *
      * @return array<string, list<array{label: string, amount: float, url: string|null}>>
      */
     public function managementBalance(Carbon $date): array
     {
         $out = $this->management($date);
-        $sum = fn (string $code) => (float) array_sum(array_column($out[$code] ?? [], 'amount'));
-
         $first = collect([
             DB::table('sales_lines')->min('date'), DB::table('purchase_lines')->min('date'),
             DB::table('cash_transactions')->min('date'), DB::table('payments')->min('date'),
@@ -112,14 +112,6 @@ class ChartLedgerService
                 }
             }
         }
-
-        // arrow funksiya $out-u yaradılan anda götürür — kapital sətirlərindən sonra yenidən qururuq
-        $sum = fn (string $code) => (float) array_sum(array_column($out[$code] ?? [], 'amount'));
-        $assets = $sum('205') + $sum('211') + $sum('221');
-        $liabilities = $sum('542');
-        $equity = $sum('343') + $sum('341') - $sum('344');
-        $out['301'][] = ['label' => __('Balanslaşdırıcı fərq: təsisçinin qoyuluşu və importlarda olmayan qalıqlar (bank, malsatan borcları)'),
-            'amount' => $assets - $liabilities - $equity, 'url' => null];
 
         return $out;
     }
@@ -189,22 +181,110 @@ class ChartLedgerService
      */
     private function customerBalances(string $date): array
     {
-        $customers = DB::table('customers')->where('type', 'customer')->pluck('id')->flip();
-        $balance = [];
+        $rows = $this->customerRows($date);
+        $positive = $rows->where('balance', '>', 0.005);
+        $negative = $rows->where('balance', '<', -0.005);
+
+        return [(float) $positive->sum('balance'), (float) -$negative->sum('balance'), $positive->count(), $negative->count()];
+    }
+
+    /**
+     * Müştəri üzrə tarixə qədər satış, qaytarma, ödəniş və qalıq.
+     *
+     * @return Collection<int, object>
+     */
+    private function customerRows(string $date): Collection
+    {
+        $customers = DB::table('customers')->where('type', 'customer')->get(['id', 'name'])->keyBy('id');
+        $data = [];
         foreach ([
-            [DB::table('sales_lines')->where('op_type', 'sale')->where('status', 'ok')->where('date', '<=', $date)->groupBy('customer_id')->selectRaw('customer_id, SUM(net_amount) AS amount')->get(), 1],
-            [DB::table('sales_returns')->where('op_type', 'customer')->where('date', '<=', $date)->groupBy('customer_id')->selectRaw('customer_id, SUM(net_amount) AS amount')->get(), -1],
-            [DB::table('payments')->where('date', '<=', $date)->groupBy('customer_id')->selectRaw('customer_id, SUM(total) AS amount')->get(), -1],
-        ] as [$rows, $sign]) {
+            'sales' => DB::table('sales_lines')->where('op_type', 'sale')->where('status', 'ok')->where('date', '<=', $date)->groupBy('customer_id')->selectRaw('customer_id, SUM(net_amount) AS amount')->get(),
+            'returns' => DB::table('sales_returns')->where('op_type', 'customer')->where('date', '<=', $date)->groupBy('customer_id')->selectRaw('customer_id, SUM(net_amount) AS amount')->get(),
+            'payments' => DB::table('payments')->where('date', '<=', $date)->groupBy('customer_id')->selectRaw('customer_id, SUM(total) AS amount')->get(),
+        ] as $key => $rows) {
             foreach ($rows as $row) {
                 if ($row->customer_id !== null && isset($customers[$row->customer_id])) {
-                    $balance[$row->customer_id] = ($balance[$row->customer_id] ?? 0.0) + $sign * (float) $row->amount;
+                    $data[$row->customer_id][$key] = (float) $row->amount;
                 }
             }
         }
-        $positive = array_filter($balance, fn ($v) => $v > 0.005);
-        $negative = array_filter($balance, fn ($v) => $v < -0.005);
 
-        return [(float) array_sum($positive), (float) -array_sum($negative), count($positive), count($negative)];
+        return collect($data)->map(fn ($v, $id) => (object) [
+            'id' => $id,
+            'name' => $customers[$id]->name,
+            'sales' => $v['sales'] ?? 0.0,
+            'returns' => $v['returns'] ?? 0.0,
+            'payments' => $v['payments'] ?? 0.0,
+            'balance' => ($v['sales'] ?? 0.0) - ($v['returns'] ?? 0.0) - ($v['payments'] ?? 0.0),
+        ])->values();
+    }
+
+    /**
+     * Balans sətrinin detalı (popup): mallar, müştərilər, kassa ayları, mənfəətin hesablanması.
+     *
+     * @return array{title: string, columns: list<string>, numeric: list<int>, rows: list<list<mixed>>, links: list<string|null>, foot: list<mixed>|null}|null
+     */
+    public function detail(string $code, Carbon $date): ?array
+    {
+        $day = $date->toDateString();
+        switch ($code) {
+            case '205':
+                $rows = $this->stock->balances(new ReportFilters($date->copy()->startOfYear(), $date), $date->copy()->endOfDay())
+                    ->where('qty', '>', 0)->sortByDesc('value')->values();
+
+                return [
+                    'title' => __('Mallar üzrə qalıq'), 'columns' => [__('Mal'), __('Miqdar'), __('Maya'), __('Dəyər')], 'numeric' => [1, 2, 3],
+                    'rows' => $rows->map(fn ($p) => [trim($p->code.' '.$p->name), Fmt::qty($p->qty), (float) $p->avg_cost, (float) $p->value])->all(),
+                    'links' => $rows->map(fn ($p) => route('movements.product', $p->id))->all(),
+                    'foot' => [__('Cəmi'), Fmt::qty($rows->sum('qty')), '', (float) $rows->sum('value')],
+                ];
+            case '211':
+            case '542':
+                $rows = $this->customerRows($day)->filter(fn ($r) => $code === '211' ? $r->balance > 0.005 : $r->balance < -0.005)
+                    ->sortBy(fn ($r) => $code === '211' ? -$r->balance : $r->balance)->values();
+
+                return [
+                    'title' => $code === '211' ? __('Borclu müştərilər') : __('Avanslı müştərilər'),
+                    'columns' => [__('Müştəri'), __('Satış'), __('Qaytarma'), __('Ödəniş'), __('Qalıq')], 'numeric' => [1, 2, 3, 4],
+                    'rows' => $rows->map(fn ($r) => [$r->name, $r->sales, $r->returns, $r->payments, $code === '211' ? $r->balance : -$r->balance])->all(),
+                    'links' => $rows->map(fn ($r) => route('customers.show', $r->id))->all(),
+                    'foot' => [__('Cəmi'), (float) $rows->sum('sales'), (float) $rows->sum('returns'), (float) $rows->sum('payments'), (float) abs($rows->sum('balance'))],
+                ];
+            case '221':
+                $months = DB::table('cash_transactions')->where('date', '<=', $day)->groupBy('period')->orderBy('period')
+                    ->selectRaw('period, SUM(income) AS income, SUM(expense) AS expense')->get();
+                $running = 0.0;
+                $rows = $months->map(function ($m) use (&$running) {
+                    $running += (float) $m->income - (float) $m->expense;
+
+                    return [Fmt::period($m->period), (float) $m->income, (float) $m->expense, $running];
+                })->reverse()->values();
+
+                return [
+                    'title' => __('Kassa — aylar üzrə'), 'columns' => [__('Ay'), __('Mədaxil'), __('Məxaric'), __('Ay sonuna qalıq')], 'numeric' => [1, 2, 3],
+                    'rows' => $rows->all(), 'links' => [],
+                    'foot' => [__('Cəmi'), (float) $months->sum('income'), (float) $months->sum('expense'), $running],
+                ];
+            case '341':
+                $filters = new ReportFilters($date->copy()->startOfYear(), $date->copy()->endOfDay(), 'custom', direction: 'VALVO');
+                $report = $this->pnl->build($filters, 'year', false);
+                $sum = fn (string $key) => (float) array_sum($report['lines'][$key] ?? []);
+                $rows = [[__('Satışlar'), $sum('sales')], [__('− Qaytarma'), -$sum('returns')], [__('− Satılan malın mayası'), -$sum('sale_cogs')],
+                    [__('− Hədiyyə / daxili istifadə mayası'), -$sum('gift_cogs')], [__('= Brüt mənfəət'), $sum('gross_profit')]];
+                foreach ($report['other_income'] as $category => $values) {
+                    $rows[] = ['+ '.$category, (float) array_sum($values)];
+                }
+                foreach ($report['expenses'] as $category => $values) {
+                    $rows[] = ['− '.$category, -(float) array_sum($values)];
+                }
+
+                return [
+                    'title' => __('Xalis mənfəətin hesablanması (:from – :to)', ['from' => Fmt::date($filters->from), 'to' => Fmt::date($filters->to)]),
+                    'columns' => [__('Göstərici'), __('Məbləğ')], 'numeric' => [1], 'rows' => $rows, 'links' => [],
+                    'foot' => [__('= Xalis mənfəət'), $sum('gross_profit') + $sum('other_income') - $sum('expenses')],
+                ];
+            default:
+                return null;
+        }
     }
 }

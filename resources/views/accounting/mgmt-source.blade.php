@@ -36,4 +36,35 @@
             @endif
         </table>
     </div>
+
+    @if ($detail)
+        <section>
+            <h3 class="mb-2 text-sm font-semibold">{{ $detail['title'] }} <span class="font-normal text-muted">· {{ __(':n sətir', ['n' => count($detail['rows'])]) }}</span></h3>
+            <div class="tbl-wrap max-h-[55vh] rounded-lg border border-line">
+                <table class="tbl">
+                    <thead><tr>@foreach ($detail['columns'] as $i => $column)<th @class(['num' => in_array($i, $detail['numeric'], true)])>{{ $column }}</th>@endforeach</tr></thead>
+                    <tbody>
+                    @forelse ($detail['rows'] as $r => $row)
+                        <tr>
+                            @foreach ($row as $i => $value)
+                                <td @class(['num' => in_array($i, $detail['numeric'], true), 'wrap' => $i === 0, 'neg' => is_float($value) && $value < 0])>
+                                    @if ($i === 0 && ! empty($detail['links'][$r]))
+                                        <a href="{{ $detail['links'][$r] }}" class="cell-link">{{ $value }}</a>
+                                    @else
+                                        {{ is_float($value) ? Fmt::money($value) : $value }}
+                                    @endif
+                                </td>
+                            @endforeach
+                        </tr>
+                    @empty
+                        <tr><td colspan="{{ count($detail['columns']) }}" class="py-6 text-center text-muted">{{ __('Məlumat yoxdur') }}</td></tr>
+                    @endforelse
+                    </tbody>
+                    @if ($detail['foot'])
+                        <tfoot><tr>@foreach ($detail['foot'] as $i => $value)<td @class(['num' => in_array($i, $detail['numeric'], true)])>{{ is_float($value) ? Fmt::money($value) : $value }}</td>@endforeach</tr></tfoot>
+                    @endif
+                </table>
+            </div>
+        </section>
+    @endif
 </div>

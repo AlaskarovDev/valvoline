@@ -109,7 +109,7 @@ class AccountingController extends Controller
             'parts' => $parts[$code] ?? [],
         ];
         $assets = collect([$row('205'), $row('211'), $row('221')]);
-        $liabilities = collect([$row('542'), $row('343'), $row('341'), $row('344', -1), $row('301')]);
+        $liabilities = collect([$row('542'), $row('343'), $row('341'), $row('344', -1)]);
 
         return view('accounting.balance-mgmt', [
             'title' => __('Balans'),
@@ -137,6 +137,7 @@ class AccountingController extends Controller
             'year' => $year,
             'date' => $date,
             'parts' => $parts,
+            'detail' => $ledger->detail($code, $date),
             'total' => (float) array_sum(array_column($parts, 'amount')),
             'isTurnover' => in_array(substr($code, 0, 1), ['6', '7', '8', '9'], true) || in_array($code, ['341', '344'], true),
         ]);
