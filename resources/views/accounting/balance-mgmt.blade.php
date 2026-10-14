@@ -47,6 +47,6 @@
         @endforeach
     </div>
     <div class="text-xs text-muted">
-        {{ __('205 — anbar qalığı :method mayası ilə; 211 / 542 — müştəri borcları / avansları; 221 — sistemin kassası. 343 — əvvəlki illərin idarəetmə xalis mənfəəti (təsisçiyə ödənişlər çıxılmaqla), 341 — cari ilin xalis mənfəəti, 344 — bu il təsisçiyə ödənişlər. Fərq — importlarda olmayan qalıqlar (bank hesabları, malsatan borcları, təsisçinin qoyuluşu). Məbləğə klik — necə yarandığı.', ['method' => \App\Services\CostingService::methodLabel()]) }}
+        {{ __('205 — anbar qalığı :method mayası ilə; 211 / 542 — müştəri borcları / avansları; 221 — sistemin kassası. 343 — əvvəlki illərin idarəetmə xalis mənfəəti, 341 — cari ilin xalis mənfəəti, 344 — təsisçiyə ödənişlər (bütün illər, kapitalı azaldır). Fərq — importlarda olmayan qalıqlar (bank hesabları, malsatan borcları, təsisçinin qoyuluşu). Məbləğə klik — necə yarandığı.', ['method' => \App\Services\CostingService::methodLabel()]) }}
     </div>
 </x-layouts.app>

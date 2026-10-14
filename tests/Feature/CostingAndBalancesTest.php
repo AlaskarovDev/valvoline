@@ -13,6 +13,7 @@ use App\Models\SalesOrder;
 use App\Models\User;
 use App\Reports\ReportFilters;
 use App\Reports\SalesSummaryQuery;
+use App\Services\ChartLedgerService;
 use App\Services\CostingService;
 use App\Services\ProfitLossService;
 use App\Services\StockService;
@@ -273,6 +274,12 @@ class CostingAndBalancesTest extends TestCase
         $this->assertEqualsWithDelta(50.0, $report['lines']['founder']['2024'], 0.001);
         $this->assertEqualsWithDelta(287.0, $report['lines']['retained']['2024'], 0.001, 'bölüşdürülməmiş mənfəət');
         $this->assertArrayHasKey('Ferhad (aylıq ödəniş)', $report['founder']);
+
+        // idarəetmə balansı: keçmiş illərin təsisçiyə ödənişləri 343-də deyil, 344 «Elan edilmiş dividendlər»də
+        $balance = app(ChartLedgerService::class)->managementBalance(Carbon::parse('2025-06-30'));
+        $this->assertEqualsWithDelta(337.0, array_sum(array_column($balance['343'], 'amount')), 0.001, '343 — yalnız 2024-ün xalis mənfəəti');
+        $this->assertEqualsWithDelta(50.0, array_sum(array_column($balance['344'], 'amount')), 0.001);
+        $this->assertStringContainsString('2024', $balance['344'][0]['label']);
 
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin)->get(route('pnl.index', ['from' => '2024-01-01', 'to' => '2024-12-31', 'direction' => 'VALVO']))

@@ -82,8 +82,8 @@ class ChartLedgerService
     }
 
     /**
-     * İdarəetmə balansı: management() + 343 keçmiş illərin bölüşdürülməmiş mənfəəti
-     * (əvvəlki illərin idarəetmə xalis mənfəəti − təsisçiyə ödənişlər). Süni balanslaşdırıcı sətir yoxdur —
+     * İdarəetmə balansı: management() + 343 keçmiş illərin bölüşdürülməmiş mənfəəti (əvvəlki illərin idarəetmə
+     * xalis mənfəəti) + 344-ə keçmiş illərin təsisçiyə ödənişləri (cari ilinki management()-dədir). Süni balanslaşdırıcı sətir yoxdur —
      * aktiv ilə passiv fərqi importlarda olmayan qalıqları (bank, malsatan borcları, təsisçi qoyuluşu) göstərir.
      *
      * @return array<string, list<array{label: string, amount: float, url: string|null}>>
@@ -108,7 +108,8 @@ class ChartLedgerService
             }
             foreach ($lines['founder'] ?? [] as $year => $founder) {
                 if (abs((float) $founder) > 0.005) {
-                    $out['343'][] = ['label' => __(':year ilin təsisçiyə ödənişləri', ['year' => $year]), 'amount' => -(float) $founder, 'url' => route('pnl.index', $range)];
+                    // təsisçiyə ödənişlər mənfəəti azaltmır — 344 «Elan edilmiş dividendlər»
+                    $out['344'][] = ['label' => __(':year ilin təsisçiyə ödənişləri', ['year' => $year]), 'amount' => (float) $founder, 'url' => route('pnl.index', $range)];
                 }
             }
         }
