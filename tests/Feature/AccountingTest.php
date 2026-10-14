@@ -335,7 +335,9 @@ class AccountingTest extends TestCase
         $this->get(route('pnl.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'gran' => 'year']))->assertOk()
             ->assertSee('Rəsmi gəlir — sistemdə olmayan satış (bank)')->assertSee('Rəsmi pul axını (mühasibat Cash Flow)')->assertSee('Dövrün əvvəlinə qalıq');
         $this->get(route('dashboard', ['from' => '2025-01-01', 'to' => '2025-12-31']))->assertOk()
-            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(3000.0), false, 'idarə paneli P&L kimi — rəsmi xərclər standart xaric');
+            ->assertSee('Rəsmi göstəricilər (mühasibat)')->assertSee(Fmt::money(3000.0), false, 'idarə paneli P&L kimi — rəsmi xərclər standart xaric')
+            // pul vəsaitləri: bank — mühasibat hesabları («Kassa AZN» xaric) 1612, kassa — sistemin kassası
+            ->assertSee('Pul vəsaitləri (bank + kassa)')->assertSee(Fmt::money(1612, 0), false)->assertSee('Müştəri ödənişləri')->assertSee('Bank (köçürmə)');
 
         $this->post(route('accounting.revenue.decide'), ['normalized' => $payer->normalized, 'counterparty' => $payer->counterparty, 'decision' => 'auto'])->assertRedirect();
         $this->assertSame(0, DB::table('revenue_decisions')->count());

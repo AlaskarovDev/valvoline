@@ -26,14 +26,16 @@
                     <h2 class="card-title">{{ __('Rəsmi göstəricilər (mühasibat)') }}</h2>
                     <div class="card-sub">{{ $o ? $filters->label() : __('Bu dövr üçün mühasibat məlumatı yoxdur — son məlumat: :period', ['period' => Fmt::period($official['last_period'])]) }}</div>
                 </div>
-                <a href="{{ route('accounting.reconcile') }}" class="btn btn-sm">{{ __('Tutuşdurma') }} →</a>
             </div>
             <div class="grid grid-cols-2 gap-px bg-line xl:grid-cols-4">
-                <a href="{{ route('bank.index') }}" class="block bg-surface p-4 hover:bg-surface-2">
+                <div class="bg-surface p-4">
                     <div class="kpi-label">{{ __('Pul vəsaitləri (bank + kassa)') }}</div>
-                    <div class="mt-1 text-xl font-semibold tabular-nums">{{ Fmt::money($o['closing'] ?? $official['last_closing']) }}</div>
-                    <div class="text-xs text-muted">{{ __(':period sonuna', ['period' => Fmt::period($o['closing_period'] ?? $official['last_period'])]) }}@if ($o && $o['opening'] !== null) · {{ __('dövrün əvvəlinə') }}: {{ Fmt::money($o['opening'], 0) }}@endif</div>
-                </a>
+                    <div class="mt-1 text-xl font-semibold tabular-nums">{{ Fmt::money($official['bank_balance'] + $official['cash_balance']) }}</div>
+                    <dl class="mt-1 space-y-0.5 text-xs">
+                        <div class="flex justify-between gap-2"><dt><a href="{{ route('bank.index') }}" class="text-muted hover:text-primary">{{ __('Bank') }}</a> <span class="text-faint">({{ Fmt::period($official['bank_period']) }})</span></dt><dd class="tabular-nums">{{ Fmt::money($official['bank_balance'], 0) }}</dd></div>
+                        <div class="flex justify-between gap-2"><dt><a href="{{ route('cash.index') }}" class="text-muted hover:text-primary">{{ __('Kassa') }}</a> <span class="text-faint">({{ $official['cash_counted'] ? __('sayım :date', ['date' => Fmt::date($official['cash_date'])]) : Fmt::date($official['cash_date']) }})</span></dt><dd class="tabular-nums">{{ Fmt::money($official['cash_balance'], 0) }}</dd></div>
+                    </dl>
+                </div>
                 <a href="{{ route('accounting.reconcile') }}" class="block bg-surface p-4 hover:bg-surface-2">
                     <div class="kpi-label">{{ __('Rəsmi daxilolmalar (müştərilər)') }}</div>
                     <div class="mt-1 text-xl font-semibold tabular-nums pos">{{ Fmt::money($o['customer'] ?? 0) }}</div>
@@ -52,6 +54,30 @@
             </div>
         </section>
     @endif
+
+    @php [$pay, $prevPay] = $payments; @endphp
+    <section class="card overflow-hidden">
+        <div class="card-head">
+            <div>
+                <h2 class="card-title">{{ __('Müştəri ödənişləri') }}</h2>
+                <div class="card-sub">{{ $filters->label() }} · {{ __(':n ödəniş', ['n' => Fmt::number($pay->count)]) }}</div>
+            </div>
+            <a href="{{ route('payments.index', $filters->query()) }}" class="btn btn-sm">{{ __('Ödənişlər') }} →</a>
+        </div>
+        <div class="grid grid-cols-1 gap-px bg-line sm:grid-cols-3">
+            @foreach ([[__('Bank (köçürmə)'), $pay->bank, $prevPay->bank], [__('Nağd'), $pay->cash, $prevPay->cash], [__('Cəmi'), $pay->total, $prevPay->total]] as [$label, $value, $previousValue])
+                @php $delta = Fmt::delta($value, $previousValue); @endphp
+                <div class="bg-surface p-4">
+                    <div class="kpi-label">{{ $label }}</div>
+                    <div @class(['mt-1 tabular-nums font-semibold', 'text-2xl' => $loop->last, 'text-xl' => ! $loop->last])>{{ Fmt::money($value) }}</div>
+                    <div class="text-xs text-muted">
+                        @if ($pay->total > 0 && ! $loop->last){{ Fmt::pct($value / $pay->total) }} · @endif
+                        @if ($delta !== null)<span class="{{ $delta < 0 ? 'neg' : 'pos' }}">{{ $delta < 0 ? '▼' : '▲' }} {{ Fmt::pct(abs($delta)) }}</span> {{ __('keçən il') }}@endif
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </section>
 
     <x-chart :title="__('Son 24 ay: satış və mənfəət')" :sub="__('Sütunlar — xalis satış və brüt mənfəət, xətt — marja %. Aya klikləyin → sifarişlər')" :spec="$trend" :height="330"/>
 

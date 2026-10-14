@@ -7,6 +7,7 @@ use App\Reports\SalesSummaryQuery;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Support\Fmt;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -51,12 +52,28 @@ class DashboardController extends ReportController
                 'orders' => [$orders, Fmt::delta($orders, $previousOrders)],
             ],
             'official' => $isAdmin ? $this->official($filters, $pnl) : null,
+            'payments' => [$this->payments($filters), $this->payments($prevFilters)],
             'trend' => $this->trend($filters),
             'categories' => $this->categoryShare($filters),
             'topProducts' => $this->topProducts($filters),
             'topDebtors' => $this->topDebtors($filters),
             'managers' => $this->managerSales($filters),
         ]);
+    }
+
+    /**
+     * Müştərilərdən daxil olan ödənişlər (06 Ödənişlər faylı): bank, nağd və cəmi.
+     *
+     * @return object{bank: float, cash: float, total: float, count: int}
+     */
+    private function payments(ReportFilters $filters): object
+    {
+        $row = DB::table('payments')->whereBetween('date', [$filters->fromDate(), $filters->toDate()])
+            ->when($filters->managerId, fn ($q) => $q->where('manager_id', $filters->managerId))
+            ->when($filters->customerId, fn ($q) => $q->where('customer_id', $filters->customerId))
+            ->selectRaw('SUM(bank) AS bank, SUM(cash) AS cash, SUM(total) AS total, COUNT(*) AS n')->first();
+
+        return (object) ['bank' => (float) ($row->bank ?? 0), 'cash' => (float) ($row->cash ?? 0), 'total' => (float) ($row->total ?? 0), 'count' => (int) ($row->n ?? 0)];
     }
 
     /**
@@ -74,10 +91,28 @@ class DashboardController extends ReportController
         $summary = app(OfficialRevenueService::class)->cashSummary($filters);
         $lastClosing = (float) DB::table('bank_flow_lines')->where('section', 'closing')->where('period', $lastPeriod)->sum('amount');
 
+        // pul vəsaitləri: bank — mühasibat faylındakı hesablar (oradakı «Kassa» xaric), kassa — sistemin kassası (son sayım)
+        $period = $summary['closing_period'] ?? $lastPeriod;
+        $accounts = DB::table('bank_flow_balances')->where('period', '<=', $period)->orderByDesc('period')->get()->groupBy('account')
+            ->filter(fn ($rows) => $rows->first()->period === $period);
+        $isCash = fn (string $account) => str_contains(NameNormalizer::normalize($account), 'kassa');
+        $bank = (float) $accounts->reject(fn ($rows, $account) => $isCash((string) $account))->sum(fn ($rows) => (float) $rows->first()->amount);
+        $accountingCash = (float) $accounts->filter(fn ($rows, $account) => $isCash((string) $account))->sum(fn ($rows) => (float) $rows->first()->amount);
+        $cashDate = min($filters->toDate(), now()->toDateString());
+        $checkpoint = DB::table('cash_checkpoints')->where('date', '<=', $cashDate)->orderByDesc('date')->orderByDesc('id')->first();
+        $computedCash = (float) DB::table('cash_transactions')->where('date', '<=', $checkpoint->date ?? $cashDate)->sum(DB::raw('income - expense'));
+
         return [
             'summary' => $summary,
             'last_period' => $lastPeriod,
             'last_closing' => $lastClosing,
+            'bank_balance' => $bank,
+            'bank_period' => $period,
+            'accounting_cash' => $accountingCash,
+            'cash_balance' => $checkpoint ? (float) $checkpoint->balance : $computedCash,
+            'cash_date' => $checkpoint->date ?? $cashDate,
+            'cash_counted' => $checkpoint !== null,
+            'cash_computed' => $computedCash,
             'bank_expenses' => $pnl->bankExpenseTotal($filters),
             'export' => $pnl->exportResultTotal($filters),
         ];

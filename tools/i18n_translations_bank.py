@@ -299,4 +299,8 @@ T = {
     'Xaric': ('Исключены', 'Excluded'),
     'Əl ilə daxil edilib': ('Введено вручную', 'Entered manually'),
     'Əvvəlki ayın son qalığı — dəyişmək üçün yazın': ('Остаток на конец прошлого месяца — введите, чтобы изменить', "Previous month's closing balance — type to change"),
+    ':n ödəniş': (':n платежей', ':n payments'),
+    'Bank (köçürmə)': ('Банк (перевод)', 'Bank (transfer)'),
+    'Müştəri ödənişləri': ('Оплаты клиентов', 'Customer payments'),
+    'sayım :date': ('пересчёт :date', 'count :date'),
 }
