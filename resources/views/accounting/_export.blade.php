@@ -1,0 +1,1 @@
+<a href="{{ request()->fullUrlWithQuery(['export' => 'xlsx']) }}" class="btn btn-sm no-print" title="{{ __('Səhifədəki məlumatı Excel faylına yüklə') }}"><x-icon name="download" size="14"/> {{ __('Excel') }}</a>

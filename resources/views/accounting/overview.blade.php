@@ -10,6 +10,7 @@
     @if (count($years) === 0)
         @include('accounting._year', ['year' => null])
     @else
+        <div class="flex justify-end">@include('accounting._export')</div>
         <div class="text-xs text-muted">{{ __('Hər ilin mühasibat faylı (Balans / MZ / Cash Flow) yan-yana.') }}
             @if ($deltaPair){{ __('«Dəyişmə» — :to ilinin :from ilinə nisbətən (yalnız tam illər).', ['to' => $deltaPair[1], 'from' => $deltaPair[0]]) }}@endif</div>
 

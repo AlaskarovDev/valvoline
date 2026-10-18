@@ -13,7 +13,7 @@
             <h2 class="card-title">{{ __('Mənfəət-zərər — Excel görünüşü') }}</h2>
             <div class="card-sub">{{ __('Ayın əvvəlinə qalıq + gəlirlər − xərclər − təsisçiyə ödənişlər = ayın sonuna qalıq. Qalığı xanaya yazıb «Qalıqları saxla» basın; boş qalan ay əvvəlki ayın son qalığından davam edir.') }}</div>
         </div>
-        <button form="pnl-openings" class="btn btn-sm btn-primary">{{ __('Qalıqları saxla') }}</button>
+        <div class="flex items-center gap-2">@include('accounting._export')<button form="pnl-openings" class="btn btn-sm btn-primary">{{ __('Qalıqları saxla') }}</button></div>
     </div>
     <div class="tbl-wrap max-h-[80vh]">
         <table class="cf-sheet">

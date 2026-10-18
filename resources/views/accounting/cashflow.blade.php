@@ -9,7 +9,7 @@
 <x-layouts.app :title="$title">
     <div class="flex flex-wrap items-center gap-3">
         <span class="text-xs text-muted">{{ __('Bank / kassa hərəkətləri (mühasibat faylı). Ödənişlərin hamısı P&L-ə «Rəsmi xərclər» kimi düşür — yalnız mal alışı / gömrük çıxılır (maya dəyərindədir).') }}</span>
-        <div class="ml-auto">@include('accounting._year')</div>
+        <div class="ml-auto flex items-center gap-2">@include('accounting._year') @if ($year)@include('accounting._export')@endif</div>
     </div>
 
     @if ($year)

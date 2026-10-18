@@ -7,7 +7,7 @@
     <div class="flex flex-wrap items-center gap-3">
         <span class="badge badge-primary">{{ __(':date tarixinə', ['date' => Fmt::date($date)]) }}</span>
         <span class="text-xs text-muted">{{ __('Sistem importlarından (satış, qaytarma, ödəniş, kassa, anbar) qurulmuş balans. «Rəsmi» sütunu — müqayisə üçün mühasibat balansındakı eyni hesab.') }}</span>
-        @if (count($years) > 0)<div class="ml-auto">@include('accounting._year')</div>@endif
+        <div class="ml-auto flex items-center gap-2">@if (count($years) > 0)@include('accounting._year')@endif @include('accounting._export')</div>
     </div>
     @include('accounting._balance-tabs', ['view' => 'mgmt'])
 

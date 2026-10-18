@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center gap-3">
         @if ($asOf)<span class="badge badge-primary">{{ __(':date tarixinə', ['date' => Fmt::date($asOf)]) }}</span>@endif
         <span class="text-xs text-muted">{{ __('Köhnə hesab nömrələri faylda olduğu kimi; yanında yeni Hesablar Planı üzrə hesab.') }}</span>
-        <div class="ml-auto">@include('accounting._year')</div>
+        <div class="ml-auto flex items-center gap-2">@include('accounting._year') @if ($year)@include('accounting._export')@endif</div>
     </div>
     @include('accounting._balance-tabs', ['view' => 'official'])
 

@@ -11,6 +11,7 @@ use App\Services\MzDetailService;
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
 use App\Services\ReconciliationService;
+use App\Support\AccountingSheets;
 use App\Support\ChartOfAccounts;
 use App\Support\Fmt;
 use App\Support\NameNormalizer;
@@ -21,13 +22,14 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Mühasibat bölməsi: hesablar planı, balans, vergi üzrə mənfəət-zərər (MZ), Cash Flow və ödənişlərin təsnifatı.
  */
 class AccountingController extends Controller
 {
-    public function chart(Request $request, ChartLedgerService $ledger): View
+    public function chart(Request $request, ChartLedgerService $ledger): View|BinaryFileResponse
     {
         $year = $this->year($request);
         $only = $request->boolean('only');
@@ -69,7 +71,7 @@ class AccountingController extends Controller
             $profit[$key]['result'] = $profit[$key]['income'] - $profit[$key]['expense'];
         }
 
-        return view('accounting.chart', [
+        $data = [
             'profit' => $profit,
             'management' => $management,
             'ledgerDate' => $date,
@@ -86,7 +88,9 @@ class AccountingController extends Controller
             'year' => $year,
             'years' => $this->years(),
             'yearLabels' => $this->asOfLabels(),
-        ]);
+        ];
+
+        return $this->respond($request, 'accounting.chart', $data, 'hesablar-plani', fn ($d) => AccountingSheets::chart($d));
     }
 
     /**
@@ -96,7 +100,7 @@ class AccountingController extends Controller
      * Balans — idarəetmə məlumatları (sistem importları) üzrə: aktivlər = öhdəliklər + kapital.
      * Müqayisə üçün eyni hesabın rəsmi (mühasibat balansı) qalığı yanında göstərilir.
      */
-    private function managementBalanceView(?int $year, ChartLedgerService $ledger): View
+    private function managementBalanceView(Request $request, ?int $year, ChartLedgerService $ledger): View|BinaryFileResponse
     {
         $date = $this->ledgerDate($year);
         $parts = $ledger->managementBalance($date);
@@ -114,14 +118,16 @@ class AccountingController extends Controller
         $liabilities = collect([$row('542'), $row('301'), $row('343'), $row('341'), $row('344', -1)]);
         $liabilities->firstWhere('code', '301')->name = __('Keçmiş illərin mənfəəti');
 
-        return view('accounting.balance-mgmt', [
+        $data = [
             'title' => __('Balans'),
             'year' => $year,
             'years' => $this->years(),
             'date' => $date,
             'assets' => $assets,
             'liabilities' => $liabilities,
-        ]);
+        ];
+
+        return $this->respond($request, 'accounting.balance-mgmt', $data, 'balans-idareetme', fn ($d) => AccountingSheets::balanceManagement($d, $ledger));
     }
 
     /**
@@ -210,11 +216,11 @@ class AccountingController extends Controller
         return back()->with('status', __('Hesab yeniləndi.'));
     }
 
-    public function balance(Request $request, ChartLedgerService $ledger): View
+    public function balance(Request $request, ChartLedgerService $ledger): View|BinaryFileResponse
     {
         $year = $this->year($request);
         if ($request->query('view') === 'mgmt') {
-            return $this->managementBalanceView($year, $ledger);
+            return $this->managementBalanceView($request, $year, $ledger);
         }
         $lines = DB::table('acc_balance_lines as b')
             ->leftJoin('legacy_accounts as l', 'l.code', '=', 'b.legacy_code')
@@ -223,7 +229,7 @@ class AccountingController extends Controller
             ->get(['b.*', 'l.chart_code', 'l.note as map_note', 'c.name as chart_name']);
         $ledgerCodes = DB::table('acc_ledger_lines')->where('year', $year)->distinct()->pluck('legacy_code')->flip();
 
-        return view('accounting.balance', [
+        $data = [
             'title' => __('Balans'),
             'year' => $year,
             'years' => $this->years(),
@@ -231,7 +237,9 @@ class AccountingController extends Controller
             'liabilities' => $lines->where('side', 'liability')->values(),
             'asOf' => $lines->first()->as_of ?? null,
             'ledgerCodes' => $ledgerCodes,
-        ]);
+        ];
+
+        return $this->respond($request, 'accounting.balance', $data, 'balans', fn ($d) => AccountingSheets::balance($d));
     }
 
     public function ledger(Request $request, string $code): View
@@ -285,7 +293,7 @@ class AccountingController extends Controller
         return view($request->header('X-Modal') ? 'accounting.mz-detail' : 'accounting.mz-detail-page', $data + ['title' => $title, 'year' => $year]);
     }
 
-    public function profitLoss(Request $request, ProfitLossService $pnl): View
+    public function profitLoss(Request $request, ProfitLossService $pnl): View|BinaryFileResponse
     {
         $year = $this->year($request);
         $lines = DB::table('acc_pl_lines')->where('year', $year)->orderBy('row_no')->get();
@@ -306,7 +314,7 @@ class AccountingController extends Controller
             ];
         }
 
-        return view('accounting.pl', [
+        $data = [
             'title' => __('Mənfəət-zərər (vergi bəyannaməsi)'),
             'year' => $year,
             'years' => $this->years(),
@@ -315,7 +323,9 @@ class AccountingController extends Controller
             'result' => $lines->firstWhere('section', 'result'),
             'comparison' => $comparison,
             'statement' => $this->plStatement(),
-        ]);
+        ];
+
+        return $this->respond($request, 'accounting.pl', $data, 'menfeet-zerer-vergi', fn ($d) => AccountingSheets::profitLossTax($d));
     }
 
     /**
@@ -375,7 +385,7 @@ class AccountingController extends Controller
     /**
      * İllər üzrə müqayisə: balans, MZ və Cash Flow (növ üzrə) yan-yana.
      */
-    public function overview(): View
+    public function overview(Request $request): View|BinaryFileResponse
     {
         $years = collect($this->years())->sort()->values()->all();
         $classifier = new FlowClassifier;
@@ -433,7 +443,7 @@ class AccountingController extends Controller
             'values' => $g->groupBy('year')->map(fn ($l) => (float) $l->sum('amount'))->all(),
         ])->sortBy('order')->values();
 
-        return view('accounting.overview', [
+        $data = [
             'title' => __('İllər üzrə müqayisə'),
             'years' => $years,
             'yearLabels' => $this->asOfLabels(),
@@ -450,17 +460,19 @@ class AccountingController extends Controller
                 ],
                 'colors' => ['--chart-2', '--chart-6', '--chart-1'],
             ],
-        ]);
+        ];
+
+        return $this->respond($request, 'accounting.overview', $data, 'iller-uzre-muqayise', fn ($d) => AccountingSheets::overview($d));
     }
 
     /**
      * Sistem məlumatlarının mühasibat faylı ilə tutuşdurulması (il üzrə).
      */
-    public function reconcile(Request $request, ReconciliationService $service, OfficialRevenueService $official): View
+    public function reconcile(Request $request, ReconciliationService $service, OfficialRevenueService $official): View|BinaryFileResponse
     {
         $year = $this->year($request);
 
-        return view('accounting.reconcile', array_merge([
+        $data = array_merge([
             'title' => __('Tutuşdurma: sistem ↔ mühasibat'),
             'year' => $year,
             'years' => $this->years(),
@@ -468,7 +480,9 @@ class AccountingController extends Controller
             'payers' => $official->payers($year),
             'openings' => $official->openings(),
             'decisionLabels' => OfficialRevenueService::labels(),
-        ]));
+        ]);
+
+        return $year === null ? view('accounting.reconcile', $data) : $this->respond($request, 'accounting.reconcile', $data, 'tutusdurma', fn ($d) => AccountingSheets::reconcile($d));
     }
 
     /**
@@ -486,7 +500,7 @@ class AccountingController extends Controller
         return back()->with('status', __('«:name» üçün qərar saxlanıldı — P&L yeniləndi.', ['name' => $data['counterparty']]));
     }
 
-    public function cashFlow(Request $request): View
+    public function cashFlow(Request $request): View|BinaryFileResponse
     {
         $year = $this->year($request);
         $typeFilter = (string) $request->query('type', '');
@@ -532,7 +546,7 @@ class AccountingController extends Controller
             'colors' => ['--chart-6', '--chart-1', '--chart-4', '--chart-5', '--chart-2', '--chart-3'],
         ];
 
-        return view('accounting.cashflow', [
+        $data = [
             'title' => __('Cash Flow (bank / mühasibat)'),
             'year' => $year,
             'years' => $this->years(),
@@ -555,7 +569,9 @@ class AccountingController extends Controller
             'typeLabels' => FlowClassifier::typeLabels(),
             'groups' => FlowClassifier::expenseGroups(),
             'uncertainTotal' => $rows->where('section', 'payment')->where('type', 'uncertain')->sum('total'),
-        ]);
+        ];
+
+        return $this->respond($request, 'accounting.cashflow', $data, 'cash-flow', fn ($d) => AccountingSheets::cashFlow($d));
     }
 
     public function classify(Request $request): RedirectResponse
@@ -582,6 +598,16 @@ class AccountingController extends Controller
         ]);
 
         return back()->with('status', __('«:name» təsnif edildi — P&L dərhal yeniləndi.', ['name' => $data['counterparty']]));
+    }
+
+    /**
+     * Səhifə və ya onun Excel exportu (?export=xlsx) — eyni məlumatdan.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function respond(Request $request, string $view, array $data, string $file, callable $sheets): View|BinaryFileResponse
+    {
+        return $request->query('export') === 'xlsx' ? AccountingSheets::download($file, $sheets($data)) : view($view, $data);
     }
 
     private function year(Request $request): ?int

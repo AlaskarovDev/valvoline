@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Services\BankStatementService;
 use App\Services\FlowClassifier;
+use App\Support\AccountingSheets;
 use App\Support\Fmt;
 use App\Support\NameNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Bank hesabları: hesablar, ay sonu qalıqları (mühasibat faylından) və əməliyyatlar
@@ -21,7 +24,7 @@ class BankAccountController extends Controller
 {
     public const KINDS = ['bank', 'card', 'cash', 'deposit'];
 
-    public function index(Request $request, BankStatementService $service): View
+    public function index(Request $request, BankStatementService $service): View|BinaryFileResponse
     {
         $service->syncAccounts();
         $years = $this->years();
@@ -45,7 +48,7 @@ class BankAccountController extends Controller
             });
         $totals = collect($months)->mapWithKeys(fn ($m) => [$m => (float) $balances->where('period', $m)->sum('amount')])->all();
 
-        return view('bank.index', [
+        $data = [
             'title' => __('Bank hesabları'),
             'year' => $year,
             'years' => $years,
@@ -65,10 +68,12 @@ class BankAccountController extends Controller
             'recent' => DB::table('bank_transactions as t')->join('bank_accounts as a', 'a.id', '=', 't.bank_account_id')
                 ->orderByDesc('t.date')->orderByDesc('t.id')->limit(15)->get(['t.*', 'a.name as account_name']),
             'kinds' => self::kindLabels(),
-        ]);
+        ];
+
+        return $request->query('export') === 'xlsx' ? AccountingSheets::download('bank-hesablari', AccountingSheets::bankAccounts($data)) : view('bank.index', $data);
     }
 
-    public function show(Request $request, int $account): View
+    public function show(Request $request, int $account): View|BinaryFileResponse
     {
         $acc = DB::table('bank_accounts')->where('id', $account)->first() ?? abort(404);
         $key = NameNormalizer::normalize($acc->name);
@@ -85,6 +90,10 @@ class BankAccountController extends Controller
             ->when($q !== '', fn ($query) => $query->where(fn ($w) => $w->where('counterparty', 'like', '%'.$q.'%')->orWhere('description', 'like', '%'.$q.'%')->orWhere('doc_no', 'like', '%'.$q.'%')))
             ->when($dir === 'in', fn ($query) => $query->where('amount_in', '>', 0))
             ->when($dir === 'out', fn ($query) => $query->where('amount_out', '>', 0));
+        if ($request->query('export') === 'xlsx') {
+            return AccountingSheets::download('bank-'.Str::slug($acc->name).'-'.$year,
+                AccountingSheets::bankTransactions($acc->name.' '.$year, (clone $filtered)->orderBy('date')->orderBy('id')->get(), FlowClassifier::typeLabels()));
+        }
         $transactions = (clone $filtered)->orderByDesc('date')->orderByDesc('id')->paginate(100)->withQueryString();
         $classifier = new FlowClassifier;
         $types = FlowClassifier::typeLabels();

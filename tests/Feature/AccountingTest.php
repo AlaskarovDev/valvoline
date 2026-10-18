@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -208,6 +209,36 @@ class AccountingTest extends TestCase
 
         $this->upload($this->workbook(2024), '09_Balans_2024.xlsx');
         $this->assertSame([2024, 2025], DB::table('acc_balance_lines')->distinct()->orderBy('year')->pluck('year')->map(fn ($y) => (int) $y)->all(), 'başqa il əvəzlənmir');
+    }
+
+    public function test_accounting_pages_export_to_excel(): void
+    {
+        $this->actingAs($this->admin);
+        $this->upload($this->workbook());
+        $pages = [
+            [route('accounting.chart', ['year' => 2025, 'export' => 'xlsx']), 'hesablar-plani', 'Cəmlər'],
+            [route('accounting.balance', ['year' => 2025, 'export' => 'xlsx']), 'balans', null],
+            [route('accounting.balance', ['year' => 2025, 'view' => 'mgmt', 'export' => 'xlsx']), 'balans-idareetme', 'Kapital'],
+            [route('accounting.pl', ['year' => 2025, 'export' => 'xlsx']), 'menfeet-zerer-vergi', null],
+            [route('accounting.overview', ['export' => 'xlsx']), 'iller-uzre-muqayise', null],
+            [route('accounting.cashflow', ['year' => 2025, 'export' => 'xlsx']), 'cash-flow', null],
+            [route('accounting.reconcile', ['year' => 2025, 'export' => 'xlsx']), 'tutusdurma', null],
+            [route('flowsheet.index', ['from' => '2025-01-01', 'to' => '2025-12-31', 'export' => 'xlsx']), 'cash-flow-idareetme', null],
+            [route('bank.index', ['export' => 'xlsx']), 'bank-hesablari', null],
+        ];
+        foreach ($pages as [$url, $file, $sheet]) {
+            $response = $this->get($url)->assertOk();
+            $this->assertStringContainsString($file, (string) $response->headers->get('content-disposition'), $url);
+            $this->assertStringContainsString('.xlsx', (string) $response->headers->get('content-disposition'), $url);
+            $book = IOFactory::load($response->baseResponse->getFile()->getPathname());
+            $this->assertGreaterThan(1, $book->getActiveSheet()->getHighestRow(), $url);
+            if ($sheet !== null) {
+                $this->assertContains($sheet, $book->getSheetNames(), $url);
+            }
+        }
+        // səhifələrdə Excel düyməsi
+        $this->get(route('accounting.chart', ['year' => 2025]))->assertSee('export=xlsx', false);
+        $this->get(route('accounting.balance', ['year' => 2025, 'view' => 'mgmt']))->assertSee('export=xlsx', false);
     }
 
     public function test_accounting_pages_render(): void

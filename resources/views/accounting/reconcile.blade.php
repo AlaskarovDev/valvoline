@@ -12,7 +12,7 @@
 <x-layouts.app :title="$title">
     <div class="flex flex-wrap items-center gap-3">
         <span class="text-xs text-muted">{{ __('Sistemdəki Excel importları (satış, ödəniş, kassa, alış) mühasibat faylı (MZ, Cash Flow) ilə müqayisə olunur.') }}</span>
-        <div class="ml-auto">@include('accounting._year')</div>
+        <div class="ml-auto flex items-center gap-2">@include('accounting._year') @if ($year)@include('accounting._export')@endif</div>
     </div>
 
     @if ($year)

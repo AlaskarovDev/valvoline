@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Reports;
 
 use App\Services\OfficialRevenueService;
 use App\Services\ProfitLossService;
+use App\Support\AccountingSheets;
 use App\Support\Fmt;
 use App\Support\Spreadsheet;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -30,6 +31,9 @@ class ProfitLossController extends ReportController
         $labels = array_map(fn ($c) => $granularity === 'year' ? (string) $c : Fmt::period((string) $c), $columns);
 
         $lines = $this->lines($report);
+        if ($view === 'sheet' && $request->query('export') === 'xlsx') {
+            return AccountingSheets::download('cash-flow-idareetme', $this->sheetExport($this->sheet($report), $columns));
+        }
         if (in_array($request->query('export'), ['xlsx', 'pdf'], true)) {
             return $this->export($request->query('export'), $lines, $columns, $labels, $filters->label());
         }
@@ -134,6 +138,35 @@ class ProfitLossController extends ReportController
             'net' => $l['net_profit'] ?? [],
             'openings' => $openings, 'closings' => $closings, 'manual' => $manual->all(),
         ];
+    }
+
+    /**
+     * Cash Flow (idarəetmə) cədvəli Excel üçün: açılış → gəlirlər → xərclər → xalis mənfəət → təsisçi → son qalıq.
+     *
+     * @param  array<string, mixed>  $sheet
+     * @param  list<string>  $columns
+     * @return array<string, array{headers: list<string>, rows: list<list<mixed>>}>
+     */
+    private function sheetExport(array $sheet, array $columns): array
+    {
+        $row = fn (string $label, array $values, ?float $total = null) => array_merge([$label], array_map(fn ($c) => isset($values[$c]) ? (float) $values[$c] : null, $columns), [$total ?? (float) array_sum($values)]);
+        $rows = [$row(__('Dövrün əvvəlinə qalıq'), $sheet['openings'], $columns ? $sheet['openings'][$columns[0]] : 0.0), [__('Gəlirlər')]];
+        foreach ($sheet['income'] as $r) {
+            $rows[] = $row($r['label'], $r['values']);
+        }
+        $rows[] = $row(__('Cəmi gəlirlər'), $sheet['incomeTotal']);
+        $rows[] = [__('Xərclər')];
+        foreach ($sheet['expense'] as $r) {
+            $rows[] = $row($r['label'], $r['values']);
+        }
+        $rows[] = $row(__('Cəmi xərclər'), $sheet['expenseTotal']);
+        $rows[] = $row(__('Xalis mənfəət'), $sheet['net']);
+        foreach ($sheet['founder'] as $r) {
+            $rows[] = $row('− '.$r['label'], array_map(fn ($v) => -$v, $r['values']));
+        }
+        $rows[] = $row(__('Dövrün sonuna qalıq'), $sheet['closings'], $columns ? $sheet['closings'][$columns[count($columns) - 1]] : 0.0);
+
+        return [__('Cash Flow (idarəetmə)') => ['headers' => array_merge([__('Göstərici')], array_map(fn ($c) => Fmt::period($c), $columns), [__('Cəmi')]), 'rows' => $rows]];
     }
 
     /**

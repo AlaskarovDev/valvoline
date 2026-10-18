@@ -7,7 +7,8 @@
         <a href="{{ route('bank.index', ['year' => $year]) }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Bank hesabları') }}</a>
         <span class="text-xs text-muted">{{ $account->bank ?: '—' }} · {{ $kinds[$account->kind] ?? $account->kind }} · {{ $account->currency }}@if ($account->iban) · <span class="font-mono">{{ $account->iban }}</span>@endif</span>
         @if (count($years) > 0)
-            <form method="GET" class="ml-auto flex items-center gap-2 text-xs text-muted">
+            <div class="ml-auto">@include('accounting._export')</div>
+            <form method="GET" class="flex items-center gap-2 text-xs text-muted">
                 <label for="acc-year">{{ __('İl') }}</label>
                 <select id="acc-year" name="year" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()">
                     @foreach ($years as $y)<option value="{{ $y }}" @selected($y === $year)>{{ $y }}</option>@endforeach

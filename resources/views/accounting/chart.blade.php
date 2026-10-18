@@ -11,7 +11,7 @@
             {{ __('«Rəsmi» — mühasibat faylı: :date tarixinə balans, gəlir və xərc hesabları MZ-dən. «İdarəetmə» — sistem importları (satış, qaytarma, ödəniş, kassa, anbar) eyni tarixə; gəlir və xərclər ilin əvvəlindən. Məbləğə klik — necə yarandığı.', ['date' => $yearLabels[$year] ?? $year]) }}
         @endif
         </div>
-        @if ($year)<div class="shrink-0">@include('accounting._year')</div>@endif
+        <div class="flex shrink-0 items-center gap-2">@if ($year)@include('accounting._year')@endif @include('accounting._export')</div>
     </div>
 
     <form method="GET" class="card flex flex-wrap items-center gap-2 p-3">

@@ -3,7 +3,8 @@
     <div class="flex flex-wrap items-center gap-3">
         <span class="text-xs text-muted">{{ __('Hesablar mühasibat faylındakı ay sonu qalıqlarından avtomatik yaradılır. Əməliyyatlar bank çıxarışından (Excel) import olunur və ya əl ilə əlavə edilir.') }}</span>
         @if (count($years) > 0)
-            <form method="GET" class="ml-auto flex items-center gap-2 text-xs text-muted">
+            <div class="ml-auto">@include('accounting._export')</div>
+            <form method="GET" class="flex items-center gap-2 text-xs text-muted">
                 <label for="bank-year">{{ __('İl') }}</label>
                 <select id="bank-year" name="year" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()">
                     @foreach ($years as $y)<option value="{{ $y }}" @selected($y === $year)>{{ $y }}</option>@endforeach
