@@ -312,10 +312,10 @@ class CostingService
 
         $types = ['sale' => 'sale', 'gift' => 'gift', 'internal' => 'internal_use'];
         foreach (DB::table('sales_lines')->whereNotNull('product_id')->orderBy('id')
-            ->get(['id', 'date', 'product_id', 'qty', 'op_type', 'customer_id', 'order_no']) as $row) {
+            ->get(['id', 'date', 'product_id', 'qty', 'op_type', 'customer_id', 'order_no', 'warehouse_id']) as $row) {
             $push([
                 'date' => (string) $row->date, 'source_order' => 4, 'source_id' => $row->id, 'product_id' => $row->product_id,
-                'warehouse_id' => $mainWarehouse, 'type' => $types[$row->op_type] ?? 'sale', 'qty' => -(float) $row->qty,
+                'warehouse_id' => $row->warehouse_id ?? $mainWarehouse, 'type' => $types[$row->op_type] ?? 'sale', 'qty' => -(float) $row->qty,
                 'source_type' => 'sales_line', 'customer_id' => $row->customer_id, 'doc_no' => $row->order_no,
             ]);
         }

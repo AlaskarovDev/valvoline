@@ -7,6 +7,7 @@ use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\OrderEntryController;
 use App\Http\Controllers\ProductCostController;
 use App\Http\Controllers\Reports\CashController;
 use App\Http\Controllers\Reports\CustomerController;
@@ -40,7 +41,12 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/sifarisler', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('/sifarisler/yeni', [OrderEntryController::class, 'create'])->name('orders.create');
+    Route::post('/sifarisler', [OrderEntryController::class, 'store'])->name('orders.store');
     Route::get('/sifarisler/{order}', [OrderController::class, 'show'])->name('orders.show');
+    Route::get('/sifarisler/{order}/duzelis', [OrderEntryController::class, 'edit'])->name('orders.edit');
+    Route::put('/sifarisler/{order}', [OrderEntryController::class, 'update'])->name('orders.update');
+    Route::delete('/sifarisler/{order}', [OrderEntryController::class, 'destroy'])->name('orders.destroy');
     Route::get('/satis', SalesController::class)->name('sales.index');
     Route::get('/marjinalliq', MarginController::class)->name('margin.index');
     Route::get('/qaytarmalar', ReturnController::class)->name('returns.index');

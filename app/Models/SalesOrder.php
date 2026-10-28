@@ -21,6 +21,11 @@ class SalesOrder extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
     public function manager(): BelongsTo
     {
         return $this->belongsTo(Manager::class);

@@ -10,7 +10,21 @@
             <span class="badge badge-warn">{{ __('Müştəri') }}: {{ $order->customer_name ?? '—' }} ({{ __('gözləmədə') }})</span>
         @endif
         @if ($order->manager)<span class="badge">{{ __('Menecer') }}: {{ $order->manager->name }}</span>@endif
+        @if ($order->warehouse)<span class="badge">{{ __('Anbar') }}: {{ $order->warehouse->name }}</span>@endif
+        @if ($order->source === 'manual')
+            <span class="badge badge-primary">{{ __('Sistemdə yaradılıb') }}</span>
+            <div class="ml-auto flex items-center gap-2">
+                <a href="{{ route('orders.edit', $order) }}" class="btn btn-sm"><x-icon name="edit" size="14"/> {{ __('Düzəliş et') }}</a>
+                <form method="POST" action="{{ route('orders.destroy', $order) }}" onsubmit="return confirm(@js(__('Sifariş silinsin?')))">
+                    @csrf @method('DELETE')
+                    <button class="btn btn-sm btn-danger"><x-icon name="trash" size="14"/> {{ __('Sil') }}</button>
+                </form>
+            </div>
+        @endif
     </div>
+    @if ($order->note)
+        <div class="card px-4 py-3 text-sm"><span class="label">{{ __('Əlavə qeydlər') }}</span>{{ $order->note }}</div>
+    @endif
 
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <x-kpi :label="__('Məbləğ')" :value="Fmt::money($order->total_amount)"/>

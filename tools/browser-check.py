@@ -39,6 +39,7 @@ LOCALE = sys.argv[sys.argv.index("--locale") + 1] if "--locale" in sys.argv else
 PAGES = [
     ("idare-paneli", "/?preset=last_12", 5),
     ("sifarisler", "/sifarisler?preset=last_12", 0),
+    ("sifaris-yeni", "/sifarisler/yeni", 0),
     ("satis", "/satis?preset=last_12", 1),
     ("marjinalliq", "/marjinalliq?preset=last_12", 1),
     ("qaytarmalar", "/qaytarmalar?preset=last_12", 2),
