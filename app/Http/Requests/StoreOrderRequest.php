@@ -38,6 +38,9 @@ class StoreOrderRequest extends FormRequest
             'lines.*.qty' => ['required', 'numeric', 'gt:0', 'max:1000000'],
             'lines.*.price' => ['required', 'numeric', 'min:0', 'max:10000000'],
             'lines.*.discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'apply_campaigns' => ['nullable', 'boolean'],
+            'excluded_campaigns' => ['nullable', 'array'],
+            'excluded_campaigns.*' => ['integer'],
         ];
     }
 

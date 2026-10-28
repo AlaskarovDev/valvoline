@@ -26,6 +26,7 @@
         __('Hesabatlar') => [
             ['dashboard', __('İdarə paneli'), 'dashboard', true],
             ['orders.index', __('Sifarişlər və qazanc'), 'orders', true],
+            ['campaigns.index', __('Kampaniyalar'), 'tag', true],
             ['sales.index', __('Satış hesabatı'), 'sales', true],
             ['margin.index', __('Marjinallıq'), 'margin', true],
             ['returns.index', __('Qaytarmalar'), 'returns', true],

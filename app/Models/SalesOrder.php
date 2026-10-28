@@ -13,7 +13,7 @@ class SalesOrder extends Model
 
     protected function casts(): array
     {
-        return ['date' => 'date'];
+        return ['date' => 'date', 'campaigns_applied' => 'boolean', 'campaigns_excluded' => 'array'];
     }
 
     public function customer(): BelongsTo

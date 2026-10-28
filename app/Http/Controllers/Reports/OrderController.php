@@ -72,9 +72,15 @@ class OrderController extends ReportController
             ->where('l.sales_order_id', $order->id)
             ->select('l.*', 'p.name as pname', 'p.cost_estimated')
             ->orderBy('l.row_no');
+        $campaigns = DB::table('sales_line_campaigns')->where('sales_order_id', $order->id)->orderBy('id')->get()->groupBy('sales_line_id');
+        $campaignCodes = DB::table('campaigns')->whereIn('id', DB::table('sales_lines')->where('sales_order_id', $order->id)->whereNotNull('campaign_id')->pluck('campaign_id'))->pluck('code', 'id');
         $table = Table::make('lines', __('Mal sətirləri'))
             ->column('product_code', __('Kod'), 'text', ['link' => fn ($r) => $r->product_id ? route('movements.product', $r->product_id) : null])
-            ->column('product_name', __('Mal'), 'text', ['format' => fn ($v, $r) => e($r->pname ?? $v).($r->cost_estimated ? ' <span class="warn" title="'.e(__('Maya təxminidir')).'">⚠</span>' : '')])
+            ->column('product_name', __('Mal'), 'text', ['format' => fn ($v, $r) => e($r->pname ?? $v).($r->cost_estimated ? ' <span class="warn" title="'.e(__('Maya təxminidir')).'">⚠</span>' : '')
+                // tətbiq olunmuş kampaniya — sətrin altında
+                .collect($campaigns[$r->id] ?? [])->map(fn ($c) => '<div class="mt-1 text-xs text-muted">↳ <span class="badge badge-primary">'.e($c->campaign_code).'</span> '.e($c->campaign_name)
+                    .' <span class="pos font-semibold">−'.e(Fmt::money($c->amount)).'</span></div>')->implode('')
+                .($r->campaign_id ? '<div class="mt-1 text-xs text-muted">↳ <span class="badge badge-primary">'.e($campaignCodes[$r->campaign_id] ?? '').'</span> '.e(__('Kampaniya hədiyyəsi')).'</div>' : '')])
             ->column('op_type', __('Tip'), 'text', ['format' => fn ($v) => e(['sale' => __('Satış'), 'gift' => __('Hədiyyə / pulsuz'), 'internal' => __('Daxili istifadə')][$v] ?? $v)])
             ->column('qty', __('Miqdar'), 'qty')
             ->column('price', __('Qiymət'), 'money')

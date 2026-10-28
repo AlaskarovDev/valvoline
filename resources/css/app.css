@@ -466,6 +466,15 @@
         box-shadow: inset 3px 0 0 var(--warning);
     }
 
+    /* sifariş formasında sətrin altındakı kampaniya / hədiyyə sətri */
+    .campaign-row {
+        background: var(--primary-soft);
+    }
+
+    .campaign-row td:first-child {
+        box-shadow: inset 3px 0 0 var(--primary);
+    }
+
     .pos {
         color: var(--positive);
     }
