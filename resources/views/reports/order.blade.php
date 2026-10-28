@@ -12,16 +12,32 @@
         @if ($order->manager)<span class="badge">{{ __('Menecer') }}: {{ $order->manager->name }}</span>@endif
         @if ($order->warehouse)<span class="badge">{{ __('Anbar') }}: {{ $order->warehouse->name }}</span>@endif
         @if ($order->source === 'manual')
-            <span class="badge badge-primary">{{ __('Sistemdə yaradılıb') }}</span>
-            <div class="ml-auto flex items-center gap-2">
-                <a href="{{ route('orders.edit', $order) }}" class="btn btn-sm"><x-icon name="edit" size="14"/> {{ __('Düzəliş et') }}</a>
-                <form method="POST" action="{{ route('orders.destroy', $order) }}" onsubmit="return confirm(@js(__('Sifariş silinsin?')))">
-                    @csrf @method('DELETE')
-                    <button class="btn btn-sm btn-danger"><x-icon name="trash" size="14"/> {{ __('Sil') }}</button>
-                </form>
+            @include('orders._status', ['status' => $order->status])
+            @foreach ($deliveries as $d)<a href="{{ route('deliveries.show', $d->id) }}" class="badge badge-primary"><x-icon name="truck" size="11"/> {{ $d->doc_no }}</a>@endforeach
+            @foreach ($invoices as $inv)<a href="{{ route('invoices.show', $inv->id) }}" class="badge badge-primary"><x-icon name="invoice" size="11"/> {{ $inv->doc_no }}</a>@endforeach
+            <div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+                <a href="{{ route('orders.print', $order) }}" target="_blank" rel="noopener" class="btn btn-sm"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
+                @if ($order->status === 'open')
+                    <a href="{{ route('orders.edit', $order) }}" class="btn btn-sm"><x-icon name="edit" size="14"/> {{ __('Düzəliş et') }}</a>
+                    <form method="POST" action="{{ route('orders.destroy', $order) }}" onsubmit="return confirm(@js(__('Sifariş silinsin?')))">
+                        @csrf @method('DELETE')
+                        <button class="btn btn-sm btn-danger"><x-icon name="trash" size="14"/> {{ __('Sil') }}</button>
+                    </form>
+                    <form method="POST" action="{{ route('orders.send', $order) }}" onsubmit="return confirm(@js(__('Təhvil-təslim sənədi yaradılsın? Mal real stokdan çıxacaq.')))">
+                        @csrf <button class="btn btn-sm"><x-icon name="send" size="14"/> {{ __('Sifarişi göndər') }}</button>
+                    </form>
+                @endif
+                @if ($order->status !== 'invoiced')
+                    <form method="POST" action="{{ route('orders.invoice', $order) }}" onsubmit="return confirm(@js($order->status === 'open' ? __('Təhvil-təslim sənədi və satış fakturası yaradılsın?') : __('Satış fakturası yaradılsın?')))">
+                        @csrf <button class="btn btn-sm btn-primary"><x-icon name="invoice" size="14"/> {{ __('Fakturala') }}</button>
+                    </form>
+                @endif
             </div>
         @endif
     </div>
+    @if ($order->source === 'manual' && $order->status === 'open')
+        <div class="card border-l-4 px-4 py-3 text-sm" style="border-left-color: var(--warning)">{{ __('Sifariş rezervdədir: mal rezerv stokdan çıxıb, real stoka və müştəri borcuna hələ təsir etmir. «Sifarişi göndər» — təhvil-təslim (real stok), «Fakturala» — təhvil-təslim + faktura (borc).') }}</div>
+    @endif
     @if ($order->note)
         <div class="card px-4 py-3 text-sm"><span class="label">{{ __('Əlavə qeydlər') }}</span>{{ $order->note }}</div>
     @endif

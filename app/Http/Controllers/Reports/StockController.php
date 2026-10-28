@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Reports;
 
 use App\Models\Warehouse;
 use App\Reports\Table;
+use App\Services\SalesDocumentService;
 use App\Services\StockService;
 use App\Support\Fmt;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class StockController extends ReportController
 {
-    public function __invoke(Request $request, StockService $stock): View|Response
+    public function __invoke(Request $request, StockService $stock, SalesDocumentService $documents): View|Response
     {
         $filters = $this->filters($request, 'all');
         $asOf = $this->asOf($request);
@@ -21,6 +22,17 @@ class StockController extends ReportController
         $only = $request->query('only');
 
         $rows = $stock->balances($filters, $asOf, $warehouseId);
+        // real stok ↔ rezerv: açıq sifarişlər real stoku azaltmır, yalnız rezerv stokdan çıxır
+        $reserved = [];
+        foreach ($documents->reserved() as $productId => $byWarehouse) {
+            $reserved[$productId] = $warehouseId !== null ? ($byWarehouse[$warehouseId] ?? 0.0) : array_sum($byWarehouse);
+        }
+        $rows = $rows->map(function ($r) use ($reserved) {
+            $r->reserved = round($reserved[$r->id] ?? 0.0, 4);
+            $r->available = round($r->qty - $r->reserved, 4);
+
+            return $r;
+        });
         if ($only === 'low') {
             $rows = $rows->where('low_stock', true)->values();
         } elseif ($only === 'negative') {
@@ -35,7 +47,9 @@ class StockController extends ReportController
                 .($r->low_stock ? ' <span class="badge badge-warn">'.e(__('az qalıb')).'</span>' : '')
                 .($r->qty < -0.0001 ? ' <span class="badge badge-neg">'.e(__('mənfi')).'</span>' : '')])
             ->column('category_name', __('Kateqoriya'))
-            ->column('qty', __('Qalıq, ədəd'), 'qty', ['class' => fn ($v) => $v < 0 ? 'neg font-semibold' : 'font-semibold'])
+            ->column('qty', __('Real stok'), 'qty', ['class' => fn ($v) => $v < 0 ? 'neg font-semibold' : 'font-semibold'])
+            ->column('reserved', __('Sifarişdə rezerv'), 'qty', ['class' => fn ($v) => $v > 0 ? 'warn' : 'text-muted'])
+            ->column('available', __('Rezerv stok'), 'qty', ['class' => fn ($v) => $v < 0 ? 'neg font-semibold' : 'font-semibold'])
             ->column('liters', __('Litr'), 'qty')
             ->column('avg_cost', __('Orta maya'), 'money', ['format' => fn ($v, $r) => e(Fmt::money($v)).($r->cost_estimated ? ' <span class="warn" title="'.e(__('Maya təxminidir — mal kartında redaktə edin')).'">⚠</span>' : '')])
             ->column('value', __('Dəyər (maya)'), 'money')
@@ -45,7 +59,7 @@ class StockController extends ReportController
             ->column('turnover_days', __('Dövriyyə, gün'), 'int', ['format' => fn ($v) => $v === null ? '—' : e(Fmt::number($v)), 'class' => fn ($v) => $v !== null && $v > 180 ? 'warn' : ''])
             ->source($rows)->sortBy('value')->perPage(100)->footer(auto: true)
             ->rowClass(fn ($r) => $r->qty < -0.0001 ? 'row-neg' : ($r->low_stock ? 'row-warn' : ''))
-            ->subtitle(__('Dövriyyə günləri = qalıq / son :days günün orta gündəlik satışı', ['days' => StockService::TURNOVER_WINDOW_DAYS]));
+            ->subtitle(__('Real stok — anbardakı fiziki qalıq (təhvil-təslim ilə azalır). Rezerv stok = real stok − açıq sifarişlərdə rezerv.').' '.__('Dövriyyə günləri = qalıq / son :days günün orta gündəlik satışı', ['days' => StockService::TURNOVER_WINDOW_DAYS]));
 
         if ($response = $this->exportIfRequested($request, [$table], __('Anbar qalığı').' '.$asOf->format('d.m.Y'), $filters)) {
             return $response;
@@ -64,6 +78,7 @@ class StockController extends ReportController
             'rows' => $table->resolve($request),
             'kpi' => [
                 'qty' => $positive->sum('qty'),
+                'reserved' => $rows->sum('reserved'),
                 'liters' => $positive->sum('liters'),
                 'value' => $positive->sum('value'),
                 'sale_value' => $positive->sum('sale_value'),

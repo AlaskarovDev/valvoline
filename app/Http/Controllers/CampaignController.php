@@ -41,7 +41,7 @@ class CampaignController extends Controller
             'running' => Campaign::query()->where('status', 'approved')->where('is_active', true)->whereDate('begin_date', '<=', $today)->whereDate('end_date', '>=', $today)->count(),
             'pending' => Campaign::query()->where('status', 'pending')->count(),
             'future' => Campaign::query()->where('status', 'approved')->whereDate('begin_date', '>', $today)->count(),
-            'discount' => (float) DB::table('sales_line_campaigns')->sum('amount'),
+            'discount' => (float) DB::table('sales_item_campaigns')->sum('amount'),
         ];
 
         return view('campaigns.index', [
@@ -77,10 +77,10 @@ class CampaignController extends Controller
             ->whereIn('o.id', $this->orderIds($campaign->id))
             ->orderByDesc('o.date')->limit(500)
             ->get(['o.id', 'o.date', 'o.order_no', 'o.total_amount', DB::raw('COALESCE(c.name, o.customer_name) AS customer_name')]);
-        $discounts = DB::table('sales_line_campaigns')->where('campaign_id', $campaign->id)->groupBy('sales_order_id')
+        $discounts = DB::table('sales_item_campaigns')->where('campaign_id', $campaign->id)->groupBy('sales_order_id')
             ->selectRaw('sales_order_id, SUM(amount) AS amount')->pluck('amount', 'sales_order_id');
-        $gifts = DB::table('sales_lines')->where('campaign_id', $campaign->id)->groupBy('sales_order_id')
-            ->selectRaw('sales_order_id, SUM(qty) AS qty, SUM(COALESCE(cogs, 0)) AS cogs')->get()->keyBy('sales_order_id');
+        $gifts = DB::table('sales_order_items')->where('campaign_id', $campaign->id)->groupBy('sales_order_id')
+            ->selectRaw('sales_order_id, SUM(qty) AS qty')->get()->keyBy('sales_order_id');
 
         return view('campaigns.show', [
             'title' => $campaign->code.' — '.$campaign->name,
@@ -310,8 +310,8 @@ class CampaignController extends Controller
      */
     private function orderIds(int $campaignId): array
     {
-        return DB::table('sales_line_campaigns')->where('campaign_id', $campaignId)->pluck('sales_order_id')
-            ->merge(DB::table('sales_lines')->where('campaign_id', $campaignId)->pluck('sales_order_id'))
+        return DB::table('sales_item_campaigns')->where('campaign_id', $campaignId)->pluck('sales_order_id')
+            ->merge(DB::table('sales_order_items')->where('campaign_id', $campaignId)->pluck('sales_order_id'))
             ->filter()->unique()->values()->all();
     }
 
@@ -322,11 +322,11 @@ class CampaignController extends Controller
     private function usage(array $ids): array
     {
         $out = [];
-        foreach (DB::table('sales_line_campaigns')->whereIn('campaign_id', $ids ?: [0])->groupBy('campaign_id')
+        foreach (DB::table('sales_item_campaigns')->whereIn('campaign_id', $ids ?: [0])->groupBy('campaign_id')
             ->selectRaw('campaign_id, COUNT(DISTINCT sales_order_id) AS orders, SUM(amount) AS amount')->get() as $r) {
             $out[$r->campaign_id] = ['orders' => (int) $r->orders, 'discount' => (float) $r->amount, 'gift_qty' => 0.0];
         }
-        foreach (DB::table('sales_lines')->whereIn('campaign_id', $ids ?: [0])->groupBy('campaign_id')
+        foreach (DB::table('sales_order_items')->whereIn('campaign_id', $ids ?: [0])->groupBy('campaign_id')
             ->selectRaw('campaign_id, COUNT(DISTINCT sales_order_id) AS orders, SUM(qty) AS qty')->get() as $r) {
             $out[$r->campaign_id] ??= ['orders' => 0, 'discount' => 0.0, 'gift_qty' => 0.0];
             $out[$r->campaign_id]['orders'] = max($out[$r->campaign_id]['orders'], (int) $r->orders);

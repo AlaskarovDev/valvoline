@@ -23,7 +23,7 @@
 
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-kpi :label="__('Anbar dəyəri (maya)')" :value="Fmt::money($kpi['value'])" :meta="__(':date tarixinə', ['date' => $asOf->format('d.m.Y')])" :big="true"/>
-        <x-kpi :label="__('Qalıq')" :value="__(':n ədəd', ['n' => Fmt::number($kpi['qty'])])" :meta="__(':n litr', ['n' => Fmt::number($kpi['liters'])]).' · '.__(':n çeşid', ['n' => $kpi['skus']])"/>
+        <x-kpi :label="__('Real stok')" :value="__(':n ədəd', ['n' => Fmt::number($kpi['qty'])])" :meta="__(':n litr', ['n' => Fmt::number($kpi['liters'])]).' · '.__(':n çeşid', ['n' => $kpi['skus']]).($kpi['reserved'] > 0 ? ' · '.__('rezervdə :n', ['n' => Fmt::number($kpi['reserved'])]) : '')"/>
         <x-kpi :label="__('Satış qiyməti ilə')" :value="Fmt::money($kpi['sale_value'])" :meta="__('potensial mənfəət').' '.Fmt::money($kpi['sale_value'] - $kpi['value'])"/>
         <x-kpi :label="__('Xəbərdarlıqlar')" :value="__(':n az qalıb', ['n' => $kpi['low']])" :meta="__(':n mal mənfi qalıqda', ['n' => $kpi['negative']])" :tone="$kpi['low'] + $kpi['negative'] > 0 ? 'warn' : null"/>
     </div>

@@ -6,6 +6,8 @@ use App\Models\SalesOrder;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\AnalyticsRebuilder;
+use App\Services\SalesDocumentService;
+use App\Support\Fmt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -73,30 +75,85 @@ class OrderEntryTest extends TestCase
             ->assertViewHas('products', fn ($p) => $p->first()['price'] === 50.0);
     }
 
-    public function test_order_is_saved_with_lines_and_costed_from_chosen_warehouse(): void
+    /**
+     * Sifariş → yalnız rezerv; «Sifarişi göndər» → TT (real stok); «Fakturala» → SF (borc və gəlir).
+     */
+    public function test_order_reserves_delivery_reduces_stock_and_invoice_creates_debt(): void
     {
+        $a2 = Warehouse::query()->where('code', 'A2')->value('id');
         $response = $this->actingAs($this->admin)->post(route('orders.store'), $this->payload());
         $order = SalesOrder::query()->where('order_no', '3931')->firstOrFail();
-        $response->assertRedirect(route('orders.show', $order));
+        $response->assertRedirect(route('orders.show', $order))->assertSessionHas('popup', fn ($p) => $p['docs'][0]['no'] === '3931');
 
-        $this->assertSame('manual', $order->source);
-        $this->assertSame('Çatdırılma cümə günü', $order->note);
+        $this->assertSame(['manual', 'open', 'Çatdırılma cümə günü'], [$order->source, $order->status, $order->note]);
         $this->assertEqualsWithDelta(540.0, (float) $order->total_amount, 0.001, '12 × 50 − 10 %; hədiyyə məbləğə düşmür');
-        $lines = DB::table('sales_lines')->where('sales_order_id', $order->id)->orderBy('row_no')->get();
-        $this->assertCount(2, $lines);
-        $this->assertEqualsWithDelta(0.1, (float) $lines[0]->discount_pct, 0.0001);
-        $this->assertEqualsWithDelta(45.0, (float) $lines[0]->discount_price, 0.0001);
-        $this->assertSame(['Turabov Rəsul', 'Əkbər'], [$lines[0]->customer_name, $lines[0]->manager_name]);
+        $items = DB::table('sales_order_items')->where('sales_order_id', $order->id)->orderBy('row_no')->get();
+        $this->assertCount(2, $items);
+        $this->assertEqualsWithDelta(0.1, (float) $items[0]->discount_pct, 0.0001);
+        $this->assertSame(0, DB::table('sales_lines')->where('sales_order_id', $order->id)->count(), 'sifariş satış deyil');
 
         app(AnalyticsRebuilder::class)->run();
-        $order->refresh();
+        $this->assertNull(DB::table('stock_balances')->where('product_id', $this->productId)->where('warehouse_id', $a2)->value('qty'), 'real stok dəyişmir');
+        $this->assertSame([$this->productId => [$a2 => 13.0]], app(SalesDocumentService::class)->reserved());
+        $this->assertEqualsWithDelta(0.0, (float) DB::table('customer_balances')->where('customer_id', $order->customer_id)->value('sales_total'), 0.001, 'borca təsir etmir');
+        $this->get(route('stock.index', ['only' => 'all']))->assertOk()->assertSee('Rezerv stok');
+        $this->get(route('orders.show', $order))->assertOk()->assertSee('Rezervdə')->assertSee('Cənub bölgəsi — Anbar 2')->assertSee(route('orders.send', $order), false);
+
+        // göndər → yalnız TT
+        $this->post(route('orders.send', $order))->assertRedirect(route('orders.show', $order))
+            ->assertSessionHas('popup', fn ($p) => count($p['docs']) === 1 && $p['docs'][0]['no'] === 'TT-000001');
+        $this->assertSame('shipped', $order->refresh()->status);
+        $this->assertSame(0, DB::table('sales_invoices')->count());
+        app(AnalyticsRebuilder::class)->run();
+        $this->assertSame([], app(SalesDocumentService::class)->reserved(), 'rezerv azad olunur');
+        $this->assertEqualsWithDelta(-13.0, (float) DB::table('stock_balances')->where('product_id', $this->productId)->where('warehouse_id', $a2)->value('qty'), 0.001);
         // FIFO: 10 × 20 + 3 × 30 = 290 (12 satış + 1 hədiyyə)
+        $this->assertEqualsWithDelta(290.0, (float) DB::table('delivery_notes')->value('total_cogs'), 0.01);
+        $order->refresh();
         $this->assertEqualsWithDelta(290.0, (float) $order->total_cogs, 0.01);
         $this->assertEqualsWithDelta(250.0, (float) $order->gross_profit, 0.01);
-        $a2 = Warehouse::query()->where('code', 'A2')->value('id');
-        $this->assertEqualsWithDelta(-13.0, (float) DB::table('stock_balances')->where('product_id', $this->productId)->where('warehouse_id', $a2)->value('qty'), 0.001);
+        $this->assertEqualsWithDelta(0.0, (float) DB::table('customer_balances')->where('customer_id', $order->customer_id)->value('sales_total'), 0.001);
+        $this->get(route('orders.edit', $order))->assertForbidden();
 
-        $this->get(route('orders.show', $order))->assertOk()->assertSee('Sistemdə yaradılıb')->assertSee('Cənub bölgəsi — Anbar 2')->assertSee('Çatdırılma cümə günü')->assertSee(route('orders.edit', $order), false);
+        // fakturala → yalnız SF (TT artıq var)
+        $this->post(route('orders.invoice', $order))->assertSessionHas('popup', fn ($p) => array_column($p['docs'], 'no') === ['SF-000001']);
+        $this->assertSame('invoiced', $order->refresh()->status);
+        app(AnalyticsRebuilder::class)->run();
+        $lines = DB::table('sales_lines')->where('sales_order_id', $order->id)->orderBy('row_no')->get();
+        $this->assertCount(2, $lines);
+        $this->assertSame('SF-000001', $lines[0]->invoice_no);
+        $this->assertEqualsWithDelta(290.0, $lines->sum('cogs'), 0.01, 'maya TT-dən gəlir');
+        $this->assertEqualsWithDelta(-13.0, (float) DB::table('stock_balances')->where('product_id', $this->productId)->where('warehouse_id', $a2)->value('qty'), 0.001, 'faktura stoku ikinci dəfə azaltmır');
+        $this->assertEqualsWithDelta(540.0, (float) DB::table('customer_balances')->where('customer_id', $order->customer_id)->value('sales_total'), 0.001, 'faktura borca yazılır');
+        $this->assertEqualsWithDelta(250.0, (float) $order->refresh()->gross_profit, 0.01);
+
+        $delivery = DB::table('delivery_notes')->value('id');
+        $invoice = DB::table('sales_invoices')->value('id');
+        $this->get(route('deliveries.index', ['preset' => 'all']))->assertOk()->assertSee('TT-000001')->assertSee('SF-000001');
+        $this->get(route('invoices.index', ['preset' => 'all']))->assertOk()->assertSee('SF-000001')->assertSee('Turabov Rəsul');
+        $this->get(route('deliveries.show', $delivery))->assertOk()->assertSee('VE11258')->assertSee('3931');
+        $this->get(route('invoices.show', $invoice))->assertOk()->assertSee(Fmt::money(540), false);
+        $this->get(route('invoices.show', [$invoice, 'print' => 1]))->assertOk()->assertSee('Satış fakturası № SF-000001')->assertSee('Alıcı');
+        $this->get(route('deliveries.show', [$delivery, 'print' => 1]))->assertOk()->assertSee('Təhvil-təslim aktı № TT-000001')->assertSee('Təhvil aldı');
+        $this->get(route('orders.print', $order))->assertOk()->assertSee('Sifariş № 3931');
+
+        // ləğv: TT fakturası olduğu üçün ləğv olunmur; əvvəl faktura
+        $this->delete(route('deliveries.destroy', $delivery))->assertSessionHas('error');
+        $this->delete(route('invoices.destroy', $invoice))->assertRedirect(route('invoices.index'));
+        $this->assertSame(['shipped', 0], [$order->refresh()->status, DB::table('sales_lines')->where('sales_order_id', $order->id)->count()]);
+        $this->delete(route('deliveries.destroy', $delivery))->assertRedirect(route('deliveries.index'));
+        $this->assertSame('open', $order->refresh()->status);
+    }
+
+    public function test_save_and_invoice_creates_both_documents_at_once(): void
+    {
+        $this->actingAs($this->admin)->post(route('orders.store'), $this->payload(['then' => 'invoice']))
+            ->assertSessionHas('popup', fn ($p) => array_column($p['docs'], 'no') === ['3931', 'TT-000001', 'SF-000001']);
+        $this->assertSame('invoiced', SalesOrder::query()->where('order_no', '3931')->value('status'));
+        $this->post(route('orders.store'), $this->payload(['order_no' => '3932', 'then' => 'send']))
+            ->assertSessionHas('popup', fn ($p) => array_column($p['docs'], 'type') === ['Sifariş', 'Təhvil-təslim sənədi']);
+        $this->assertSame(['shipped', 1], [SalesOrder::query()->where('order_no', '3932')->value('status'), DB::table('sales_invoices')->count()]);
+        $this->get(route('orders.index', ['preset' => 'all']))->assertSee('Fakturalanıb')->assertSee('Təhvil verilib');
     }
 
     public function test_manual_order_can_be_edited_and_deleted_but_imported_cannot(): void
@@ -107,7 +164,7 @@ class OrderEntryTest extends TestCase
         $this->get(route('orders.edit', $order))->assertOk()->assertSee('VE11258');
         $this->put(route('orders.update', $order), $this->payload(['lines' => [['product_id' => $this->productId, 'op_type' => 'sale', 'qty' => 2, 'price' => 60]]]))
             ->assertRedirect(route('orders.show', $order));
-        $this->assertSame(1, DB::table('sales_lines')->where('sales_order_id', $order->id)->count());
+        $this->assertSame(1, DB::table('sales_order_items')->where('sales_order_id', $order->id)->count());
         $this->assertEqualsWithDelta(120.0, (float) $order->refresh()->total_amount, 0.001);
 
         $imported = SalesOrder::query()->where('order_no', '3930')->firstOrFail();
@@ -116,7 +173,7 @@ class OrderEntryTest extends TestCase
 
         $this->delete(route('orders.destroy', $order))->assertRedirect(route('orders.index'));
         $this->assertDatabaseMissing('sales_orders', ['id' => $order->id]);
-        $this->assertSame(0, DB::table('sales_lines')->where('sales_order_id', $order->id)->count());
+        $this->assertSame(0, DB::table('sales_order_items')->where('sales_order_id', $order->id)->count());
     }
 
     public function test_validation_and_manager_restriction(): void

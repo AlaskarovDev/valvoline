@@ -32,7 +32,7 @@ class OrderController extends ReportController
                 });
             })
             ->when($request->query('only') === 'loss', fn ($q) => $q->where('o.gross_profit', '<', 0))
-            ->select('o.id', 'o.date', 'o.order_no', 'o.invoice_no', 'o.line_count', 'o.total_amount', 'o.total_cogs', 'o.gross_profit',
+            ->select('o.id', 'o.date', 'o.order_no', 'o.invoice_no', 'o.status', 'o.line_count', 'o.total_amount', 'o.total_cogs', 'o.gross_profit',
                 'o.return_amount', 'o.net_profit', 'o.customer_id', DB::raw('COALESCE(c.name, o.customer_name) AS customer_name'), 'm.name as manager_name',
                 DB::raw('CASE WHEN o.total_amount <> 0 THEN o.gross_profit / o.total_amount ELSE NULL END AS margin'));
 
@@ -41,6 +41,7 @@ class OrderController extends ReportController
             ->column('order_no', __('Sifariş №'), 'text', ['sql' => 'o.order_no', 'link' => fn ($r) => route('orders.show', $r->id)])
             ->column('customer_name', __('Müştəri'), 'text', ['sql' => 'COALESCE(c.name, o.customer_name)', 'link' => fn ($r) => $r->customer_id ? route('customers.show', $r->customer_id) : null])
             ->column('manager_name', __('Menecer'), 'text', ['sql' => 'm.name'])
+            ->column('status', __('Status'), 'text', ['sql' => 'o.status', 'mobile' => false, 'format' => fn ($v) => $v ? view('orders._status', ['status' => $v])->render() : ''])
             ->column('line_count', __('Sətir'), 'int', ['sql' => 'o.line_count', 'mobile' => false])
             ->column('total_amount', __('Məbləğ'), 'money', ['sql' => 'o.total_amount'])
             ->column('total_cogs', __('Maya'), 'money', ['sql' => 'o.total_cogs', 'mobile' => false])
@@ -68,23 +69,34 @@ class OrderController extends ReportController
         $user = $request->user();
         abort_if(! $user->isAdmin() && $order->manager_id !== $user->manager_id, 403);
 
-        $lines = DB::table('sales_lines as l')->leftJoin('products as p', 'p.id', '=', 'l.product_id')
-            ->where('l.sales_order_id', $order->id)
-            ->select('l.*', 'p.name as pname', 'p.cost_estimated')
-            ->orderBy('l.row_no');
-        $campaigns = DB::table('sales_line_campaigns')->where('sales_order_id', $order->id)->orderBy('id')->get()->groupBy('sales_line_id');
-        $campaignCodes = DB::table('campaigns')->whereIn('id', DB::table('sales_lines')->where('sales_order_id', $order->id)->whereNotNull('campaign_id')->pluck('campaign_id'))->pluck('code', 'id');
+        $manual = $order->source === 'manual';
+        // sistemdə yaradılmış sifariş: sifariş sətirləri (maya — təhvil-təslimdən); importdan gələn: satış sətirləri
+        $lines = $manual
+            ? DB::table('sales_order_items as l')->leftJoin('products as p', 'p.id', '=', 'l.product_id')
+                ->leftJoin('delivery_note_lines as d', 'd.sales_order_item_id', '=', 'l.id')
+                ->where('l.sales_order_id', $order->id)
+                ->select('l.*', 'p.name as pname', 'p.cost_estimated', 'd.unit_cost', 'd.cogs',
+                    DB::raw("CASE WHEN d.cogs IS NULL THEN NULL ELSE (CASE WHEN l.op_type = 'sale' THEN l.net_amount ELSE 0 END) - d.cogs END AS gross_profit"),
+                    DB::raw("CASE WHEN d.cogs IS NULL OR l.op_type <> 'sale' OR l.net_amount = 0 THEN NULL ELSE (l.net_amount - d.cogs) / l.net_amount END AS margin_pct"))
+                ->orderBy('l.row_no')
+            : DB::table('sales_lines as l')->leftJoin('products as p', 'p.id', '=', 'l.product_id')
+                ->where('l.sales_order_id', $order->id)
+                ->select('l.*', 'p.name as pname', 'p.cost_estimated')
+                ->orderBy('l.row_no');
+        $campaigns = DB::table('sales_item_campaigns')->where('sales_order_id', $order->id)->orderBy('id')->get()->groupBy('sales_order_item_id');
+        $campaignCodes = DB::table('campaigns')->whereIn('id', DB::table('sales_order_items')->where('sales_order_id', $order->id)->whereNotNull('campaign_id')->pluck('campaign_id'))->pluck('code', 'id');
         $table = Table::make('lines', __('Mal sətirləri'))
             ->column('product_code', __('Kod'), 'text', ['link' => fn ($r) => $r->product_id ? route('movements.product', $r->product_id) : null])
             ->column('product_name', __('Mal'), 'text', ['format' => fn ($v, $r) => e($r->pname ?? $v).($r->cost_estimated ? ' <span class="warn" title="'.e(__('Maya təxminidir')).'">⚠</span>' : '')
                 // tətbiq olunmuş kampaniya — sətrin altında
-                .collect($campaigns[$r->id] ?? [])->map(fn ($c) => '<div class="mt-1 text-xs text-muted">↳ <span class="badge badge-primary">'.e($c->campaign_code).'</span> '.e($c->campaign_name)
-                    .' <span class="pos font-semibold">−'.e(Fmt::money($c->amount)).'</span></div>')->implode('')
-                .($r->campaign_id ? '<div class="mt-1 text-xs text-muted">↳ <span class="badge badge-primary">'.e($campaignCodes[$r->campaign_id] ?? '').'</span> '.e(__('Kampaniya hədiyyəsi')).'</div>' : '')])
+                .($manual ? collect($campaigns[$r->id] ?? [])->map(fn ($c) => '<div class="mt-1 text-xs text-muted">↳ <span class="badge badge-primary">'.e($c->campaign_code).'</span> '.e($c->campaign_name)
+                    .' <span class="pos font-semibold">−'.e(Fmt::money($c->amount)).'</span></div>')->implode('') : '')
+                .($manual && $r->campaign_id ? '<div class="mt-1 text-xs text-muted">↳ <span class="badge badge-primary">'.e($campaignCodes[$r->campaign_id] ?? '').'</span> '.e(__('Kampaniya hədiyyəsi')).'</div>' : '')])
             ->column('op_type', __('Tip'), 'text', ['format' => fn ($v) => e(['sale' => __('Satış'), 'gift' => __('Hədiyyə / pulsuz'), 'internal' => __('Daxili istifadə')][$v] ?? $v)])
             ->column('qty', __('Miqdar'), 'qty')
             ->column('price', __('Qiymət'), 'money')
             ->column('discount_pct', __('Endirim'), 'pct')
+            ->column('campaign_discount', __('Kampaniya endirimi'), 'money', ['mobile' => false])
             ->column('net_amount', __('Yekun'), 'money')
             ->column('unit_cost', __('Vahid maya'), 'money')
             ->column('cogs', __('Maya'), 'money')
@@ -117,6 +129,8 @@ class OrderController extends ReportController
             'returnTable' => $returnTable,
             'returnRows' => $returnTable->resolve($request),
             'margin' => $order->total_amount != 0 ? $order->gross_profit / $order->total_amount : null,
+            'deliveries' => DB::table('delivery_notes')->where('sales_order_id', $order->id)->orderBy('id')->get(['id', 'doc_no', 'date']),
+            'invoices' => DB::table('sales_invoices')->where('sales_order_id', $order->id)->orderBy('id')->get(['id', 'doc_no', 'date']),
             'fmt' => Fmt::class,
         ]);
     }

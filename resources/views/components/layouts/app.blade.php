@@ -25,11 +25,15 @@
     $menu = [
         __('Hesabatlar') => [
             ['dashboard', __('İdarə paneli'), 'dashboard', true],
-            ['orders.index', __('Sifarişlər və qazanc'), 'orders', true],
-            ['campaigns.index', __('Kampaniyalar'), 'tag', true],
             ['sales.index', __('Satış hesabatı'), 'sales', true],
             ['margin.index', __('Marjinallıq'), 'margin', true],
             ['returns.index', __('Qaytarmalar'), 'returns', true],
+        ],
+        __('Satış və Kampaniyalar') => [
+            ['orders.index', __('Sifarişlər və qazanc'), 'orders', true],
+            ['deliveries.index', __('Təhvil-təslim sənədləri'), 'truck', true],
+            ['invoices.index', __('Satış fakturaları'), 'invoice', true],
+            ['campaigns.index', __('Kampaniyalar'), 'tag', true],
         ],
         __('Müştərilər') => [
             ['customers.index', __('Müştəri bazası'), 'customers', true],
@@ -157,6 +161,27 @@
         <div data-modal-body class="min-h-24 overflow-y-auto"></div>
     </div>
 </dialog>
+{{-- Əməliyyat popupu: «… nömrəli … sənədi yaradıldı» --}}
+@if ($popup = session('popup'))
+    <dialog id="action-popup" aria-labelledby="action-popup-title" x-data x-init="$el.showModal()"
+            class="m-auto w-[min(460px,92vw)] rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50">
+        <div class="flex flex-col gap-3 p-5">
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--positive-soft,var(--primary-soft))] pos" aria-hidden="true">✓</span>
+                <h2 id="action-popup-title" class="text-base font-semibold">{{ $popup['title'] }}</h2>
+            </div>
+            @if (! empty($popup['message']))<p class="text-sm">{{ $popup['message'] }}</p>@endif
+            @if (! empty($popup['docs']))
+                <ul class="flex flex-col gap-1.5 text-sm">
+                    @foreach ($popup['docs'] as $doc)
+                        <li><a href="{{ $doc['url'] }}" class="text-primary-text hover:underline">{{ __('№ :no nömrəli :type yaradıldı.', ['no' => $doc['no'], 'type' => mb_strtolower($doc['type'])]) }}</a></li>
+                    @endforeach
+                </ul>
+            @endif
+            <div class="flex justify-end"><button type="button" class="btn btn-primary" autofocus @click="$el.closest('dialog').close()">{{ __('Oldu') }}</button></div>
+        </div>
+    </dialog>
+@endif
 @livewireScripts
 </body>
 </html>

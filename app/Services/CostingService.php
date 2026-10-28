@@ -88,6 +88,7 @@ class CostingService
         $progress($this->method === 'fifo' ? __('FIFO maya hesablanır') : __('Orta maya hesablanır'), 0.25);
         $movements = [];
         $salesCosts = [];
+        $deliveryCosts = [];
         $returnCosts = [];
         $fallbacks = 0;
         $seq = 0;
@@ -148,6 +149,8 @@ class CostingService
 
             if ($event['source_type'] === 'sales_line') {
                 $salesCosts[$event['source_id']] = ['unit_cost' => $unitCost, 'fallback' => $fallback];
+            } elseif ($event['source_type'] === 'delivery_line') {
+                $deliveryCosts[$event['source_id']] = ['unit_cost' => $unitCost, 'fallback' => $fallback];
             } elseif ($event['source_type'] === 'sales_return') {
                 $returnCosts[$event['source_id']] = $unitCost;
             }
@@ -160,6 +163,7 @@ class CostingService
         }
 
         $progress(__('Satış sətirlərinin mayası yazılır'), 0.6);
+        $salesCosts += $this->writeDeliveryCosts($deliveryCosts);
         $this->writeSalesCosts($salesCosts);
         $this->writeReturnCosts($returnCosts);
 
@@ -311,12 +315,22 @@ class CostingService
         }
 
         $types = ['sale' => 'sale', 'gift' => 'gift', 'internal' => 'internal_use'];
-        foreach (DB::table('sales_lines')->whereNotNull('product_id')->orderBy('id')
+        // fakturadan yaranan satış sətri stoku azaltmır — çıxış onun təhvil-təslim sətrindədir
+        foreach (DB::table('sales_lines')->whereNotNull('product_id')->whereNull('delivery_note_line_id')->orderBy('id')
             ->get(['id', 'date', 'product_id', 'qty', 'op_type', 'customer_id', 'order_no', 'warehouse_id']) as $row) {
             $push([
                 'date' => (string) $row->date, 'source_order' => 4, 'source_id' => $row->id, 'product_id' => $row->product_id,
                 'warehouse_id' => $row->warehouse_id ?? $mainWarehouse, 'type' => $types[$row->op_type] ?? 'sale', 'qty' => -(float) $row->qty,
                 'source_type' => 'sales_line', 'customer_id' => $row->customer_id, 'doc_no' => $row->order_no,
+            ]);
+        }
+
+        foreach (DB::table('delivery_note_lines as l')->join('delivery_notes as n', 'n.id', '=', 'l.delivery_note_id')->whereNotNull('l.product_id')->orderBy('l.id')
+            ->get(['l.id', 'n.date', 'l.product_id', 'l.qty', 'l.op_type', 'n.customer_id', 'n.doc_no', 'n.warehouse_id']) as $row) {
+            $push([
+                'date' => (string) $row->date, 'source_order' => 4, 'source_id' => $row->id, 'product_id' => $row->product_id,
+                'warehouse_id' => $row->warehouse_id ?? $mainWarehouse, 'type' => $types[$row->op_type] ?? 'sale', 'qty' => -(float) $row->qty,
+                'source_type' => 'delivery_line', 'customer_id' => $row->customer_id, 'doc_no' => $row->doc_no,
             ]);
         }
 
@@ -355,6 +369,33 @@ class CostingService
             ];
         }
         BulkUpdater::update('sales_lines', $updates);
+    }
+
+    /**
+     * Təhvil-təslim sətirlərinin mayası; həmin sətirlərdən yaranan faktura sətirləri eyni vahid mayanı alır.
+     *
+     * @param  array<int, array{unit_cost: float, fallback: bool}>  $costs
+     * @return array<int, array{unit_cost: float, fallback: bool}> faktura sətri id => maya
+     */
+    private function writeDeliveryCosts(array $costs): array
+    {
+        $updates = [];
+        $totals = [];
+        foreach (DB::table('delivery_note_lines')->get(['id', 'delivery_note_id', 'qty']) as $line) {
+            $unit = $costs[$line->id]['unit_cost'] ?? 0.0;
+            $cogs = round((float) $line->qty * $unit, 4);
+            $updates[$line->id] = ['unit_cost' => round($unit, 4), 'cogs' => $cogs];
+            $totals[$line->delivery_note_id] = ($totals[$line->delivery_note_id] ?? 0.0) + $cogs;
+        }
+        BulkUpdater::update('delivery_note_lines', $updates);
+        BulkUpdater::update('delivery_notes', array_map(fn ($t) => ['total_cogs' => round($t, 4)], $totals));
+
+        $invoiced = [];
+        foreach (DB::table('sales_lines')->whereNotNull('delivery_note_line_id')->pluck('delivery_note_line_id', 'id') as $salesLineId => $deliveryLineId) {
+            $invoiced[$salesLineId] = $costs[$deliveryLineId] ?? ['unit_cost' => 0.0, 'fallback' => true];
+        }
+
+        return $invoiced;
     }
 
     /**

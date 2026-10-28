@@ -88,6 +88,22 @@ class SummaryService
                 'net_profit' => round(($amount - $cogs) - ($returnAmount - $returnCogs), 4),
             ];
         }
+        // sistemdə yaradılıb, hələ fakturalanmayıb: məbləğ sifariş sətirlərindən, maya — təhvil-təslimdən (varsa)
+        $pending = DB::table('sales_orders')->where('source', 'manual')->whereIn('status', ['open', 'shipped'])->pluck('id');
+        if ($pending->isNotEmpty()) {
+            $items = DB::table('sales_order_items')->whereIn('sales_order_id', $pending)->groupBy('sales_order_id')
+                ->selectRaw("sales_order_id, COUNT(*) AS line_count, SUM(CASE WHEN op_type = 'sale' THEN net_amount ELSE 0 END) AS amount")
+                ->get()->keyBy('sales_order_id');
+            $cogs = DB::table('delivery_notes')->whereIn('sales_order_id', $pending)->groupBy('sales_order_id')
+                ->selectRaw('sales_order_id, SUM(total_cogs) AS cogs')->pluck('cogs', 'sales_order_id');
+            foreach ($pending as $id) {
+                $amount = (float) ($items[$id]->amount ?? 0);
+                $cost = (float) ($cogs[$id] ?? 0);
+                $profit = $cost > 0 ? $amount - $cost : 0.0;
+                $updates[$id] = ['line_count' => (int) ($items[$id]->line_count ?? 0), 'total_amount' => round($amount, 4), 'total_cogs' => round($cost, 4),
+                    'gross_profit' => round($profit, 4), 'return_amount' => 0, 'return_cogs' => 0, 'net_profit' => round($profit, 4)];
+            }
+        }
         BulkUpdater::update('sales_orders', $updates);
 
         // sifariş başlığı: müştəri bağlantısı sətirlərdən (pending həll olunubsa)

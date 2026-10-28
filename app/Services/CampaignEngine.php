@@ -111,8 +111,8 @@ class CampaignEngine
 
     public function usageCount(Campaign $campaign, Customer $customer, ?int $exceptOrderId = null): int
     {
-        $orders = DB::table('sales_line_campaigns')->where('campaign_id', $campaign->id)->pluck('sales_order_id')
-            ->merge(DB::table('sales_lines')->where('campaign_id', $campaign->id)->pluck('sales_order_id'))->unique();
+        $orders = DB::table('sales_item_campaigns')->where('campaign_id', $campaign->id)->pluck('sales_order_id')
+            ->merge(DB::table('sales_order_items')->where('campaign_id', $campaign->id)->pluck('sales_order_id'))->unique();
 
         return DB::table('sales_orders')->whereIn('id', $orders->all() ?: [0])->where('customer_id', $customer->id)
             ->when($exceptOrderId, fn ($q) => $q->where('id', '<>', $exceptOrderId))->count();

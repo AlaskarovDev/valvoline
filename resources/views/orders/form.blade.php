@@ -186,7 +186,7 @@
             <div class="card-head flex-wrap">
                 <div>
                     <h2 class="card-title">{{ __('Məhsullar') }}</h2>
-                    <div class="card-sub">{{ __('Qiymət malın satış qiymətindən gəlir, dəyişmək olar. Qalıq seçilmiş anbar üzrədir.') }}</div>
+                    <div class="card-sub">{{ __('Qiymət malın satış qiymətindən gəlir, dəyişmək olar. Rezerv stok = seçilmiş anbarın real stoku − açıq sifarişlərdə rezerv.') }}</div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" class="btn btn-sm" @click="addLine()"><x-icon name="plus" size="14"/> {{ __('Məhsul əlavə et') }}</button>
@@ -201,7 +201,7 @@
                         <tr class="border-b border-line text-left text-xs uppercase text-muted">
                             <th class="w-8 px-3 py-2">#</th>
                             <th class="min-w-[260px] px-3 py-2">{{ __('Mal') }}</th>
-                            <th class="w-24 px-3 py-2 text-right">{{ __('Qalıq') }}</th>
+                            <th class="w-24 px-3 py-2 text-right" title="{{ __('Real stok − açıq sifarişlərdə rezerv') }}">{{ __('Rezerv stok') }}</th>
                             <th class="w-40 px-3 py-2">{{ __('Tip') }}</th>
                             <th class="w-24 px-3 py-2 text-right">{{ __('Miqdar') }}</th>
                             <th class="w-28 px-3 py-2 text-right">{{ __('Qiymət') }}</th>
@@ -224,7 +224,7 @@
                                             <li><button type="button" class="grid w-full grid-cols-[90px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left hover:bg-[var(--surface-2)]" @click="pickProduct(l, p)">
                                                 <span class="font-mono text-xs text-muted" x-text="p.code"></span>
                                                 <span class="truncate" x-text="p.name"></span>
-                                                <span class="text-xs" :class="stockOf(p.id) > 0 ? 'text-muted' : 'neg'" x-text="'{{ __('qalıq') }} ' + stockOf(p.id)"></span>
+                                                <span class="text-xs" :class="stockOf(p.id) > 0 ? 'text-muted' : 'neg'" x-text="'{{ __('rezerv') }} ' + stockOf(p.id)"></span>
                                             </button></li>
                                         </template>
                                         <li x-show="!productMatches(l).length" class="px-3 py-2 text-xs text-muted">{{ __('Mal tapılmadı') }}</li>
@@ -315,7 +315,9 @@
                 <button type="button" class="btn btn-sm" @click="addLine()"><x-icon name="plus" size="14"/> {{ __('Məhsul əlavə et') }}</button>
                 <div class="flex items-center gap-2">
                     <a href="{{ $order ? route('orders.show', $order) : route('orders.index') }}" class="btn">{{ __('Ləğv et') }}</a>
-                    <button class="btn btn-primary" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading">{{ $order ? __('Yadda saxla') : __('Sifarişi yarat') }}</button>
+                    <button class="btn" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading">{{ $order ? __('Yadda saxla') : __('Sifarişi yarat') }}</button>
+                    <button name="then" value="send" class="btn" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading" title="{{ __('Sifarişi saxla və təhvil-təslim sənədi yarat') }}"><x-icon name="send" size="14"/> {{ __('Sifarişi göndər') }}</button>
+                    <button name="then" value="invoice" class="btn btn-primary" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading" title="{{ __('Sifarişi saxla, təhvil-təslim və satış fakturası yarat') }}"><x-icon name="invoice" size="14"/> {{ __('Fakturala') }}</button>
                 </div>
             </div>
         </section>

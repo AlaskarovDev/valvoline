@@ -164,11 +164,11 @@ class CampaignTest extends TestCase
         $order = SalesOrder::query()->where('order_no', '5001')->firstOrFail();
         $this->assertTrue($order->campaigns_applied);
         $this->assertEqualsWithDelta(540.0, (float) $order->total_amount, 0.001);
-        $line = DB::table('sales_lines')->where('sales_order_id', $order->id)->where('op_type', 'sale')->first();
+        $line = DB::table('sales_order_items')->where('sales_order_id', $order->id)->where('op_type', 'sale')->first();
         $this->assertEqualsWithDelta(60.0, (float) $line->campaign_discount, 0.001);
-        $this->assertEqualsWithDelta(45.0, (float) $line->discount_price, 0.001);
-        $this->assertSame(1, DB::table('sales_line_campaigns')->where('sales_line_id', $line->id)->where('campaign_id', $discount->id)->count());
-        $gift = DB::table('sales_lines')->where('sales_order_id', $order->id)->where('op_type', 'gift')->first();
+        $this->assertEqualsWithDelta(540.0, (float) $line->net_amount, 0.001);
+        $this->assertSame(1, DB::table('sales_item_campaigns')->where('sales_order_item_id', $line->id)->where('campaign_id', $discount->id)->count());
+        $gift = DB::table('sales_order_items')->where('sales_order_id', $order->id)->where('op_type', 'gift')->first();
         $this->assertSame(['GIFT-1', 2.0, 0.0], [$gift->product_code, (float) $gift->qty, (float) $gift->net_amount]);
 
         $this->get(route('orders.show', $order))->assertOk()->assertSee('YAY10')->assertSee('Yay endirimi')->assertSee('HDY')->assertSee('Kampaniya hədiyyəsi');
@@ -178,12 +178,21 @@ class CampaignTest extends TestCase
 
         // kampaniya çıxarılıb yadda saxlanılır
         $this->put(route('orders.update', $order), $this->orderPayload(['excluded_campaigns' => [$discount->id]]))->assertRedirect();
-        $this->assertSame(0, DB::table('sales_line_campaigns')->where('sales_order_id', $order->id)->count());
+        $this->assertSame(0, DB::table('sales_item_campaigns')->where('sales_order_id', $order->id)->count());
         $this->assertEqualsWithDelta(600.0, (float) $order->refresh()->total_amount, 0.001);
-        $this->assertSame(1, DB::table('sales_lines')->where('sales_order_id', $order->id)->where('op_type', 'gift')->count());
+        $this->assertSame(1, DB::table('sales_order_items')->where('sales_order_id', $order->id)->where('op_type', 'gift')->count());
         // kampaniya ləğv edilir
         $this->put(route('orders.update', $order), $this->orderPayload(['apply_campaigns' => 0]))->assertRedirect();
-        $this->assertSame(0, DB::table('sales_lines')->where('sales_order_id', $order->id)->whereNotNull('campaign_id')->count());
+        $this->assertSame(0, DB::table('sales_order_items')->where('sales_order_id', $order->id)->whereNotNull('campaign_id')->count());
+
+        // fakturada endirim və hədiyyə satış sətirlərinə keçir, sənəddə kampaniya sətrin altında görünür
+        $this->put(route('orders.update', $order), $this->orderPayload(['then' => 'invoice']))->assertRedirect();
+        $invoice = DB::table('sales_invoices')->first();
+        $this->assertEqualsWithDelta(540.0, (float) $invoice->total_amount, 0.001);
+        $this->assertEqualsWithDelta(60.0, (float) $invoice->discount_amount, 0.001);
+        $this->assertSame(1, DB::table('sales_lines')->where('sales_invoice_id', $invoice->id)->where('op_type', 'gift')->whereNotNull('campaign_id')->count());
+        $this->get(route('invoices.show', $invoice->id))->assertOk()->assertSee('YAY10');
+        $this->get(route('invoices.show', [$invoice->id, 'print' => 1]))->assertOk()->assertSee('Kampaniya YAY10');
     }
 
     public function test_campaign_crud_and_approval_flow(): void

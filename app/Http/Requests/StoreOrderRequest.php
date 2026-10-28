@@ -41,6 +41,7 @@ class StoreOrderRequest extends FormRequest
             'apply_campaigns' => ['nullable', 'boolean'],
             'excluded_campaigns' => ['nullable', 'array'],
             'excluded_campaigns.*' => ['integer'],
+            'then' => ['nullable', Rule::in(['send', 'invoice'])],
         ];
     }
 

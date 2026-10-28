@@ -54,10 +54,11 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('sales_line_campaigns', function (Blueprint $table) {
+        // sifariş sətrinə tətbiq olunmuş kampaniya endirimi (sətrin altında göstərilir, fakturaya keçir)
+        Schema::create('sales_item_campaigns', function (Blueprint $table) {
             $table->id();
             $table->foreignId('sales_order_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('sales_line_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('sales_order_item_id')->constrained()->cascadeOnDelete();
             $table->foreignId('campaign_id')->nullable()->constrained()->nullOnDelete();
             $table->string('campaign_code', 30);
             $table->string('campaign_name', 200);
@@ -76,10 +77,16 @@ return new class extends Migration
             // hədiyyə sətri kampaniyadan yaranıbsa
             $table->foreignId('campaign_id')->nullable()->after('op_type')->constrained()->nullOnDelete();
         });
+        Schema::table('sales_order_items', function (Blueprint $table) {
+            $table->foreign('campaign_id')->references('id')->on('campaigns')->nullOnDelete();
+        });
     }
 
     public function down(): void
     {
+        Schema::table('sales_order_items', function (Blueprint $table) {
+            $table->dropForeign(['campaign_id']);
+        });
         Schema::table('sales_lines', function (Blueprint $table) {
             $table->dropConstrainedForeignId('campaign_id');
             $table->dropColumn('campaign_discount');
@@ -87,7 +94,7 @@ return new class extends Migration
         Schema::table('sales_orders', function (Blueprint $table) {
             $table->dropColumn(['campaigns_applied', 'campaigns_excluded']);
         });
-        Schema::dropIfExists('sales_line_campaigns');
+        Schema::dropIfExists('sales_item_campaigns');
         Schema::dropIfExists('campaigns');
     }
 };
