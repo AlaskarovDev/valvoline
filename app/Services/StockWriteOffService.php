@@ -21,13 +21,16 @@ class StockWriteOffService
      */
     public function create(int $warehouseId, Carbon $date, string $reason, array $lines, ?int $userId, ?string $note = null, ?int $transferId = null, ?int $workplaceId = null): StockWriteOff
     {
-        return DB::transaction(function () use ($warehouseId, $date, $reason, $lines, $userId, $note, $transferId) {
+        $workplace = $workplaceId ?? ($transferId ? DB::table('warehouse_transfers')->where('id', $transferId)->value('workplace_id') : null)
+            ?? Workplace::defaultIdFor($userId ? User::query()->find($userId) : null);
+
+        return DB::transaction(function () use ($warehouseId, $date, $reason, $lines, $userId, $note, $transferId, $workplace) {
             $products = DB::table('products')->whereIn('id', array_column($lines, 'product_id'))->get(['id', 'code', 'name', 'current_avg_cost'])->keyBy('id');
             $doc = StockWriteOff::query()->create([
-                'doc_no' => $this->nextNo(), 'date' => $date->toDateString(), 'warehouse_id' => $warehouseId, 'reason' => $reason,
+                'doc_no' => app(NumberingService::class)->next('stock_write_off', ['date' => $date, 'warehouse_id' => $warehouseId, 'workplace_id' => $workplace]),
+                'date' => $date->toDateString(), 'warehouse_id' => $warehouseId, 'reason' => $reason,
                 'note' => $note, 'warehouse_transfer_id' => $transferId, 'created_by' => $userId,
-                'workplace_id' => $workplaceId ?? ($transferId ? DB::table('warehouse_transfers')->where('id', $transferId)->value('workplace_id') : null)
-                    ?? Workplace::defaultIdFor($userId ? User::query()->find($userId) : null),
+                'workplace_id' => $workplace,
                 'total_qty' => round(array_sum(array_map(fn ($l) => (float) $l['qty'], $lines)), 4),
             ]);
             $row = (int) DB::table('stock_adjustments')->max('row_no');
@@ -74,14 +77,6 @@ class StockWriteOffService
             }
             $doc->delete();
         });
-    }
-
-    public function nextNo(): string
-    {
-        $last = DB::table('stock_write_offs')->where('doc_no', 'like', self::PREFIX.'%')->pluck('doc_no')
-            ->map(fn ($no) => (int) substr($no, strlen(self::PREFIX)))->max() ?? 0;
-
-        return self::PREFIX.str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
     }
 
     /**

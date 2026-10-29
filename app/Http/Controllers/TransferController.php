@@ -9,6 +9,7 @@ use App\Models\WarehouseTransfer;
 use App\Models\Workplace;
 use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
+use App\Services\NumberingService;
 use App\Services\SalesDocumentService;
 use App\Services\WarehouseTransferService;
 use Illuminate\Http\JsonResponse;
@@ -87,7 +88,7 @@ class TransferController extends ReportController
     {
         $data = $this->validated($request);
         $transfer = DB::transaction(function () use ($data, $request) {
-            $transfer = WarehouseTransfer::query()->create($this->header($data) + ['doc_no' => $this->service->nextNo(), 'status' => 'draft', 'created_by' => $request->user()->id]);
+            $transfer = WarehouseTransfer::query()->create($this->header($data) + ['doc_no' => app(NumberingService::class)->next('warehouse_transfer', ['date' => $data['date'], 'workplace_id' => $data['workplace_id'], 'warehouse_id' => $data['from_warehouse_id']]), 'status' => 'draft', 'created_by' => $request->user()->id]);
             $this->saveLines($transfer, $data['lines']);
 
             return $transfer;

@@ -50,10 +50,11 @@ class StockDocumentService
                 'qty' => round($qty, 4), 'unit_cost' => $cost, 'note' => $l['note'] ?? null];
         }
 
-        return DB::transaction(function () use ($type, $prefix, $sign, $date, $header, $rows, $userId) {
+        return DB::transaction(function () use ($type, $sign, $date, $header, $rows, $userId) {
             $now = now();
             $id = DB::table('stock_documents')->insertGetId([
-                'doc_no' => $this->nextNo($prefix), 'type' => $type, 'date' => $date->toDateString(),
+                'doc_no' => app(NumberingService::class)->next('stock_doc_'.$type, ['date' => $date, 'workplace_id' => $header['workplace_id'] ?? null, 'warehouse_id' => $header['warehouse_id']]),
+                'type' => $type, 'date' => $date->toDateString(),
                 'warehouse_id' => $header['warehouse_id'], 'workplace_id' => $header['workplace_id'] ?? null,
                 'purpose' => $type === 'consumption' ? ($header['purpose'] ?? null) : null, 'note' => $header['note'] ?? null,
                 'total_qty' => round(array_sum(array_column($rows, 'qty')), 4),
@@ -81,14 +82,6 @@ class StockDocumentService
 
             return $doc;
         });
-    }
-
-    public function nextNo(string $prefix): string
-    {
-        $last = DB::table('stock_documents')->where('doc_no', 'like', $prefix.'%')->pluck('doc_no')
-            ->map(fn ($no) => (int) substr($no, strlen($prefix)))->max() ?? 0;
-
-        return $prefix.str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
     }
 
     private function fmt(float $v): string

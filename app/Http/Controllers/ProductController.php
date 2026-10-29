@@ -7,6 +7,7 @@ use App\Http\Requests\StoreProductRequest;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Reports\Table;
+use App\Services\NumberingService;
 use App\Services\PriceService;
 use App\Services\ProductCatalogService;
 use App\Services\SalesDocumentService;
@@ -201,7 +202,7 @@ class ProductController extends ReportController
             'title' => $editing ? __('Məhsul kartı: düzəliş').' — '.$p->code : __('Yeni məhsul'),
             'product' => $editing ? $p : null,
             'values' => [
-                'code' => old('code', $editing ? $p->code : ''),
+                'code' => $editing ? $p->code : null,
                 'name' => old('name', $p->name ?? ''),
                 'short_name' => old('short_name', $p->short_name ?? ''),
                 'barcode' => old('barcode', $editing ? ($p->barcode ?? '') : ''),
@@ -239,6 +240,7 @@ class ProductController extends ReportController
             'allProducts' => DB::table('products')->when($p, fn ($q) => $q->where('id', '<>', $p->id))->orderBy('name')->get(['id', 'code', 'name'])
                 ->map(fn ($x) => ['id' => $x->id, 'code' => $x->code, 'name' => $x->name])->values(),
             'priceLists' => DB::table('price_lists')->where('is_active', true)->get(['id', 'name', 'type', 'is_default']),
+            'numbering' => ['mode' => app(NumberingService::class)->mode('product'), 'preview' => app(NumberingService::class)->preview('product')],
         ]);
     }
 
@@ -246,6 +248,9 @@ class ProductController extends ReportController
     {
         $d = $request->validated();
         $isNew = ! $product->exists;
+        if (! $product->exists) {
+            $d['code'] = app(NumberingService::class)->resolve('product', $d['code'] ?? null, ['workplace_id' => $request->user()->workplace_id], $d['code_offered'] ?? null);
+        }
         $fields = ['code', 'name', 'short_name', 'barcode', 'brand_id', 'manufacturer_id', 'product_class_id', 'category_id', 'product_group_id', 'base_unit_id',
             'series', 'viscosity', 'specifications', 'application', 'volume_l', 'weight_kg', 'vat_mode', 'vat_rate', 'excise_rate', 'hs_code', 'country_of_origin',
             'shelf_life_months', 'min_stock_qty', 'max_stock_qty', 'min_price', 'max_discount_pct', 'description'];

@@ -9,6 +9,7 @@ use App\Models\Workplace;
 use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
 use App\Services\FinanceService;
+use App\Services\NumberingService;
 use App\Support\Fmt;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,7 +52,7 @@ class FinanceController extends ReportController
             'workplace_id' => ['required', 'integer', 'exists:workplaces,id'],
             'currency' => ['required', Rule::in(['AZN', 'USD', 'EUR', 'RUB'])],
         ]);
-        $data['code'] ??= $this->nextRegisterCode();
+        $data['code'] ??= app(NumberingService::class)->next('cash_register', ['workplace_id' => $data['workplace_id'], 'manager_id' => $data['manager_id'] ?? null]);
         DB::table('cash_registers')->insert($data + ['type' => 'rep', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
 
         return back()->with('status', __('«:code» kassası yaradıldı.', ['code' => $data['code']]));
@@ -248,12 +249,5 @@ class FinanceController extends ReportController
             'kind' => 'bank', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
 
         return back()->with('status', __('«:name» hesabı açıldı.', ['name' => $name]));
-    }
-
-    private function nextRegisterCode(): string
-    {
-        $last = DB::table('cash_registers')->where('code', 'like', 'KS-%')->pluck('code')->map(fn ($c) => (int) substr($c, 3))->max() ?? 0;
-
-        return 'KS-'.str_pad((string) ($last + 1), 3, '0', STR_PAD_LEFT);
     }
 }

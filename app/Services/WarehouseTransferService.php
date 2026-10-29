@@ -177,14 +177,6 @@ class WarehouseTransferService
         return $out;
     }
 
-    public function nextNo(): string
-    {
-        $last = DB::table('warehouse_transfers')->where('doc_no', 'like', self::PREFIX.'%')->pluck('doc_no')
-            ->map(fn ($no) => (int) substr($no, strlen(self::PREFIX)))->max() ?? 0;
-
-        return self::PREFIX.str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
-    }
-
     /**
      * @param  Collection<int, array{0: object, 1: float}>  $moves
      */

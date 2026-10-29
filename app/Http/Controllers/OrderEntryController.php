@@ -13,6 +13,7 @@ use App\Models\Warehouse;
 use App\Models\Workplace;
 use App\Services\AnalyticsRebuilder;
 use App\Services\CampaignEngine;
+use App\Services\NumberingService;
 use App\Services\PriceService;
 use App\Services\SalesDocumentService;
 use Illuminate\Http\RedirectResponse;
@@ -98,17 +99,6 @@ class OrderEntryController extends Controller
         $this->rebuild();
 
         return redirect()->route('orders.show', $order)->with('popup', $this->popup($this->docLines($result['delivery'], $result['invoice'])));
-    }
-
-    /**
-     * Növbəti sifariş nömrəsi: mövcud rəqəmsal nömrələrin ən böyüyü + 1.
-     */
-    public static function nextOrderNo(): string
-    {
-        $max = DB::table('sales_orders')->pluck('order_no')
-            ->map(fn ($no) => ctype_digit((string) $no) ? (int) $no : 0)->max() ?? 0;
-
-        return (string) ($max + 1);
     }
 
     /**
@@ -205,7 +195,7 @@ class OrderEntryController extends Controller
             'order' => $order,
             'values' => [
                 'date' => old('date', $order?->date?->toDateString() ?? now()->toDateString()),
-                'order_no' => old('order_no', $order->order_no ?? self::nextOrderNo()),
+                'order_no' => $order?->order_no,
                 'invoice_no' => old('invoice_no', $order->invoice_no ?? ''),
                 'customer_id' => (int) old('customer_id', $order->customer_id ?? 0) ?: null,
                 'manager_id' => (int) old('manager_id', $order->manager_id ?? ($restricted ?? 0)) ?: null,
@@ -221,6 +211,8 @@ class OrderEntryController extends Controller
             'warehouses' => $warehouses,
             'managers' => Manager::query()->when($restricted !== null, fn ($q) => $q->whereKey($restricted))->orderBy('name')->get(['id', 'name']),
             'managerLocked' => $restricted !== null,
+            'numbering' => ['mode' => app(NumberingService::class)->mode('sales_order'),
+                'preview' => app(NumberingService::class)->preview('sales_order', ['date' => now(), 'workplace_id' => Workplace::defaultIdFor($request->user()), 'manager_id' => $restricted])],
             'workplaces' => Workplace::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
         ]);
     }
@@ -237,7 +229,9 @@ class OrderEntryController extends Controller
         $excluded = array_values(array_map('intval', $data['excluded_campaigns'] ?? []));
 
         $order->fill([
-            'order_no' => $data['order_no'],
+            'order_no' => $order->exists ? $data['order_no'] : app(NumberingService::class)->resolve('sales_order', $data['order_no'] ?? null,
+                ['date' => $date, 'workplace_id' => $data['workplace_id'] ?? Workplace::defaultIdFor($request->user()), 'warehouse_id' => $data['warehouse_id'], 'manager_id' => $managerId],
+                $data['order_no_offered'] ?? null),
             'invoice_no' => $data['invoice_no'] ?? null,
             'date' => $date->toDateString(),
             'period' => $date->format('Y-m'),

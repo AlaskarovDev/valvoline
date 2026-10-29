@@ -10,6 +10,7 @@ use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\NumberingController;
 use App\Http\Controllers\OrderEntryController;
 use App\Http\Controllers\PriceCardController;
 use App\Http\Controllers\ProductController;
@@ -162,6 +163,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/satis-numayendeleri', [SalesRepController::class, 'index'])->name('reps.index');
         Route::post('/satis-numayendeleri', [SalesRepController::class, 'store'])->name('reps.store');
         Route::put('/satis-numayendeleri/{manager}', [SalesRepController::class, 'update'])->name('reps.update');
+        Route::get('/nomrelame-servisi', [NumberingController::class, 'index'])->name('numbering.index');
+        Route::put('/nomrelame-servisi/{key}', [NumberingController::class, 'update'])->name('numbering.update');
+        Route::get('/nomrelame-servisi/{key}/onizleme', [NumberingController::class, 'preview'])->name('numbering.preview');
         Route::get('/is-yerleri', [WorkplaceController::class, 'index'])->name('workplaces.index');
         Route::post('/is-yerleri', [WorkplaceController::class, 'store'])->name('workplaces.store');
         Route::put('/is-yerleri/istifadeciler', [WorkplaceController::class, 'assign'])->name('workplaces.assign');

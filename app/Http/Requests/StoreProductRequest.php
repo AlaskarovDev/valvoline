@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Product;
+use App\Services\NumberingService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,8 @@ class StoreProductRequest extends FormRequest
         $product = $this->route('product');
 
         return [
-            'code' => ['required', 'string', 'max:64', Rule::unique('products', 'code')->ignore($product?->id)],
+            'code' => [Rule::requiredIf($product !== null || app(NumberingService::class)->mode('product') === 'manual'), 'nullable', 'string', 'max:64', Rule::unique('products', 'code')->ignore($product?->id)],
+            'code_offered' => ['nullable', 'string', 'max:64'],
             'name' => ['required', 'string', 'max:255'],
             'barcode' => ['nullable', 'string', 'max:64', 'regex:/^[0-9A-Za-z\-]+$/'],
             'brand_id' => ['nullable', 'integer', 'exists:brands,id'],

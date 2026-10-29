@@ -40,7 +40,7 @@
         <section class="card">
             <div class="card-head"><h2 class="card-title">{{ __('Əsas məlumat') }}</h2></div>
             <div class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div><label class="label" for="p-code">{{ __('Kod') }}</label><input id="p-code" name="code" required maxlength="64" class="input font-mono" value="{{ $v['code'] }}"></div>
+                @include('numbering._field', ['id' => 'p-code', 'name' => 'code', 'label' => __('Kod'), 'key' => 'product', 'current' => $v['code'], 'max' => 64])
                 <div class="sm:col-span-2"><label class="label" for="p-name">{{ __('Ad') }}</label><input id="p-name" name="name" required maxlength="255" class="input" value="{{ $v['name'] }}"></div>
                 <div><label class="label" for="p-short">{{ __('Qısa ad (qaimə üçün)') }}</label><input id="p-short" name="short_name" maxlength="100" class="input" value="{{ $v['short_name'] }}"></div>
                 <div><label class="label" for="p-barcode">{{ __('Barkod (GTIN)') }}</label><input id="p-barcode" name="barcode" maxlength="64" class="input font-mono" value="{{ $v['barcode'] }}" placeholder="4770000000000"></div>

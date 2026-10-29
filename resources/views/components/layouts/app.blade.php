@@ -88,9 +88,12 @@
             ['quality.index', __('Məlumat keyfiyyəti'), 'quality', $isAdmin],
             ['import.index', __('Import'), 'import', $isAdmin],
             ['aliases.index', __('Ad uyğunlaşdırma'), 'link', $isAdmin],
-            ['categories.index', __('Xərc kateqoriyaları'), 'tag', $isAdmin],
-            ['users.index', __('İstifadəçilər'), 'users', $isAdmin],
+        ],
+        __('Tənzimləmələr') => [
+            ['numbering.index', __('Nömrələmə servisi'), 'filter', $isAdmin],
             ['workplaces.index', __('İş yerləri'), 'dashboard', $isAdmin],
+            ['users.index', __('İstifadəçilər'), 'users', $isAdmin],
+            ['categories.index', __('Xərc kateqoriyaları'), 'tag', $isAdmin],
         ],
     ];
 @endphp

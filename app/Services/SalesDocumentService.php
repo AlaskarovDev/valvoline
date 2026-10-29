@@ -54,7 +54,7 @@ class SalesDocumentService
             $date ??= Carbon::parse($order->date)->max(now()->startOfDay());
             $items = DB::table('sales_order_items')->where('sales_order_id', $order->id)->orderBy('row_no')->get();
             $note = DeliveryNote::query()->create([
-                'doc_no' => $this->nextNo('delivery_notes', self::DELIVERY_PREFIX),
+                'doc_no' => app(NumberingService::class)->next('delivery_note', ['date' => $date, 'workplace_id' => $order->workplace_id, 'warehouse_id' => $order->warehouse_id, 'manager_id' => $order->manager_id]),
                 'date' => $date->toDateString(), 'period' => $date->format('Y-m'),
                 'sales_order_id' => $order->id, 'customer_id' => $order->customer_id, 'customer_code' => $order->customer_code,
                 'customer_name' => $order->customer_name, 'manager_id' => $order->manager_id, 'warehouse_id' => $order->warehouse_id,
@@ -96,7 +96,7 @@ class SalesDocumentService
             $sale = $items->where('op_type', 'sale');
 
             $invoice = SalesInvoice::query()->create([
-                'doc_no' => $this->nextNo('sales_invoices', self::INVOICE_PREFIX),
+                'doc_no' => app(NumberingService::class)->next('sales_invoice', ['date' => $date, 'workplace_id' => $order->workplace_id, 'warehouse_id' => $order->warehouse_id, 'manager_id' => $order->manager_id]),
                 'date' => $date->toDateString(), 'period' => $date->format('Y-m'),
                 'sales_order_id' => $order->id, 'delivery_note_id' => $note->id,
                 'customer_id' => $order->customer_id, 'customer_code' => $order->customer_code, 'customer_name' => $order->customer_name,
@@ -160,16 +160,5 @@ class SalesDocumentService
             }
             $note->delete();
         });
-    }
-
-    /**
-     * Ardıcıl sənəd nömrəsi: TT-000001, SF-000001.
-     */
-    public function nextNo(string $table, string $prefix): string
-    {
-        $last = DB::table($table)->where('doc_no', 'like', $prefix.'%')->pluck('doc_no')
-            ->map(fn ($no) => (int) substr($no, strlen($prefix)))->max() ?? 0;
-
-        return $prefix.str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
     }
 }

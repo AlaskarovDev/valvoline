@@ -6,6 +6,7 @@ use App\Models\Manager;
 use App\Models\Warehouse;
 use App\Models\Workplace;
 use App\Services\FinanceService;
+use App\Services\NumberingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,7 +53,7 @@ class SalesRepController extends Controller
     {
         $data = $this->validated($request, null);
         DB::transaction(function () use ($data, $request) {
-            $data['code'] ??= $this->nextCode();
+            $data['code'] ??= app(NumberingService::class)->next('sales_rep', ['workplace_id' => $data['workplace_id']]);
             $manager = Manager::query()->create(collect($data)->except('create_register')->all());
             if ($request->boolean('create_register', true)) {
                 $this->ensureRegister($manager);
@@ -78,9 +79,8 @@ class SalesRepController extends Controller
         if (DB::table('cash_registers')->where('manager_id', $manager->id)->exists()) {
             return;
         }
-        $last = DB::table('cash_registers')->where('code', 'like', 'KS-%')->pluck('code')->map(fn ($c) => (int) substr($c, 3))->max() ?? 0;
         DB::table('cash_registers')->insert([
-            'code' => 'KS-'.str_pad((string) ($last + 1), 3, '0', STR_PAD_LEFT), 'name' => 'Kassa — '.$manager->name, 'type' => 'rep',
+            'code' => app(NumberingService::class)->next('cash_register', ['workplace_id' => $manager->workplace_id, 'manager_id' => $manager->id]), 'name' => 'Kassa — '.$manager->name, 'type' => 'rep',
             'manager_id' => $manager->id, 'workplace_id' => $manager->workplace_id, 'currency' => 'AZN', 'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
         ]);
     }
@@ -105,12 +105,5 @@ class SalesRepController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
 
         return $data;
-    }
-
-    private function nextCode(): string
-    {
-        $last = DB::table('managers')->where('code', 'like', 'SN-%')->pluck('code')->map(fn ($c) => (int) substr($c, 3))->max() ?? 0;
-
-        return 'SN-'.str_pad((string) ($last + 1), 3, '0', STR_PAD_LEFT);
     }
 }

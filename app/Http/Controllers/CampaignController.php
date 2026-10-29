@@ -7,6 +7,7 @@ use App\Models\Campaign;
 use App\Models\Customer;
 use App\Models\Manager;
 use App\Services\CampaignEngine;
+use App\Services\NumberingService;
 use App\Support\Fmt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -257,7 +258,7 @@ class CampaignController extends Controller
         };
 
         $campaign->fill([
-            'code' => $d['code'] ?? null ?: ($campaign->code ?? $this->nextCode(Carbon::parse($d['begin_date']))),
+            'code' => $d['code'] ?? null ?: ($campaign->code ?? app(NumberingService::class)->next('campaign', ['date' => $d['begin_date'], 'workplace_id' => $request->user()->workplace_id])),
             'name' => $d['name'],
             'description' => $d['description'] ?? null,
             'kind' => $kind,
@@ -291,18 +292,6 @@ class CampaignController extends Controller
             'estimated_budget' => $d['estimated_budget'] ?? null,
             'is_active' => $request->boolean('is_active'),
         ]);
-    }
-
-    /**
-     * Avtomatik kod: KMP.YYYYMM.NNNN.
-     */
-    private function nextCode(Carbon $date): string
-    {
-        $prefix = 'KMP.'.$date->format('Ym').'.';
-        $last = Campaign::query()->where('code', 'like', $prefix.'%')->pluck('code')
-            ->map(fn ($code) => (int) substr($code, strlen($prefix)))->max() ?? 0;
-
-        return $prefix.str_pad((string) ($last + 1), 4, '0', STR_PAD_LEFT);
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Http\Controllers\OrderEntryController;
 use App\Models\Customer;
 use App\Models\SalesOrder;
 use App\Services\BatchService;
+use App\Services\NumberingService;
 use App\Support\Fmt;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -30,7 +31,8 @@ class StoreOrderRequest extends FormRequest
 
         return [
             'date' => ['required', 'date'],
-            'order_no' => ['required', 'string', 'max:64', Rule::unique('sales_orders', 'order_no')->ignore($order?->id)],
+            'order_no' => [Rule::requiredIf($order !== null || app(NumberingService::class)->mode('sales_order') === 'manual'), 'nullable', 'string', 'max:64', Rule::unique('sales_orders', 'order_no')->ignore($order?->id)],
+            'order_no_offered' => ['nullable', 'string', 'max:64'],
             'invoice_no' => ['nullable', 'string', 'max:64'],
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'manager_id' => ['nullable', 'integer', 'exists:managers,id'],

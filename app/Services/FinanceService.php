@@ -105,7 +105,8 @@ class FinanceService
     {
         return DB::transaction(function () use ($type, $data, $userId) {
             $doc = FinanceDocument::query()->create(array_merge([
-                'doc_no' => $this->nextNo($type), 'type' => $type, 'created_by' => $userId, 'currency' => $data['currency'] ?? 'AZN',
+                'doc_no' => app(NumberingService::class)->next('fin_'.$type, ['date' => $data['date'] ?? null, 'workplace_id' => $data['workplace_id'] ?? null, 'manager_id' => $data['manager_id'] ?? null]),
+                'type' => $type, 'created_by' => $userId, 'currency' => $data['currency'] ?? 'AZN',
             ], array_intersect_key($data, array_flip([
                 'date', 'workplace_id', 'cash_register_id', 'to_cash_register_id', 'bank_account_id', 'to_bank_account_id',
                 'amount', 'to_amount', 'rate', 'customer_id', 'manager_id', 'note',
@@ -157,14 +158,5 @@ class FinanceService
         if ($amount > $balance + 0.004) {
             throw new RuntimeException(__('Kassada kifayət qədər pul yoxdur: qalıq :b.', ['b' => number_format($balance, 2, ',', ' ')]));
         }
-    }
-
-    public function nextNo(string $type): string
-    {
-        $prefix = FinanceDocument::PREFIXES[$type];
-        $last = DB::table('finance_documents')->where('doc_no', 'like', $prefix.'%')->pluck('doc_no')
-            ->map(fn ($no) => (int) substr($no, strlen($prefix)))->max() ?? 0;
-
-        return $prefix.str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
     }
 }

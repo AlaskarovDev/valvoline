@@ -173,7 +173,7 @@
             <div class="card-head"><h2 class="card-title">{{ __('Sifariş detalları') }}</h2></div>
             <div class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div><label class="label" for="o-date">{{ __('Tarix') }}</label><input id="o-date" type="date" name="date" required class="input" x-model="date"></div>
-                <div><label class="label" for="o-no">{{ __('Sifariş №') }}</label><input id="o-no" name="order_no" required maxlength="64" class="input" value="{{ $values['order_no'] }}"></div>
+                @include('numbering._field', ['id' => 'o-no', 'name' => 'order_no', 'label' => __('Sifariş №'), 'key' => 'sales_order', 'current' => $values['order_no'], 'max' => 64])
                 <div><label class="label" for="o-invoice">{{ __('Qaimə №') }}</label><input id="o-invoice" name="invoice_no" maxlength="64" class="input" value="{{ $values['invoice_no'] }}"></div>
                 <div>
                     <label class="label" for="o-warehouse">{{ __('Anbar') }}</label>
