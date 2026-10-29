@@ -12,7 +12,7 @@
 <div class="sheet">
     <header><div><div class="company">{{ $company['name'] }}</div>@if ($company['voen'])<div class="muted">{{ __('VÖEN') }}: {{ $company['voen'] }}</div>@endif</div></header>
     <h1>{{ __('Anbarlar arası yük qaiməsi') }} № {{ $t->doc_no }}</h1>
-    <div class="doc-meta muted">{{ __('Tarix') }}: {{ Fmt::date($t->sent_date ?? $t->date) }} · {{ $reasons[$t->reason] ?? $t->reason }}</div>
+    <div class="doc-meta muted">{{ __('Tarix') }}: {{ Fmt::date($t->sent_date ?? $t->date) }} · {{ $reasons[$t->reason] ?? $t->reason }}@if ($t->workplace) · {{ __('İş yeri') }}: {{ $t->workplace->name }}@endif</div>
     <div class="parties">
         <div class="party"><div class="label">{{ __('Göndərən anbar') }}</div><div class="name">{{ $t->from->name }}</div>@if ($t->from->address)<div class="muted">{{ $t->from->address }}</div>@endif</div>
         <div class="party"><div class="label">{{ __('Qəbul edən anbar') }}</div><div class="name">{{ $t->to->name }}</div>@if ($t->to->address)<div class="muted">{{ $t->to->address }}</div>@endif</div>

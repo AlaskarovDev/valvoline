@@ -34,6 +34,7 @@
             ['invoices.index', __('Satış fakturaları'), 'invoice', true],
             ['returns.index', __('Qaytarmalar'), 'returns', true],
             ['campaigns.index', __('Kampaniyalar'), 'tag', true],
+            ['reps.index', __('Satış nümayəndələri'), 'users', $isAdmin],
         ],
         __('Məhsul idarəetməsi') => [
             ['products.index', __('Məhsullar'), 'stock', true],
@@ -59,7 +60,10 @@
             ['expenses.index', __('Xərclər'), 'expenses', $isAdmin],
             ['pnl.index', __('Mənfəət-zərər (P&L)'), 'pnl', $isAdmin],
             ['flowsheet.index', __('Cash Flow (idarəetmə)'), 'cash', $isAdmin],
-            ['cash.index', __('Kassa'), 'cash', $isAdmin],
+            ['finance.registers', __('Kassalar'), 'cash', true],
+            ['finance.documents', __('Maliyyə sənədləri'), 'invoice', true],
+            ['finance.banks', __('Banklar'), 'payments', $isAdmin],
+            ['cash.index', __('Kassa jurnalı (fayl)'), 'cash', $isAdmin],
         ],
         __('Mühasibat') => [
             ['accounting.chart', __('Hesablar planı'), 'tag', $isAdmin],
@@ -76,6 +80,7 @@
             ['aliases.index', __('Ad uyğunlaşdırma'), 'link', $isAdmin],
             ['categories.index', __('Xərc kateqoriyaları'), 'tag', $isAdmin],
             ['users.index', __('İstifadəçilər'), 'users', $isAdmin],
+            ['workplaces.index', __('İş yerləri'), 'dashboard', $isAdmin],
         ],
     ];
 @endphp

@@ -4,6 +4,7 @@
         <a href="{{ route('write-offs.index') }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Geri') }}</a>
         <span class="badge">{{ Fmt::date($doc->date) }}</span>
         <span class="badge">{{ __('Anbar') }}: {{ $doc->warehouse->name }}</span>
+        @if ($doc->workplace)<span class="badge">{{ __('İş yeri') }}: {{ $doc->workplace->name }}</span>@endif
         <span class="badge badge-neg">{{ $reasons[$doc->reason] ?? $doc->reason }}</span>
         @if ($transfer)<a href="{{ route('transfers.show', $transfer->id) }}" class="badge badge-primary">{{ __('Anbar transferi') }} {{ $transfer->doc_no }}</a>@endif
         <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">

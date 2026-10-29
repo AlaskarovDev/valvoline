@@ -34,6 +34,7 @@ class StoreOrderRequest extends FormRequest
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'manager_id' => ['nullable', 'integer', 'exists:managers,id'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+            'workplace_id' => ['nullable', 'integer', 'exists:workplaces,id'],
             'note' => ['nullable', 'string', 'max:2000'],
             'lines' => ['required', 'array', 'min:1', 'max:200'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],

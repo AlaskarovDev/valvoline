@@ -70,7 +70,9 @@
                     <select id="t-reason" name="reason" class="select">@foreach ($reasons as $k => $l)<option value="{{ $k }}" @selected($config['values']['reason'] === $k)>{{ $l }}</option>@endforeach</select></div>
                 <div><label class="label" for="t-driver">{{ __('Sürücü / məsul') }}</label><input id="t-driver" name="driver" maxlength="255" class="input" x-model="driver"></div>
                 <div><label class="label" for="t-plate">{{ __('Maşın nömrəsi') }}</label><input id="t-plate" name="vehicle_plate" maxlength="20" class="input" x-model="plate" placeholder="10-AB-123"></div>
-                <div class="sm:col-span-2"><label class="label" for="t-note">{{ __('Qeyd') }}</label><input id="t-note" name="note" maxlength="2000" class="input" value="{{ $config['values']['note'] }}"></div>
+<div><label class="label" for="t-wp">{{ __('İş yeri') }}</label>
+                    <select id="t-wp" name="workplace_id" class="select" required>@foreach ($workplaces as $w)<option value="{{ $w->id }}" @selected((int) $workplaceId === $w->id)>{{ $w->code }} — {{ $w->name }}</option>@endforeach</select></div>
+                <div><label class="label" for="t-note">{{ __('Qeyd') }}</label><input id="t-note" name="note" maxlength="2000" class="input" value="{{ $config['values']['note'] }}"></div>
             </div>
         </section>
 

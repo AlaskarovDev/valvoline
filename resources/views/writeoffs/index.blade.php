@@ -7,10 +7,12 @@
             </div>
             <form x-show="open" x-cloak method="POST" action="{{ route('write-offs.store') }}" class="flex flex-col gap-3 p-4">
                 @csrf
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-5">
                     <div><label class="label" for="w-date">{{ __('Tarix') }}</label><input id="w-date" type="date" name="date" required class="input" value="{{ now()->toDateString() }}"></div>
                     <div><label class="label" for="w-wh">{{ __('Anbar') }}</label><select id="w-wh" name="warehouse_id" class="select">@foreach ($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></div>
                     <div><label class="label" for="w-reason">{{ __('Səbəb') }}</label><select id="w-reason" name="reason" class="select">@foreach ($reasons as $k => $l)@continue($k === 'transfer_shortage')<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></div>
+<div><label class="label" for="w-wp">{{ __('İş yeri') }}</label>
+                    <select id="w-wp" name="workplace_id" class="select" required>@foreach ($workplaces as $w)<option value="{{ $w->id }}" @selected((int) $workplaceId === $w->id)>{{ $w->code }} — {{ $w->name }}</option>@endforeach</select></div>
                     <div><label class="label" for="w-note">{{ __('Qeyd') }}</label><input id="w-note" name="note" maxlength="500" class="input"></div>
                 </div>
                 <template x-for="(l, i) in lines" :key="l.key">

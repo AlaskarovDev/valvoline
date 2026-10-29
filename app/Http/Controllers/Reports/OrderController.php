@@ -123,7 +123,7 @@ class OrderController extends ReportController
 
         return view('reports.order', [
             'title' => __('Sifariş № ').$order->order_no,
-            'order' => $order->load('customer', 'manager', 'warehouse'),
+            'order' => $order->load('customer', 'manager', 'warehouse', 'workplace'),
             'table' => $table,
             'rows' => $table->resolve($request),
             'returnTable' => $returnTable,

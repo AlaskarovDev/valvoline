@@ -97,7 +97,7 @@ class SalesDocumentController extends ReportController
 
         return view($request->boolean('print') ? 'documents.print' : 'documents.show', [
             'title' => __('Təhvil-təslim sənədi').' № '.$delivery->doc_no,
-            'kind' => 'delivery', 'doc' => $delivery->load('customer', 'manager', 'warehouse', 'order', 'creator'), 'lines' => $lines,
+            'kind' => 'delivery', 'doc' => $delivery->load('customer', 'manager', 'warehouse', 'order', 'creator', 'workplace'), 'lines' => $lines,
             'campaigns' => $this->campaignsByItem($lines->pluck('sales_order_item_id')),
             'related' => array_filter([
                 $delivery->order ? [__('Sifariş'), $delivery->order->order_no, route('orders.show', $delivery->order)] : null,
@@ -117,7 +117,7 @@ class SalesDocumentController extends ReportController
 
         return view($request->boolean('print') ? 'documents.print' : 'documents.show', [
             'title' => __('Satış fakturası').' № '.$invoice->doc_no,
-            'kind' => 'invoice', 'doc' => $invoice->load('customer', 'manager', 'warehouse', 'order', 'deliveryNote', 'creator'), 'lines' => $lines,
+            'kind' => 'invoice', 'doc' => $invoice->load('customer', 'manager', 'warehouse', 'order', 'deliveryNote', 'creator', 'workplace'), 'lines' => $lines,
             'campaigns' => $this->campaignsByItem($lines->pluck('sales_order_item_id')),
             'related' => array_filter([
                 $invoice->order ? [__('Sifariş'), $invoice->order->order_no, route('orders.show', $invoice->order)] : null,
@@ -141,7 +141,7 @@ class SalesDocumentController extends ReportController
         $order->doc_no = $order->order_no;
 
         return view('documents.print', [
-            'title' => __('Sifariş').' № '.$order->order_no, 'kind' => 'order', 'doc' => $order->load('customer', 'manager', 'warehouse'), 'lines' => $lines,
+            'title' => __('Sifariş').' № '.$order->order_no, 'kind' => 'order', 'doc' => $order->load('customer', 'manager', 'warehouse', 'workplace'), 'lines' => $lines,
             'campaigns' => $this->campaignsByItem($lines->pluck('id')),
             'totals' => ['qty' => $lines->sum('qty'), 'gross' => $sale->sum('amount'), 'discount' => $sale->sum('amount') - $sale->sum('net_amount'), 'amount' => $sale->sum('net_amount')],
         ]);

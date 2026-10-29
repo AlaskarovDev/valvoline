@@ -6,6 +6,7 @@ use App\Http\Controllers\Reports\ReportController;
 use App\Jobs\RebuildAnalytics;
 use App\Models\StockWriteOff;
 use App\Models\Warehouse;
+use App\Models\Workplace;
 use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
 use App\Services\StockWriteOffService;
@@ -46,6 +47,8 @@ class WriteOffController extends ReportController
         return view('writeoffs.index', [
             'title' => __('Silinmə aktları'), 'filters' => $filters, 'table' => $table, 'rows' => $table->resolve($request), 'reasons' => $reasons,
             'warehouses' => Warehouse::query()->where('is_active', true)->orderByDesc('is_main')->orderBy('name')->get(['id', 'name']),
+            'workplaces' => Workplace::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
+            'workplaceId' => Workplace::defaultIdFor($request->user()),
             'products' => DB::table('products')->orderBy('name')->get(['id', 'code', 'name'])->map(fn ($p) => ['id' => $p->id, 'code' => $p->code, 'name' => $p->name])->values(),
         ]);
     }
@@ -57,13 +60,14 @@ class WriteOffController extends ReportController
             'date' => ['required', 'date', 'before_or_equal:today'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'reason' => ['required', Rule::in(array_keys(StockWriteOffService::reasons()))],
+            'workplace_id' => ['nullable', 'integer', 'exists:workplaces,id'],
             'note' => ['nullable', 'string', 'max:500'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.qty' => ['required', 'numeric', 'gt:0'],
         ]);
         $doc = $service->create((int) $data['warehouse_id'], Carbon::parse($data['date']), $data['reason'],
-            array_map(fn ($l) => ['product_id' => (int) $l['product_id'], 'qty' => (float) $l['qty']], $data['lines']), $request->user()->id, $data['note'] ?? null);
+            array_map(fn ($l) => ['product_id' => (int) $l['product_id'], 'qty' => (float) $l['qty']], $data['lines']), $request->user()->id, $data['note'] ?? null, null, isset($data['workplace_id']) ? (int) $data['workplace_id'] : null);
         $this->rebuild();
 
         return redirect()->route('write-offs.show', $doc)->with('popup', ['title' => __('Sənəd yaradıldı'), 'message' => null,
@@ -77,7 +81,7 @@ class WriteOffController extends ReportController
             ->get(['l.*', 'b.batch_no', 'b.expiry_date', 'b.production_date']);
 
         return view($request->boolean('print') ? 'writeoffs.print' : 'writeoffs.show', [
-            'title' => __('Silinmə aktı').' № '.$writeOff->doc_no, 'doc' => $writeOff->load('warehouse', 'creator'), 'lines' => $lines,
+            'title' => __('Silinmə aktı').' № '.$writeOff->doc_no, 'doc' => $writeOff->load('warehouse', 'creator', 'workplace'), 'lines' => $lines,
             'reasons' => StockWriteOffService::reasons(),
             'transfer' => $writeOff->warehouse_transfer_id ? DB::table('warehouse_transfers')->find($writeOff->warehouse_transfer_id) : null,
         ]);

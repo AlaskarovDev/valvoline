@@ -16,6 +16,11 @@ class SalesOrder extends Model
         return ['date' => 'date', 'campaigns_applied' => 'boolean', 'campaigns_excluded' => 'array'];
     }
 
+    public function workplace(): BelongsTo
+    {
+        return $this->belongsTo(Workplace::class);
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);

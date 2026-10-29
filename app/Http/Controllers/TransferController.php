@@ -6,6 +6,7 @@ use App\Http\Controllers\Reports\ReportController;
 use App\Jobs\RebuildAnalytics;
 use App\Models\Warehouse;
 use App\Models\WarehouseTransfer;
+use App\Models\Workplace;
 use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
 use App\Services\SalesDocumentService;
@@ -110,7 +111,7 @@ class TransferController extends ReportController
 
         return view($request->boolean('print') ? 'transfers.print' : 'transfers.show', [
             'title' => __('Anbar transferi').' № '.$transfer->doc_no,
-            'transfer' => $transfer->load('from', 'to', 'creator', 'sender', 'receiver'), 'lines' => $lines, 'available' => $available,
+            'transfer' => $transfer->load('from', 'to', 'creator', 'sender', 'receiver', 'workplace'), 'lines' => $lines, 'available' => $available,
             'statuses' => WarehouseTransfer::statusLabels(), 'reasons' => WarehouseTransfer::reasonLabels(),
             'writeOffs' => DB::table('stock_write_offs')->where('warehouse_transfer_id', $transfer->id)->get(['id', 'doc_no', 'date', 'total_qty']),
         ]);
@@ -225,6 +226,8 @@ class TransferController extends ReportController
         return view('transfers.form', [
             'title' => $transfer ? __('Anbar transferi').' № '.$transfer->doc_no.' — '.__('düzəliş') : __('Yeni anbar transferi'),
             'transfer' => $transfer, 'warehouses' => $warehouses, 'reasons' => WarehouseTransfer::reasonLabels(),
+            'workplaces' => Workplace::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
+            'workplaceId' => (int) old('workplace_id', $source->workplace_id ?? Workplace::defaultIdFor($request->user())),
             'config' => [
                 'products' => $products,
                 'barcodes' => $unitBarcodes->map(fn ($b) => ['barcode' => $b->barcode, 'product_id' => $b->product_id, 'factor' => (float) ($b->factor ?? 1)])->values(),
@@ -249,11 +252,12 @@ class TransferController extends ReportController
      */
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'date' => ['required', 'date'],
             'from_warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('is_active', true)],
             'to_warehouse_id' => ['required', 'integer', 'different:from_warehouse_id', Rule::exists('warehouses', 'id')->where('is_active', true)],
             'reason' => ['required', Rule::in(array_keys(WarehouseTransfer::reasonLabels()))],
+            'workplace_id' => ['nullable', 'integer', 'exists:workplaces,id'],
             'driver' => ['nullable', 'string', 'max:255'],
             'vehicle_plate' => ['nullable', 'string', 'max:20'],
             'note' => ['nullable', 'string', 'max:2000'],
@@ -262,6 +266,9 @@ class TransferController extends ReportController
             'lines.*.qty' => ['required', 'numeric', 'gt:0', 'max:1000000'],
             'then' => ['nullable', Rule::in(['send', 'complete'])],
         ], [], ['to_warehouse_id' => __('Haraya'), 'from_warehouse_id' => __('Haradan'), 'lines' => __('Məhsullar')]);
+        $data['workplace_id'] ??= Workplace::defaultIdFor($request->user());
+
+        return $data;
     }
 
     /**
@@ -272,7 +279,7 @@ class TransferController extends ReportController
     {
         return [
             'date' => $data['date'], 'from_warehouse_id' => $data['from_warehouse_id'], 'to_warehouse_id' => $data['to_warehouse_id'],
-            'reason' => $data['reason'], 'driver' => $data['driver'] ?? null, 'vehicle_plate' => $data['vehicle_plate'] ?? null, 'note' => $data['note'] ?? null,
+            'reason' => $data['reason'], 'workplace_id' => $data['workplace_id'], 'driver' => $data['driver'] ?? null, 'vehicle_plate' => $data['vehicle_plate'] ?? null, 'note' => $data['note'] ?? null,
         ];
     }
 

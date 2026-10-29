@@ -192,7 +192,9 @@
                     <div class="mt-1 text-xs text-muted" x-show="customer() && customer().manager_id && customer().manager_id !== manager_id" x-cloak>{{ __('Müştərinin öz nümayəndəsindən fərqlidir.') }}</div>
                 </div>
 
-                <div class="sm:col-span-2 lg:col-span-4">
+<div><label class="label" for="o-wp">{{ __('İş yeri') }}</label>
+                    <select id="o-wp" name="workplace_id" class="select" required>@foreach ($workplaces as $w)<option value="{{ $w->id }}" @selected((int) $values['workplace_id'] === $w->id)>{{ $w->code }} — {{ $w->name }}</option>@endforeach</select></div>
+                <div class="sm:col-span-2 lg:col-span-3">
                     <label class="label" for="o-note">{{ __('Əlavə qeydlər') }}</label>
                     <textarea id="o-note" name="note" rows="2" maxlength="2000" class="input h-auto py-2">{{ $values['note'] }}</textarea>
                 </div>

@@ -12,7 +12,7 @@
 <div class="sheet">
     <header><div><div class="company">{{ $company['name'] }}</div>@if ($company['voen'])<div class="muted">{{ __('VÖEN') }}: {{ $company['voen'] }}</div>@endif</div></header>
     <h1>{{ __('Malın silinməsi aktı') }} № {{ $doc->doc_no }}</h1>
-    <div class="doc-meta muted">{{ __('Tarix') }}: {{ Fmt::date($doc->date) }} · {{ __('Anbar') }}: {{ $doc->warehouse->name }} · {{ __('Səbəb') }}: {{ $reasons[$doc->reason] ?? $doc->reason }}</div>
+    <div class="doc-meta muted">{{ __('Tarix') }}: {{ Fmt::date($doc->date) }} · {{ __('Anbar') }}: {{ $doc->warehouse->name }} · {{ __('Səbəb') }}: {{ $reasons[$doc->reason] ?? $doc->reason }}@if ($doc->workplace) · {{ __('İş yeri') }}: {{ $doc->workplace->name }}@endif</div>
     @include('writeoffs._lines', ['print' => true])
     @if ($doc->note)<div class="note"><strong>{{ __('Qeyd') }}:</strong> {{ $doc->note }}</div>@endif
     <p style="margin-top: 16px">{{ __('Komissiya yuxarıda göstərilən malların istifadəyə yararsız olduğunu təsdiq edir və onların silinməsini qərara alır.') }}</p>

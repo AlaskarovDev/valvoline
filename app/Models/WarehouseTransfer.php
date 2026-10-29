@@ -26,6 +26,11 @@ class WarehouseTransfer extends Model
         return $this->belongsTo(Warehouse::class, 'to_warehouse_id');
     }
 
+    public function workplace(): BelongsTo
+    {
+        return $this->belongsTo(Workplace::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

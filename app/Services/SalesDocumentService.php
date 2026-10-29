@@ -58,7 +58,7 @@ class SalesDocumentService
                 'date' => $date->toDateString(), 'period' => $date->format('Y-m'),
                 'sales_order_id' => $order->id, 'customer_id' => $order->customer_id, 'customer_code' => $order->customer_code,
                 'customer_name' => $order->customer_name, 'manager_id' => $order->manager_id, 'warehouse_id' => $order->warehouse_id,
-                'note' => $order->note, 'total_qty' => round($items->sum('qty'), 4),
+                'workplace_id' => $order->workplace_id, 'note' => $order->note, 'total_qty' => round($items->sum('qty'), 4),
                 'total_amount' => round($items->where('op_type', 'sale')->sum('net_amount'), 4), 'created_by' => $userId,
             ]);
             $now = now();
@@ -100,7 +100,7 @@ class SalesDocumentService
                 'date' => $date->toDateString(), 'period' => $date->format('Y-m'),
                 'sales_order_id' => $order->id, 'delivery_note_id' => $note->id,
                 'customer_id' => $order->customer_id, 'customer_code' => $order->customer_code, 'customer_name' => $order->customer_name,
-                'manager_id' => $order->manager_id, 'warehouse_id' => $order->warehouse_id, 'note' => $order->note,
+                'manager_id' => $order->manager_id, 'warehouse_id' => $order->warehouse_id, 'workplace_id' => $order->workplace_id, 'note' => $order->note,
                 'gross_amount' => round($sale->sum('amount'), 4),
                 'discount_amount' => round($sale->sum('amount') - $sale->sum('net_amount'), 4),
                 'total_amount' => round($sale->sum('net_amount'), 4), 'created_by' => $userId,

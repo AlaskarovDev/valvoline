@@ -21,6 +21,11 @@ class DeliveryNote extends Model
         return $this->belongsTo(SalesOrder::class, 'sales_order_id');
     }
 
+    public function workplace(): BelongsTo
+    {
+        return $this->belongsTo(Workplace::class);
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);

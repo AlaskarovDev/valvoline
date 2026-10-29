@@ -10,6 +10,7 @@ use App\Models\Manager;
 use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
 use App\Models\Warehouse;
+use App\Models\Workplace;
 use App\Services\AnalyticsRebuilder;
 use App\Services\CampaignEngine;
 use App\Services\PriceService;
@@ -202,6 +203,7 @@ class OrderEntryController extends Controller
                 'manager_id' => (int) old('manager_id', $order->manager_id ?? ($restricted ?? 0)) ?: null,
                 'warehouse_id' => (int) old('warehouse_id', $order->warehouse_id ?? $warehouses->firstWhere('is_main', true)?->id ?? $warehouses->first()?->id),
                 'note' => old('note', $order->note ?? ''),
+                'workplace_id' => (int) old('workplace_id', $order->workplace_id ?? Workplace::defaultIdFor($request->user())),
                 'lines' => old('lines', $lines),
                 'apply_campaigns' => (bool) old('apply_campaigns', $order && $order->campaigns_applied),
                 'excluded_campaigns' => array_map('intval', old('excluded_campaigns', $order->campaigns_excluded ?? [])),
@@ -211,6 +213,7 @@ class OrderEntryController extends Controller
             'warehouses' => $warehouses,
             'managers' => Manager::query()->when($restricted !== null, fn ($q) => $q->whereKey($restricted))->orderBy('name')->get(['id', 'name']),
             'managerLocked' => $restricted !== null,
+            'workplaces' => Workplace::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
         ]);
     }
 
@@ -235,6 +238,7 @@ class OrderEntryController extends Controller
             'customer_name' => $customer->name,
             'manager_id' => $managerId,
             'warehouse_id' => $data['warehouse_id'],
+            'workplace_id' => $data['workplace_id'] ?? Workplace::defaultIdFor($request->user()),
             'note' => $data['note'] ?? null,
             'campaigns_applied' => $applyCampaigns,
             'campaigns_excluded' => $applyCampaigns && $excluded !== [] ? $excluded : null,

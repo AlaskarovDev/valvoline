@@ -6,6 +6,7 @@
         <span class="badge">{{ Fmt::date($t->date) }}</span>
         <span class="badge badge-primary">{{ $t->from->name }} → {{ $t->to->name }}</span>
         <span class="badge">{{ $reasons[$t->reason] ?? $t->reason }}</span>
+        @if ($t->workplace)<span class="badge">{{ __('İş yeri') }}: {{ $t->workplace->name }}</span>@endif
         @if ($t->driver || $t->vehicle_plate)<span class="badge">{{ trim($t->driver.' '.$t->vehicle_plate) }}</span>@endif
         @foreach ($writeOffs as $w)<a href="{{ route('write-offs.show', $w->id) }}" class="badge badge-neg">{{ __('Silinmə aktı') }} {{ $w->doc_no }}</a>@endforeach
         <div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">

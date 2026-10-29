@@ -11,6 +11,7 @@
         @endif
         @if ($order->manager)<span class="badge">{{ __('Menecer') }}: {{ $order->manager->name }}</span>@endif
         @if ($order->warehouse)<span class="badge">{{ __('Anbar') }}: {{ $order->warehouse->name }}</span>@endif
+        @if ($order->workplace)<span class="badge">{{ __('İş yeri') }}: {{ $order->workplace->name }}</span>@endif
         @if ($order->source === 'manual')
             @include('orders._status', ['status' => $order->status])
             @foreach ($deliveries as $d)<a href="{{ route('deliveries.show', $d->id) }}" class="badge badge-primary"><x-icon name="truck" size="11"/> {{ $d->doc_no }}</a>@endforeach

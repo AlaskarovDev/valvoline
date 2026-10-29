@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\StockWriteOff;
+use App\Models\User;
+use App\Models\Workplace;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -17,13 +19,15 @@ class StockWriteOffService
     /**
      * @param  list<array{product_id: int, qty: float|int|string, batch_id?: int|null}>  $lines
      */
-    public function create(int $warehouseId, Carbon $date, string $reason, array $lines, ?int $userId, ?string $note = null, ?int $transferId = null): StockWriteOff
+    public function create(int $warehouseId, Carbon $date, string $reason, array $lines, ?int $userId, ?string $note = null, ?int $transferId = null, ?int $workplaceId = null): StockWriteOff
     {
         return DB::transaction(function () use ($warehouseId, $date, $reason, $lines, $userId, $note, $transferId) {
             $products = DB::table('products')->whereIn('id', array_column($lines, 'product_id'))->get(['id', 'code', 'name', 'current_avg_cost'])->keyBy('id');
             $doc = StockWriteOff::query()->create([
                 'doc_no' => $this->nextNo(), 'date' => $date->toDateString(), 'warehouse_id' => $warehouseId, 'reason' => $reason,
                 'note' => $note, 'warehouse_transfer_id' => $transferId, 'created_by' => $userId,
+                'workplace_id' => $workplaceId ?? ($transferId ? DB::table('warehouse_transfers')->where('id', $transferId)->value('workplace_id') : null)
+                    ?? Workplace::defaultIdFor($userId ? User::query()->find($userId) : null),
                 'total_qty' => round(array_sum(array_map(fn ($l) => (float) $l['qty'], $lines)), 4),
             ]);
             $row = (int) DB::table('stock_adjustments')->max('row_no');

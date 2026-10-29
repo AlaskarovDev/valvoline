@@ -21,6 +21,11 @@ class StockWriteOff extends Model
         return $this->belongsTo(Warehouse::class);
     }
 
+    public function workplace(): BelongsTo
+    {
+        return $this->belongsTo(Workplace::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

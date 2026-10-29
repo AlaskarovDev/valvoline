@@ -16,6 +16,7 @@
         @endif
         @if ($doc->manager)<span class="badge">{{ __('Menecer') }}: {{ $doc->manager->name }}</span>@endif
         @if ($doc->warehouse)<span class="badge">{{ __('Anbar') }}: {{ $doc->warehouse->name }}</span>@endif
+        @if ($doc->workplace)<span class="badge">{{ __('İş yeri') }}: {{ $doc->workplace->name }}</span>@endif
         @foreach ($related as [$type, $no, $url])
             <a href="{{ $url }}" class="badge badge-primary">{{ $type }} № {{ $no }}</a>
         @endforeach
