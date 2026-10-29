@@ -271,7 +271,7 @@ class NumberingService
             'yearly' => $date->format('Y'),
             'monthly' => $date->format('Y-m'),
             'daily' => $date->format('Y-m-d'),
-            default => mb_substr(str_replace(' SEQ ', '#', $this->render($rule->pattern, $values, null)), 0, 96),
+            default => mb_substr(str_replace("\x00SEQ\x00", '#', $this->render($rule->pattern, $values, null)), 0, 96),
         };
     }
 
@@ -286,9 +286,12 @@ class NumberingService
         $regex = $rule->reset === 'prefix'
             ? '/^'.str_replace(preg_quote("\x00SEQ\x00", '/'), '(\d+)', preg_quote($this->render($rule->pattern, $values, null), '/')).'$/u'
             : $this->genericRegex($rule->pattern);
+        // səhvən sıra yerinə yazılmış uzun rəqəmlər (məs. barkod «№8710941033518») sayılmır: şablonun enindən və 8 rəqəmdən uzun olanlar
+        preg_match('/\{SEQ(?::(\d+))?\}/', $rule->pattern, $w);
+        $maxDigits = max(8, (int) ($w[1] ?? 0));
         $max = 0;
         foreach (DB::table($table)->whereNotNull($column)->pluck($column) as $existing) {
-            if (preg_match($regex, (string) $existing, $m) && isset($m[1])) {
+            if (preg_match($regex, (string) $existing, $m) && isset($m[1]) && strlen(ltrim($m[1], '0')) <= $maxDigits) {
                 $max = max($max, (int) $m[1]);
             }
         }

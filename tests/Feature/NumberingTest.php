@@ -83,6 +83,16 @@ class NumberingTest extends TestCase
         $this->assertTrue(DB::table('products')->where('code', 'VL-0001')->exists());
     }
 
+    public function test_imported_series_continues_and_barcode_like_numbers_are_ignored(): void
+    {
+        foreach (['№3929', '№3930', '№8710941033518', 'NOMRESIZ-20250328'] as $no) {
+            DB::table('sales_orders')->insert(['order_no' => $no, 'date' => '2026-03-01', 'period' => '2026-03', 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $this->actingAs($this->admin);
+        $this->rule('sales_order', '№{SEQ}', 'auto_editable', 'never')->assertSessionHasNoErrors();
+        $this->assertSame('№3931', app(NumberingService::class)->preview('sales_order'));
+    }
+
     public function test_documents_use_their_rules(): void
     {
         $this->actingAs($this->admin);
