@@ -44,7 +44,14 @@ class FinanceTest extends TestCase
         $this->actingAs($this->admin)->post(route('reps.store'), ['name' => 'Elnur Ekspeditor', 'role' => 'forwarder', 'workplace_id' => $this->workplace, 'phone' => '+994501112233', 'create_register' => 1, 'is_active' => 1])->assertRedirect();
         $rep = DB::table('managers')->where('name', 'Elnur Ekspeditor')->first();
         $register = DB::table('cash_registers')->where('manager_id', $rep->id)->first();
-        $this->assertSame(['SN-001', 'KS-002'], [$rep->code, $register->code]);
+        $this->assertSame(['SN-001', 'KS-002', null], [$rep->code, $register->code, $rep->warehouse_id], 'səyyar anbar istəyə görədir');
+        // anbar sonradan bağlanıb yenidən götürülə bilər (soyuq satış)
+        $van = Warehouse::query()->where('code', 'A2')->value('id');
+        $fields = ['name' => 'Elnur Ekspeditor', 'role' => 'forwarder', 'workplace_id' => $this->workplace, 'is_active' => 1];
+        $this->put(route('reps.update', $rep->id), $fields + ['warehouse_id' => $van])->assertSessionHasNoErrors();
+        $this->put(route('reps.update', $rep->id), $fields + ['warehouse_id' => ''])->assertSessionHasNoErrors();
+        $this->assertNull(DB::table('managers')->where('id', $rep->id)->value('warehouse_id'));
+        $this->get(route('reps.index'))->assertSee('Səyyar anbar (istəyə görə)')->assertSee('anbarsız');
         $customer = DB::table('customers')->insertGetId(['code' => 'C1', 'name' => 'Qaraj', 'manager_id' => $rep->id, 'created_at' => now(), 'updated_at' => now()]);
 
         // açılış: 50; əvvəlki import ödənişi nəzərə alınmır, sonrakı alınır

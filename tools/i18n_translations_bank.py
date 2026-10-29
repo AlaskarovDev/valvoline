@@ -1134,4 +1134,7 @@ T = {
     'İş yerləri': ('Рабочие места', 'Workplaces'),
     'Əsas iş yeri': ('Основное рабочее место', 'Default workplace'),
     'Əsas kassa': ('Основная касса', 'Main register'),
+    'Səyyar anbar (istəyə görə)': ('Склад автолавки (необязательно)', 'Van warehouse (optional)'),
+    'Yoxdur — soyuq satış / mərkəzi anbardan': ('Нет — холодные продажи / с центрального склада', 'None — cold sales / from the main warehouse'),
+    'anbarsız': ('без склада', 'no warehouse'),
 }

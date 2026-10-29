@@ -26,7 +26,7 @@
                         <td>{{ $m->workplace_name ?? '—' }}</td>
                         <td>@if ($m->register_id)<a href="{{ route('finance.register', $m->register_id) }}" class="badge badge-primary">{{ $m->register_code }}</a>@else<span class="text-muted">—</span>@endif</td>
                         <td class="num">{{ $m->cash !== null ? Fmt::number($m->cash, 2) : '—' }}</td>
-                        <td>{{ $m->warehouse_name ?? '—' }}</td>
+                        <td>@if ($m->warehouse_name){{ $m->warehouse_name }}@else<span class="text-xs text-muted">{{ __('anbarsız') }}</span>@endif</td>
                         <td class="num">{{ Fmt::number($m->customers) }}</td>
                         <td class="num">{{ Fmt::money($m->month_sales) }}</td>
                         <td class="num">{{ $m->plan !== null ? Fmt::pct($m->plan) : '—' }}</td>

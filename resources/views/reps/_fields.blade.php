@@ -6,7 +6,7 @@
     <select id="rp-role-{{ $id }}" name="role" class="select"><option value="rep" @selected(($m?->role ?? 'rep') === 'rep')>{{ __('Satış nümayəndəsi') }}</option><option value="forwarder" @selected($m?->role === 'forwarder')>{{ __('Ekspeditor') }}</option></select></div>
 <div><label class="label" for="rp-wp-{{ $id }}">{{ __('İş yeri') }}</label>
     <select id="rp-wp-{{ $id }}" name="workplace_id" class="select" required>@foreach ($workplaces as $w)<option value="{{ $w->id }}" @selected($m?->workplace_id === $w->id)>{{ $w->code }} — {{ $w->name }}</option>@endforeach</select></div>
-<div><label class="label" for="rp-wh-{{ $id }}">{{ __('Səyyar anbar') }}</label>
-    <select id="rp-wh-{{ $id }}" name="warehouse_id" class="select"><option value="">—</option>@foreach ($warehouses as $w)<option value="{{ $w->id }}" @selected($m?->warehouse_id === $w->id)>{{ $w->name }}</option>@endforeach</select></div>
+<div><label class="label" for="rp-wh-{{ $id }}">{{ __('Səyyar anbar (istəyə görə)') }}</label>
+    <select id="rp-wh-{{ $id }}" name="warehouse_id" class="select"><option value="">{{ __('Yoxdur — soyuq satış / mərkəzi anbardan') }}</option>@foreach ($warehouses as $w)<option value="{{ $w->id }}" @selected($m?->warehouse_id === $w->id)>{{ $w->name }}</option>@endforeach</select></div>
 <div><label class="label" for="rp-plan-{{ $id }}">{{ __('Aylıq satış planı') }}</label><input id="rp-plan-{{ $id }}" type="number" step="0.01" min="0" name="monthly_target" class="input" value="{{ $m?->monthly_target }}"></div>
 <div class="flex items-end"><label class="flex h-9 items-center gap-2 text-sm"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" class="size-4" @checked($m?->is_active ?? true)> {{ __('Aktiv') }}</label></div>
