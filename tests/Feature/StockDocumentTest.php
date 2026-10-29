@@ -100,7 +100,13 @@ class StockDocumentTest extends TestCase
     public function test_menu_has_master_data_and_documents_subsections_and_customer_prices_page(): void
     {
         $this->actingAs($this->admin)->get(route('products.index'))->assertOk()
-            ->assertSee('nav-subsection', false)->assertSee('Əsas məlumat')->assertSee('Sayım artığı')->assertSee('Müştəriyə özəl qiymətlər');
+            ->assertSee('nav-subsection', false)->assertSee('Əsas məlumat')->assertSee('Sayım artığı')->assertSee('Müştəriyə özəl qiymətlər')
+            ->assertSee('data-nav-section="mehsul-idareetmesi.esas-melumat" data-active="1"', false)
+            ->assertSee('data-nav-section="mehsul-idareetmesi.senedler" data-active="0"', false);
+        // alt qruplar da açılıb-bağlanır: sənəd səhifəsində «Sənədlər» açıq, «Əsas məlumat» bağlı gəlir
+        $this->get(route('stock-docs.create', ['type' => 'count_shortage']))->assertOk()
+            ->assertSee('data-nav-section="mehsul-idareetmesi.esas-melumat" data-active="0"', false)
+            ->assertSee('data-nav-section="mehsul-idareetmesi.senedler" data-active="1"', false);
 
         $customer = DB::table('customers')->insertGetId(['code' => 'C1', 'name' => 'Qaraj', 'created_at' => now(), 'updated_at' => now()]);
         $base = DB::table('price_lists')->where('type', 'sale')->where('is_default', true)->value('id');

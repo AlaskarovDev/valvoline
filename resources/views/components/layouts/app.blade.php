@@ -134,22 +134,18 @@
             @endphp
             @foreach ($menu as $section => $items)
                 @php
-                    // alt başlıqlar (['_sub', ad]) — altında görünən bənd yoxdursa göstərilmir
-                    $links = [];
-                    $pendingSub = null;
+                    // alt başlıqlar (['_sub', ad]) özləri də açılıb-bağlanan qrupdur; görünən bəndi olmayan qrup göstərilmir
+                    $key = \Illuminate\Support\Str::slug($section) ?: md5($section);
+                    $groups = [['sub' => null, 'key' => null, 'active' => false, 'links' => []]];
                     $sectionActive = false;
                     foreach ($items as $i) {
                         if ($i[0] === '_sub') {
-                            $pendingSub = $i;
+                            $groups[] = ['sub' => $i[1], 'key' => $key.'.'.(\Illuminate\Support\Str::slug($i[1]) ?: md5($i[1])), 'active' => false, 'links' => []];
 
                             continue;
                         }
                         if (! $i[3]) {
                             continue;
-                        }
-                        if ($pendingSub) {
-                            $links[] = ['sub' => $pendingSub[1]];
-                            $pendingSub = null;
                         }
                         [$route, $label, $icon] = $i;
                         if (str_starts_with($route, 'stock-docs.') && $route !== 'stock-docs.index') {
@@ -163,11 +159,12 @@
                                 && (! $exactInMenu || $route === $currentRoute);
                         }
                         $sectionActive = $sectionActive || $active;
-                        $links[] = compact('href', 'label', 'icon', 'active');
+                        $groups[array_key_last($groups)]['active'] = $groups[array_key_last($groups)]['active'] || $active;
+                        $groups[array_key_last($groups)]['links'][] = compact('href', 'label', 'icon', 'active');
                     }
-                    $key = \Illuminate\Support\Str::slug($section) ?: md5($section);
+                    $groups = array_filter($groups, fn ($g) => $g['links']);
                 @endphp
-                @if ($links)
+                @if ($groups)
                     <div data-nav-section="{{ $key }}" data-active="{{ $sectionActive ? '1' : '0' }}">
                         <button type="button" class="nav-section nav-toggle" @click="toggle('{{ $key }}')"
                                 :aria-expanded="open['{{ $key }}'] ? 'true' : 'false'" aria-controls="nav-{{ $key }}">
@@ -175,14 +172,21 @@
                             <x-icon name="chevron" size="12" class="nav-chevron" ::class="open['{{ $key }}'] ? 'rotate-90' : ''"/>
                         </button>
                         <div id="nav-{{ $key }}" x-show="open['{{ $key }}']" @unless ($sectionActive) x-cloak @endunless>
-                            @foreach ($links as $link)
-                                @if (isset($link['sub']))
-                                    <div class="nav-subsection">{{ $link['sub'] }}</div>
-                                    @continue
+                            @foreach ($groups as $group)
+                                @if ($group['sub'])
+                                    <div data-nav-section="{{ $group['key'] }}" data-active="{{ $group['active'] ? '1' : '0' }}">
+                                        <button type="button" class="nav-subsection nav-toggle" @click="toggle('{{ $group['key'] }}')"
+                                                :aria-expanded="open['{{ $group['key'] }}'] ? 'true' : 'false'" aria-controls="nav-{{ $group['key'] }}">
+                                            <span>{{ $group['sub'] }}</span>
+                                            <x-icon name="chevron" size="11" class="nav-chevron" ::class="open['{{ $group['key'] }}'] ? 'rotate-90' : ''"/>
+                                        </button>
+                                        <div id="nav-{{ $group['key'] }}" x-show="open['{{ $group['key'] }}']" @unless ($group['active']) x-cloak @endunless>
+                                            @include('components.layouts.nav-links', ['links' => $group['links']])
+                                        </div>
+                                    </div>
+                                @else
+                                    @include('components.layouts.nav-links', ['links' => $group['links']])
                                 @endif
-                                <a href="{{ $link['href'] }}" @class(['nav-link', 'active' => $link['active']]) @if($link['active']) aria-current="page" @endif>
-                                    <x-icon :name="$link['icon']"/> <span>{{ $link['label'] }}</span>
-                                </a>
                             @endforeach
                         </div>
                     </div>
