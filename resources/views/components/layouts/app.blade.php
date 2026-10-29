@@ -111,47 +111,75 @@
             </div>
             <button class="ml-auto rounded-md p-1 text-muted lg:hidden" @click="nav = false" aria-label="{{ __('Menyunu bağla') }}"><x-icon name="x"/></button>
         </div>
-        <nav class="flex-1 overflow-y-auto px-2 pb-6">
+        {{-- Bölmələr açılıb-bağlanır: aktiv səhifənin bölməsi açıq gəlir, digərlərinin vəziyyəti yadda saxlanılır --}}
+        <nav class="flex-1 overflow-y-auto px-2 pb-6" x-data="{
+                open: {},
+                init() {
+                    let saved = {};
+                    try { saved = JSON.parse(localStorage.getItem('nav.open') || '{}'); } catch (e) {}
+                    this.$el.querySelectorAll('[data-nav-section]').forEach((el) => {
+                        const key = el.dataset.navSection;
+                        this.open[key] = el.dataset.active === '1' ? true : (saved[key] ?? false);
+                    });
+                },
+                toggle(key) {
+                    this.open[key] = !this.open[key];
+                    try { localStorage.setItem('nav.open', JSON.stringify(this.open)); } catch (e) {}
+                },
+            }">
             @foreach ($menu as $section => $items)
                 @php
                     // alt başlıqlar (['_sub', ad]) — altında görünən bənd yoxdursa göstərilmir
-                    $visible = [];
+                    $links = [];
                     $pendingSub = null;
+                    $sectionActive = false;
                     foreach ($items as $i) {
                         if ($i[0] === '_sub') {
                             $pendingSub = $i;
-                        } elseif ($i[3]) {
-                            if ($pendingSub) {
-                                $visible[] = $pendingSub;
-                                $pendingSub = null;
-                            }
-                            $visible[] = $i;
+
+                            continue;
                         }
+                        if (! $i[3]) {
+                            continue;
+                        }
+                        if ($pendingSub) {
+                            $links[] = ['sub' => $pendingSub[1]];
+                            $pendingSub = null;
+                        }
+                        [$route, $label, $icon] = $i;
+                        if (str_starts_with($route, 'stock-docs.') && $route !== 'stock-docs.index') {
+                            $docType = \Illuminate\Support\Str::after($route, 'stock-docs.');
+                            $href = route('stock-docs.index', ['type' => $docType]);
+                            $active = request()->routeIs('stock-docs*') && request('type', optional(request()->route('stockDocument'))->type) === $docType;
+                        } else {
+                            $href = route($route);
+                            $active = request()->routeIs((str_ends_with($route, '.index') ? \Illuminate\Support\Str::beforeLast($route, '.') : $route).'*')
+                                && ! ($route === 'stock-docs.index' && request('type', optional(request()->route('stockDocument'))->type));
+                        }
+                        $sectionActive = $sectionActive || $active;
+                        $links[] = compact('href', 'label', 'icon', 'active');
                     }
+                    $key = \Illuminate\Support\Str::slug($section) ?: md5($section);
                 @endphp
-                @if ($visible)
-                    <div class="nav-section">{{ $section }}</div>
-                    @foreach ($visible as $item)
-                        @if ($item[0] === '_sub')
-                            <div class="nav-subsection">{{ $item[1] }}</div>
-                            @continue
-                        @endif
-                        @php [$route, $label, $icon] = $item; @endphp
-                        @php
-                            if (str_starts_with($route, 'stock-docs.') && $route !== 'stock-docs.index') {
-                                $docType = \Illuminate\Support\Str::after($route, 'stock-docs.');
-                                $href = route('stock-docs.index', ['type' => $docType]);
-                                $active = request()->routeIs('stock-docs*') && request('type', optional(request()->route('stockDocument'))->type) === $docType;
-                            } else {
-                                $href = route($route);
-                                $active = request()->routeIs((str_ends_with($route, '.index') ? \Illuminate\Support\Str::beforeLast($route, '.') : $route).'*')
-                                    && ! ($route === 'stock-docs.index' && request('type', optional(request()->route('stockDocument'))->type));
-                            }
-                        @endphp
-                        <a href="{{ $href }}" @class(['nav-link', 'active' => $active]) @if($active) aria-current="page" @endif>
-                            <x-icon :name="$icon"/> <span>{{ $label }}</span>
-                        </a>
-                    @endforeach
+                @if ($links)
+                    <div data-nav-section="{{ $key }}" data-active="{{ $sectionActive ? '1' : '0' }}">
+                        <button type="button" class="nav-section nav-toggle" @click="toggle('{{ $key }}')"
+                                :aria-expanded="open['{{ $key }}'] ? 'true' : 'false'" aria-controls="nav-{{ $key }}">
+                            <span>{{ $section }}</span>
+                            <x-icon name="chevron" size="12" class="nav-chevron" ::class="open['{{ $key }}'] ? 'rotate-90' : ''"/>
+                        </button>
+                        <div id="nav-{{ $key }}" x-show="open['{{ $key }}']" @unless ($sectionActive) x-cloak @endunless>
+                            @foreach ($links as $link)
+                                @if (isset($link['sub']))
+                                    <div class="nav-subsection">{{ $link['sub'] }}</div>
+                                    @continue
+                                @endif
+                                <a href="{{ $link['href'] }}" @class(['nav-link', 'active' => $link['active']]) @if($link['active']) aria-current="page" @endif>
+                                    <x-icon :name="$link['icon']"/> <span>{{ $link['label'] }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
                 @endif
             @endforeach
         </nav>
