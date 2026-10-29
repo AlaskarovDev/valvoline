@@ -27,13 +27,19 @@
             ['dashboard', __('İdarə paneli'), 'dashboard', true],
             ['sales.index', __('Satış hesabatı'), 'sales', true],
             ['margin.index', __('Marjinallıq'), 'margin', true],
-            ['returns.index', __('Qaytarmalar'), 'returns', true],
         ],
         __('Satış və Kampaniyalar') => [
             ['orders.index', __('Sifarişlər və qazanc'), 'orders', true],
             ['deliveries.index', __('Təhvil-təslim sənədləri'), 'truck', true],
             ['invoices.index', __('Satış fakturaları'), 'invoice', true],
+            ['returns.index', __('Qaytarmalar'), 'returns', true],
             ['campaigns.index', __('Kampaniyalar'), 'tag', true],
+        ],
+        __('Məhsul idarəetməsi') => [
+            ['products.index', __('Məhsullar'), 'stock', true],
+            ['prices.index', __('Qiymət kartları'), 'tag', $isAdmin],
+            ['prices.list', __('Qiymət siyahısı'), 'invoice', true],
+            ['product-settings.index', __('Məhsul parametrləri'), 'filter', $isAdmin],
         ],
         __('Müştərilər') => [
             ['customers.index', __('Müştəri bazası'), 'customers', true],

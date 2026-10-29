@@ -12,6 +12,7 @@ use App\Models\SalesOrder;
 use App\Models\Warehouse;
 use App\Services\AnalyticsRebuilder;
 use App\Services\CampaignEngine;
+use App\Services\PriceService;
 use App\Services\SalesDocumentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -176,8 +177,13 @@ class OrderEntryController extends Controller
                 $stock[$productId][$warehouseId] ??= round(-$qty, 2);
             }
         }
-        $products = DB::table('products')->orderBy('name')->get(['id', 'code', 'name', 'sale_price'])
-            ->map(fn ($p) => ['id' => $p->id, 'code' => $p->code, 'name' => $p->name, 'price' => round((float) $p->sale_price, 2), 'stock' => (object) ($stock[$p->id] ?? [])])->values();
+        // passiv məhsullar yeni sifarişdə görünmür (düzəlişdə mövcud sətirlər qalır)
+        $inOrder = $order ? DB::table('sales_order_items')->where('sales_order_id', $order->id)->pluck('product_id')->all() : [];
+        $basePrices = app(PriceService::class)->salePrices(null, now()->startOfDay());
+        $products = DB::table('products')->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $inOrder ?: [0]))->orderBy('name')
+            ->get(['id', 'code', 'name', 'sale_price', 'barcode'])
+            ->map(fn ($p) => ['id' => $p->id, 'code' => $p->code, 'name' => $p->name, 'barcode' => $p->barcode,
+                'price' => round($basePrices[$p->id]['price'] ?? (float) $p->sale_price, 2), 'stock' => (object) ($stock[$p->id] ?? [])])->values();
         $warehouses = Warehouse::query()->orderByDesc('is_main')->orderBy('name')->get(['id', 'name', 'is_main']);
 
         $lines = $order

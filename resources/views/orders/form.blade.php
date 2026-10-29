@@ -5,6 +5,7 @@
         'values' => $values,
         'orderId' => $order?->id,
         'previewUrl' => route('orders.campaigns'),
+        'pricesUrl' => route('prices.customer'),
         'opTypes' => ['sale' => __('Satış'), 'gift' => __('Hədiyyə / pulsuz'), 'internal' => __('Daxili istifadə')],
         'text' => ['error' => __('Kampaniyalar hesablanmadı. Yenidən cəhd edin.'), 'none' => __('Bu sifarişə uyğun kampaniya yoxdur.')],
     ];
@@ -40,6 +41,7 @@
                 timer: null,
 
                 init() {
+                    if (this.customer_id) this.loadPrices();
                     if (this.applyCampaigns) this.refreshCampaigns();
                     this.$watch(() => JSON.stringify([this.customer_id, this.date, this.lines.map((l) => [l.product_id, l.op_type, l.qty, l.price, l.discount])]), () => {
                         if (!this.applyCampaigns) return;
@@ -52,10 +54,25 @@
                     const q = norm(this.customerQuery);
                     return config.customers.filter((c) => !q || norm(c.name + ' ' + c.code + ' ' + (c.voen ?? '')).includes(q)).slice(0, 30);
                 },
+                customerPrices: {},
+                async loadPrices() {
+                    if (!this.customer_id) { this.customerPrices = {}; return; }
+                    try {
+                        const r = await fetch(config.pricesUrl + '?customer_id=' + this.customer_id + '&date=' + this.date, { headers: { Accept: 'application/json' } });
+                        this.customerPrices = r.ok ? await r.json() : {};
+                    } catch (e) { this.customerPrices = {}; }
+                },
+                priceInfo(l) { return l.product_id ? (this.customerPrices[l.product_id] ?? null) : null; },
                 pickCustomer(c) {
+                    const changed = this.customer_id !== c.id;
                     this.customer_id = c.id;
                     this.customerQuery = c.name + ' · ' + c.code;
                     this.customerOpen = false;
+                    // müştəri dəyişəndə qiymətlər müştərinin qiymət növünə / özəl qiymətinə görə yenilənir
+                    if (changed) this.loadPrices().then(() => this.lines.forEach((l) => {
+                        const info = this.priceInfo(l);
+                        if (info && l.op_type === 'sale') l.price = info.price;
+                    }));
                     // satış nümayəndəsi müştəridən avtomatik gəlir
                     if (c.manager_id && !this.$refs.manager.disabled) this.manager_id = c.manager_id;
                 },
@@ -63,12 +80,12 @@
 
                 productMatches(l) {
                     const q = norm(l.query);
-                    return config.products.filter((p) => !q || norm(p.code + ' ' + p.name).includes(q)).slice(0, 40);
+                    return config.products.filter((p) => !q || norm(p.code + ' ' + p.name + ' ' + (p.barcode ?? '')).includes(q)).slice(0, 40);
                 },
                 pickProduct(l, p) {
                     l.product_id = p.id;
                     l.query = p.code + ' — ' + p.name;
-                    l.price = l.op_type === 'sale' ? p.price : 0;
+                    l.price = l.op_type === 'sale' ? (this.customerPrices[p.id]?.price ?? p.price) : 0;
                     l.open = false;
                 },
                 stockOf(productId) {
@@ -216,7 +233,7 @@
                                 <td class="px-3 py-2 pt-4 text-muted" x-text="i + 1"></td>
                                 <td class="relative px-3 py-2" @click.outside="l.open = false">
                                     <input type="hidden" :name="`lines[${i}][product_id]`" :value="l.product_id">
-                                    <input data-product-input class="input" autocomplete="off" required placeholder="{{ __('Kod və ya ad ilə axtar…') }}" :aria-label="'{{ __('Mal') }} ' + (i + 1)"
+                                    <input data-product-input class="input" autocomplete="off" required placeholder="{{ __('Kod, ad və ya barkod…') }}" :aria-label="'{{ __('Mal') }} ' + (i + 1)"
                                            x-model="l.query" @focus="l.open = true" @input="l.open = true; l.product_id = null" @keydown.escape="l.open = false"
                                            @keydown.enter.prevent="productMatches(l)[0] && pickProduct(l, productMatches(l)[0])">
                                     <ul x-show="l.open" x-cloak class="card relative z-30 mt-1 max-h-72 w-full overflow-auto py-1 lg:absolute lg:w-[min(560px,90vw)]">
@@ -239,7 +256,8 @@
                                     </select>
                                 </td>
                                 <td class="px-3 py-2"><input type="number" step="any" min="0.0001" required class="input text-right" :name="`lines[${i}][qty]`" x-model="l.qty" :aria-label="'{{ __('Miqdar') }} ' + (i + 1)"></td>
-                                <td class="px-3 py-2"><input type="number" step="0.01" min="0" required class="input text-right" :name="`lines[${i}][price]`" x-model="l.price" :aria-label="'{{ __('Qiymət') }} ' + (i + 1)"></td>
+                                <td class="px-3 py-2"><input type="number" step="0.01" min="0" required class="input text-right" :name="`lines[${i}][price]`" x-model="l.price" :aria-label="'{{ __('Qiymət') }} ' + (i + 1)">
+                                    <div class="mt-1 text-right text-[11px] leading-tight" x-show="priceInfo(l)" x-cloak :class="priceInfo(l)?.special ? 'text-primary-text font-semibold' : 'text-muted'" x-text="(priceInfo(l)?.special ? '★ ' : '') + (priceInfo(l)?.label ?? '')"></div></td>
                                 <td class="px-3 py-2"><input type="number" step="0.01" min="0" max="100" class="input text-right" :name="`lines[${i}][discount]`" x-model="l.discount" :aria-label="'{{ __('Endirim') }} ' + (i + 1)"></td>
                                 <td class="px-3 py-2 pt-4 text-right font-semibold tabular-nums">
                                     <span x-text="money(final(l, i))"></span>

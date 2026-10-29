@@ -4,8 +4,10 @@ namespace App\Http\Requests;
 
 use App\Models\Customer;
 use App\Models\SalesOrder;
+use App\Support\Fmt;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -56,6 +58,20 @@ class StoreOrderRequest extends FormRequest
             $restricted = $this->user()->restrictedManagerId();
             if ($restricted !== null && Customer::query()->whereKey($this->integer('customer_id'))->value('manager_id') !== $restricted) {
                 $validator->errors()->add('customer_id', __('Bu müştəri sizə bağlı deyil.'));
+            }
+            // qiymət nəzarəti: məhsul kartındakı minimum qiymət və maksimum endirim
+            $lines = collect($this->input('lines', []))->filter(fn ($l) => ($l['op_type'] ?? 'sale') === 'sale' && is_numeric($l['product_id'] ?? null));
+            $limits = DB::table('products')->whereIn('id', $lines->pluck('product_id')->all() ?: [0])->get(['id', 'code', 'min_price', 'max_discount_pct'])->keyBy('id');
+            foreach ($lines as $i => $line) {
+                $p = $limits[(int) $line['product_id']] ?? null;
+                $discount = (float) ($line['discount'] ?? 0);
+                $unit = (float) ($line['price'] ?? 0) * (1 - $discount / 100);
+                if ($p && $p->max_discount_pct !== null && $discount > (float) $p->max_discount_pct + 1e-9) {
+                    $validator->errors()->add("lines.{$i}.discount", __(':code: endirim ən çox :max % ola bilər.', ['code' => $p->code, 'max' => rtrim(rtrim(number_format((float) $p->max_discount_pct, 2, ',', ''), '0'), ',')]));
+                }
+                if ($p && $p->min_price !== null && $unit + 1e-6 < (float) $p->min_price) {
+                    $validator->errors()->add("lines.{$i}.price", __(':code: qiymət minimum satış qiymətindən (:min) aşağıdır.', ['code' => $p->code, 'min' => Fmt::money($p->min_price)]));
+                }
             }
         }];
     }

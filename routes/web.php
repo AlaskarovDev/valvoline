@@ -9,7 +9,10 @@ use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OrderEntryController;
+use App\Http\Controllers\PriceCardController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductCostController;
+use App\Http\Controllers\ProductSettingsController;
 use App\Http\Controllers\Reports\CashController;
 use App\Http\Controllers\Reports\CustomerController;
 use App\Http\Controllers\Reports\DashboardController;
@@ -67,6 +70,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/kampaniyalar/{campaign}', [CampaignController::class, 'update'])->name('campaigns.update');
     Route::post('/kampaniyalar/{campaign}/qerar', [CampaignController::class, 'decide'])->name('campaigns.decide');
     Route::delete('/kampaniyalar/{campaign}', [CampaignController::class, 'destroy'])->name('campaigns.destroy');
+    Route::get('/mehsullar', [ProductController::class, 'index'])->name('products.index');
+    Route::get('/mehsullar/etiket', [ProductController::class, 'labels'])->name('products.labels');
+    Route::get('/mehsullar/{product}', [ProductController::class, 'show'])->whereNumber('product')->name('products.show');
+    Route::get('/qiymet-siyahisi', [PriceCardController::class, 'priceList'])->name('prices.list');
+    Route::get('/qiymetler/musteri', [PriceCardController::class, 'forCustomer'])->name('prices.customer');
     Route::get('/satis', SalesController::class)->name('sales.index');
     Route::get('/marjinalliq', MarginController::class)->name('margin.index');
     Route::get('/qaytarmalar', ReturnController::class)->name('returns.index');
@@ -89,6 +97,23 @@ Route::middleware('auth')->group(function () {
         Route::post('/menfeet-zerer/qaliqlar', [ProfitLossController::class, 'saveOpenings'])->name('pnl.openings');
         Route::get('/kassa', CashController::class)->name('cash.index');
         Route::get('/melumat-keyfiyyeti', DataQualityController::class)->name('quality.index');
+
+        Route::get('/mehsullar/yeni', [ProductController::class, 'create'])->name('products.create');
+        Route::post('/mehsullar', [ProductController::class, 'store'])->name('products.store');
+        Route::get('/mehsullar/{product}/duzelis', [ProductController::class, 'edit'])->name('products.edit');
+        Route::put('/mehsullar/{product}', [ProductController::class, 'update'])->name('products.update');
+        Route::post('/mehsullar/{product}/status', [ProductController::class, 'toggle'])->name('products.toggle');
+        Route::get('/qiymet-kartlari', [PriceCardController::class, 'index'])->name('prices.index');
+        Route::post('/qiymet-kartlari', [PriceCardController::class, 'store'])->name('prices.store');
+        Route::post('/qiymet-kartlari/toplu', [PriceCardController::class, 'bulk'])->name('prices.bulk');
+        Route::post('/qiymet-kartlari/excel', [PriceCardController::class, 'import'])->name('prices.import');
+        Route::put('/qiymet-kartlari/{card}', [PriceCardController::class, 'update'])->name('prices.update');
+        Route::delete('/qiymet-kartlari/{card}', [PriceCardController::class, 'destroy'])->name('prices.destroy');
+        Route::put('/musteriler/{customer}/qiymet-novu', [PriceCardController::class, 'assignList'])->name('customers.pricelist');
+        Route::get('/mehsul-parametrleri', [ProductSettingsController::class, 'index'])->name('product-settings.index');
+        Route::post('/mehsul-parametrleri/{kind}', [ProductSettingsController::class, 'store'])->name('product-settings.store');
+        Route::put('/mehsul-parametrleri/{kind}/{id}', [ProductSettingsController::class, 'update'])->name('product-settings.update');
+        Route::delete('/mehsul-parametrleri/{kind}/{id}', [ProductSettingsController::class, 'destroy'])->name('product-settings.destroy');
 
         Route::get('/import', [ImportController::class, 'index'])->name('import.index');
         Route::post('/import', [ImportController::class, 'upload'])->name('import.upload');
