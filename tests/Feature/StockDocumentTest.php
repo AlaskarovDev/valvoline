@@ -72,6 +72,31 @@ class StockDocumentTest extends TestCase
         $this->assertSame(10.0, $this->stock());
     }
 
+    /**
+     * Menyuda yalnız bir bənd işıqlanır: məs. «Sayım əskiyi» səhifəsində «Anbar qalığı» işıqlanmamalıdır.
+     */
+    public function test_only_the_current_menu_item_is_highlighted(): void
+    {
+        $this->actingAs($this->admin);
+        $this->doc('opening', ['qty' => 5, 'unit_cost' => 10]);
+        $this->doc('count_shortage', ['counted_qty' => 4])->assertSessionHas('popup');
+        $doc = StockDocument::query()->where('type', 'count_shortage')->firstOrFail();
+        $cases = [
+            [route('stock-docs.create', ['type' => 'count_shortage']), 'Sayım əskiyi'],
+            [route('stock-docs.index', ['type' => 'count_shortage']), 'Sayım əskiyi'],
+            [route('stock-docs.index'), 'Bütün stok sənədləri'],
+            [route('stock.index'), 'Anbar qalığı və dəyəri'],
+            [route('prices.list'), 'Qiymət siyahısı'],
+            [route('prices.index'), 'Qiymət kartları'],
+            [route('stock-docs.show', $doc), 'Sayım əskiyi'],
+        ];
+        foreach ($cases as [$url, $label]) {
+            $html = $this->get($url)->assertOk()->getContent();
+            preg_match_all('/<a [^>]*aria-current="page"[^>]*>.*?<span>([^<]+)<\/span>/s', $html, $m);
+            $this->assertSame([$label], $m[1], $url);
+        }
+    }
+
     public function test_menu_has_master_data_and_documents_subsections_and_customer_prices_page(): void
     {
         $this->actingAs($this->admin)->get(route('products.index'))->assertOk()

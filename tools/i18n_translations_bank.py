@@ -1235,4 +1235,5 @@ T = {
     'Şablon': ('Шаблон', 'Template'),
     'Şablon hissələri': ('Части шаблона', 'Template parts'),
     'Əl ilə': ('Вручную', 'Manual'),
+    'Yeni: :type': ('Новый: :type', 'New: :type'),
 }

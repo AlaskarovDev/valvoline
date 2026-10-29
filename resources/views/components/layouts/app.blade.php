@@ -127,6 +127,11 @@
                     try { localStorage.setItem('nav.open', JSON.stringify(this.open)); } catch (e) {}
                 },
             }">
+            @php
+                // cari səhifə menyuda ayrıca bənd kimi varsa yalnız o işıqlanır (məs. «Qiymət siyahısı» ≠ «Qiymət kartları»)
+                $currentRoute = request()->route()?->getName();
+                $exactInMenu = collect($menu)->flatten(1)->contains(fn ($i) => is_array($i) && ($i[0] ?? null) === $currentRoute);
+            @endphp
             @foreach ($menu as $section => $items)
                 @php
                     // alt başlıqlar (['_sub', ad]) — altında görünən bənd yoxdursa göstərilmir
@@ -153,8 +158,9 @@
                             $active = request()->routeIs('stock-docs*') && request('type', optional(request()->route('stockDocument'))->type) === $docType;
                         } else {
                             $href = route($route);
-                            $active = request()->routeIs((str_ends_with($route, '.index') ? \Illuminate\Support\Str::beforeLast($route, '.') : $route).'*')
-                                && ! ($route === 'stock-docs.index' && request('type', optional(request()->route('stockDocument'))->type));
+                            $active = request()->routeIs(str_ends_with($route, '.index') ? \Illuminate\Support\Str::beforeLast($route, '.').'.*' : $route.'*')
+                                && ! ($route === 'stock-docs.index' && request('type', optional(request()->route('stockDocument'))->type))
+                                && (! $exactInMenu || $route === $currentRoute);
                         }
                         $sectionActive = $sectionActive || $active;
                         $links[] = compact('href', 'label', 'icon', 'active');
