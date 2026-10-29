@@ -99,6 +99,7 @@ class SalesDocumentController extends ReportController
             'title' => __('Təhvil-təslim sənədi').' № '.$delivery->doc_no,
             'kind' => 'delivery', 'doc' => $delivery->load('customer', 'manager', 'warehouse', 'order', 'creator', 'workplace'), 'lines' => $lines,
             'campaigns' => $this->campaignsByItem($lines->pluck('sales_order_item_id')),
+            'itemUnits' => $this->itemUnits($lines->pluck('sales_order_item_id')),
             'related' => array_filter([
                 $delivery->order ? [__('Sifariş'), $delivery->order->order_no, route('orders.show', $delivery->order)] : null,
                 $invoice ? [__('Satış fakturası'), $invoice->doc_no, route('invoices.show', $invoice)] : null,
@@ -119,6 +120,7 @@ class SalesDocumentController extends ReportController
             'title' => __('Satış fakturası').' № '.$invoice->doc_no,
             'kind' => 'invoice', 'doc' => $invoice->load('customer', 'manager', 'warehouse', 'order', 'deliveryNote', 'creator', 'workplace'), 'lines' => $lines,
             'campaigns' => $this->campaignsByItem($lines->pluck('sales_order_item_id')),
+            'itemUnits' => $this->itemUnits($lines->pluck('sales_order_item_id')),
             'related' => array_filter([
                 $invoice->order ? [__('Sifariş'), $invoice->order->order_no, route('orders.show', $invoice->order)] : null,
                 $invoice->deliveryNote ? [__('Təhvil-təslim sənədi'), $invoice->deliveryNote->doc_no, route('deliveries.show', $invoice->deliveryNote)] : null,
@@ -143,6 +145,7 @@ class SalesDocumentController extends ReportController
         return view('documents.print', [
             'title' => __('Sifariş').' № '.$order->order_no, 'kind' => 'order', 'doc' => $order->load('customer', 'manager', 'warehouse', 'workplace'), 'lines' => $lines,
             'campaigns' => $this->campaignsByItem($lines->pluck('id')),
+            'itemUnits' => $this->itemUnits($lines->pluck('id')),
             'totals' => ['qty' => $lines->sum('qty'), 'gross' => $sale->sum('amount'), 'discount' => $sale->sum('amount') - $sale->sum('net_amount'), 'amount' => $sale->sum('net_amount')],
         ]);
     }
@@ -173,6 +176,17 @@ class SalesDocumentController extends ReportController
      * @param  Collection<int, mixed>  $itemIds
      * @return Collection<int|string, Collection<int, object>>
      */
+    /**
+     * Sifariş sətrində seçilmiş vahid (məs. 2 bidon) — sənəddə əsas vahidin yanında göstərilir.
+     *
+     * @param  Collection<int, mixed>  $itemIds
+     * @return Collection<int|string, object>
+     */
+    private function itemUnits($itemIds)
+    {
+        return DB::table('sales_order_items')->whereIn('id', $itemIds->filter()->all() ?: [0])->whereNotNull('product_unit_id')->get(['id', 'unit_qty', 'unit_name', 'unit_price'])->keyBy('id');
+    }
+
     private function campaignsByItem($itemIds)
     {
         return DB::table('sales_item_campaigns')->whereIn('sales_order_item_id', $itemIds->filter()->all() ?: [0])->orderBy('id')->get()->groupBy('sales_order_item_id');

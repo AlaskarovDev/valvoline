@@ -77,8 +77,8 @@
                             <div class="sub">↳ {{ __('Kampaniya') }} {{ $c->campaign_code }} — {{ $c->campaign_name }}: −{{ Fmt::money($c->amount) }}</div>
                         @endforeach
                     </td>
-                    <td class="num">{{ Fmt::qty($l->qty) }}</td>
-                    <td class="num">{{ Fmt::money($l->price) }}</td>
+                    <td class="num">{{ Fmt::qty($l->qty) }}@isset($itemUnits[$l->sales_order_item_id ?? 0])<div class="sub">{{ Fmt::qty($itemUnits[$l->sales_order_item_id]->unit_qty) }} {{ $itemUnits[$l->sales_order_item_id]->unit_name }}</div>@endisset</td>
+                    <td class="num">{{ Fmt::money($l->price) }}@isset($itemUnits[$l->sales_order_item_id ?? 0])<div class="sub">{{ Fmt::money($itemUnits[$l->sales_order_item_id]->unit_price) }} / {{ $itemUnits[$l->sales_order_item_id]->unit_name }}</div>@endisset</td>
                     @if ($showDiscount)<td class="num">{{ isset($l->amount) && (float) $l->amount - (float) $l->net_amount > 0.004 ? Fmt::money((float) $l->amount - (float) $l->net_amount) : '—' }}</td>@endif
                     <td class="num">{{ Fmt::money($l->net_amount) }}</td>
                 </tr>

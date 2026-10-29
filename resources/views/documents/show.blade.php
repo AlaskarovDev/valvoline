@@ -74,7 +74,7 @@
                                 @endforeach
                             </td>
                             <td>{{ $types[$l->op_type] ?? $l->op_type }}</td>
-                            <td class="num">{{ Fmt::qty($l->qty) }}</td>
+                            <td class="num">{{ Fmt::qty($l->qty) }}@isset($itemUnits[$l->sales_order_item_id ?? 0])<div class="text-xs text-muted">{{ Fmt::qty($itemUnits[$l->sales_order_item_id]->unit_qty) }} {{ $itemUnits[$l->sales_order_item_id]->unit_name }}</div>@endisset</td>
                             <td class="num">{{ Fmt::money($l->price) }}</td>
                             @if ($isInvoice)<td class="num">{{ (float) $l->amount - (float) $l->net_amount > 0.004 ? Fmt::money((float) $l->amount - (float) $l->net_amount) : '—' }}</td>@endif
                             <td class="num font-semibold">{{ Fmt::money($l->net_amount) }}</td>

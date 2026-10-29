@@ -94,6 +94,7 @@ class OrderController extends ReportController
                 .($manual && $r->campaign_id ? '<div class="mt-1 text-xs text-muted">↳ <span class="badge badge-primary">'.e($campaignCodes[$r->campaign_id] ?? '').'</span> '.e(__('Kampaniya hədiyyəsi')).'</div>' : '')])
             ->column('op_type', __('Tip'), 'text', ['format' => fn ($v) => e(['sale' => __('Satış'), 'gift' => __('Hədiyyə / pulsuz'), 'internal' => __('Daxili istifadə')][$v] ?? $v)])
             ->column('qty', __('Miqdar'), 'qty')
+            ->column('unit_name', __('Vahiddə'), 'text', ['mobile' => false, 'format' => fn ($v, $r) => $v ? e(Fmt::qty($r->unit_qty).' '.$v.' × '.Fmt::money($r->unit_price)) : '—'])
             ->column('price', __('Qiymət'), 'money')
             ->column('discount_pct', __('Endirim'), 'pct')
             ->column('campaign_discount', __('Kampaniya endirimi'), 'money', ['mobile' => false])

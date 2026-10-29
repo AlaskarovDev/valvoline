@@ -21,7 +21,7 @@
                     const existing = this.lines.find((l) => l.product_id === productId && Number(l.factor) === Number(factor));
                     if (existing) existing.count = Number(existing.count) + qty; else this.lines.push({ ...line(productId, qty), factor });
                 },
-                pick(p) { this.add(p.id); this.query = ''; this.open = false; },
+                pick(p) { this.add(p.id, 1, p.sale_factor || 1); this.query = ''; this.open = false; },
                 // barkod skaneri: Enter ilə — qutu barkodu qutunun əmsalı ilə əlavə olunur
                 scanned() {
                     const code = this.scan.trim();

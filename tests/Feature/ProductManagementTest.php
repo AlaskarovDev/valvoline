@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\SalesOrder;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\PriceService;
@@ -142,6 +143,34 @@ class ProductManagementTest extends TestCase
         $this->post(route('prices.import'), ['file' => new UploadedFile($path, 'qiymetler.xlsx', null, null, true), 'price_list_id' => $base, 'valid_from' => $later])
             ->assertSessionHas('popup', fn ($p) => str_contains($p['message'], 'YOXDUR'));
         $this->assertSame(61.5, $prices->salePrices(null, Carbon::parse($later))[Product::query()->where('code', 'VE11258')->value('id')]['price']);
+    }
+
+    public function test_default_sale_unit_is_used_in_orders_and_converted_to_base_unit(): void
+    {
+        // 1 qutu = 4 ədəd, satışda susmaya görə qutu
+        $this->actingAs($this->admin)->get(route('products.create'))->assertSee('Satışda susmaya görə vahid')->assertSee('Alışda susmaya görə vahid');
+        $this->post(route('products.store'), $this->payload())->assertRedirect();
+        $product = Product::query()->where('code', 'VE11258')->firstOrFail();
+        $box = (int) DB::table('product_units')->where('product_id', $product->id)->value('id');
+        $this->get(route('orders.create'))->assertViewHas('products', fn ($p) => $p->firstWhere('code', 'VE11258')['sale_unit'] === $box
+            && $p->firstWhere('code', 'VE11258')['units'][0]['factor'] === 4.0);
+
+        $customer = Customer::query()->create(['code' => 'C1', 'name' => 'Qaraj']);
+        // 2 qutu × 190 ₼ = 8 ədəd, əsas qiymət 47,5 ₼ (min 40 ödənir)
+        $this->post(route('orders.store'), ['date' => now()->toDateString(), 'order_no' => '8001', 'customer_id' => $customer->id, 'warehouse_id' => Warehouse::query()->value('id'),
+            'lines' => [['product_id' => $product->id, 'unit_id' => $box, 'op_type' => 'sale', 'qty' => 2, 'price' => 190]]])->assertSessionHasNoErrors();
+        $item = DB::table('sales_order_items')->first();
+        $this->assertEquals([8.0, 47.5, 380.0, 2.0, 190.0, 'qutu', 4.0], [(float) $item->qty, (float) $item->price, (float) $item->amount, (float) $item->unit_qty, (float) $item->unit_price, $item->unit_name, (float) $item->unit_factor]);
+        $order = SalesOrder::query()->firstOrFail();
+        $this->get(route('orders.edit', $order))->assertViewHas('values', fn ($v) => $v['lines'][0]['unit_id'] === $box && $v['lines'][0]['qty'] === 2.0);
+        $this->get(route('orders.show', $order))->assertSee('2 qutu');
+        // qutu qiyməti əsas vahiddə min qiymətdən aşağıdırsa (150 / 4 = 37,5 < 40) — xəta
+        $this->post(route('orders.store'), ['date' => now()->toDateString(), 'order_no' => '8002', 'customer_id' => $customer->id, 'warehouse_id' => Warehouse::query()->value('id'),
+            'lines' => [['product_id' => $product->id, 'unit_id' => $box, 'op_type' => 'sale', 'qty' => 1, 'price' => 150]]])->assertSessionHasErrors('lines.0.price');
+
+        // susmaya görə vahidi əsas vahidə qaytarmaq
+        $this->put(route('products.update', $product), $this->payload(['sale_unit' => '']))->assertRedirect();
+        $this->assertSame(0, DB::table('product_units')->where('product_id', $product->id)->where('is_sale_default', true)->count());
     }
 
     public function test_order_respects_min_price_max_discount_and_hides_passive_products(): void

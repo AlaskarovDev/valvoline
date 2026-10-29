@@ -181,15 +181,23 @@ class OrderEntryController extends Controller
         // passiv məhsullar yeni sifarişdə görünmür (düzəlişdə mövcud sətirlər qalır)
         $inOrder = $order ? DB::table('sales_order_items')->where('sales_order_id', $order->id)->pluck('product_id')->all() : [];
         $basePrices = app(PriceService::class)->salePrices(null, now()->startOfDay());
+        $units = DB::table('product_units as pu')->join('units as u', 'u.id', '=', 'pu.unit_id')->orderBy('pu.factor')
+            ->get(['pu.id', 'pu.product_id', 'pu.factor', 'pu.is_sale_default', 'u.name'])->groupBy('product_id');
+        $baseUnits = DB::table('products as p')->join('units as u', 'u.id', '=', 'p.base_unit_id')->pluck('u.name', 'p.id');
         $products = DB::table('products')->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $inOrder ?: [0]))->orderBy('name')
             ->get(['id', 'code', 'name', 'sale_price', 'barcode'])
             ->map(fn ($p) => ['id' => $p->id, 'code' => $p->code, 'name' => $p->name, 'barcode' => $p->barcode,
-                'price' => round($basePrices[$p->id]['price'] ?? (float) $p->sale_price, 2), 'stock' => (object) ($stock[$p->id] ?? [])])->values();
+                'price' => round($basePrices[$p->id]['price'] ?? (float) $p->sale_price, 2), 'stock' => (object) ($stock[$p->id] ?? []),
+                'base_unit' => $baseUnits[$p->id] ?? null,
+                'units' => ($units[$p->id] ?? collect())->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'factor' => (float) $u->factor])->values(),
+                'sale_unit' => ($units[$p->id] ?? collect())->firstWhere('is_sale_default', true)?->id])->values();
         $warehouses = Warehouse::query()->sellable()->orderByDesc('is_main')->orderBy('name')->get(['id', 'name', 'is_main']);
 
         $lines = $order
             ? DB::table('sales_order_items')->where('sales_order_id', $order->id)->whereNull('campaign_id')->orderBy('row_no')->get()
-                ->map(fn ($l) => ['product_id' => $l->product_id, 'op_type' => $l->op_type, 'qty' => (float) $l->qty, 'price' => (float) $l->price, 'discount' => round((float) $l->discount_pct * 100, 2)])->all()
+                ->map(fn ($l) => ['product_id' => $l->product_id, 'op_type' => $l->op_type, 'unit_id' => $l->product_unit_id,
+                    'qty' => (float) ($l->product_unit_id ? $l->unit_qty : $l->qty), 'price' => (float) ($l->product_unit_id ? $l->unit_price : $l->price),
+                    'discount' => round((float) $l->discount_pct * 100, 2)])->all()
             : [];
 
         return view('orders.form', [
@@ -243,7 +251,7 @@ class OrderEntryController extends Controller
             'campaigns_applied' => $applyCampaigns,
             'campaigns_excluded' => $applyCampaigns && $excluded !== [] ? $excluded : null,
         ])->save();
-        $lines = array_values($data['lines']);
+        $lines = self::toBaseUnits(array_values($data['lines']));
         // «Kampaniya ver» — endirimlər serverdə yenidən hesablanır (formadakı rəqəmlərə etibar edilmir)
         $result = $applyCampaigns ? $this->campaigns->evaluate($customer, $date, $lines, $excluded, $order->id) : null;
 
@@ -254,12 +262,14 @@ class OrderEntryController extends Controller
             $product = $products[$line['product_id']];
             $qty = (float) $line['qty'];
             $price = (float) $line['price'];
-            $amount = round($qty * $price, 4);
+            $amount = round((float) $line['unit_qty'] * (float) $line['unit_price'], 4);
             $discount = (float) ($line['discount'] ?? 0) / 100;
             $campaignDiscount = (float) ($result['lines'][$i]['campaign_discount'] ?? 0);
             $rows[] = [
                 'product_id' => $product->id, 'product_code' => $product->code, 'product_name' => $product->name, 'op_type' => $line['op_type'],
-                'qty' => $qty, 'price' => $price, 'amount' => $amount, 'discount_pct' => $discount,
+                'product_unit_id' => $line['unit_id'], 'unit_name' => $line['unit_name'], 'unit_factor' => $line['factor'],
+                'unit_qty' => $line['unit_qty'], 'unit_price' => $line['unit_price'],
+                'qty' => $qty, 'price' => round($price, 4), 'amount' => $amount, 'discount_pct' => $discount,
                 'campaign_discount' => $campaignDiscount, 'net_amount' => round($amount * (1 - $discount) - $campaignDiscount, 4), 'campaign_id' => null,
                 'discounts' => $result['lines'][$i]['discounts'] ?? [],
             ];
@@ -267,6 +277,7 @@ class OrderEntryController extends Controller
         foreach ($result['gifts'] ?? [] as $gift) {
             $rows[] = [
                 'product_id' => $gift['product_id'], 'product_code' => $gift['product_code'], 'product_name' => $gift['product_name'], 'op_type' => 'gift',
+                'product_unit_id' => null, 'unit_name' => null, 'unit_factor' => 1, 'unit_qty' => $gift['qty'], 'unit_price' => 0,
                 'qty' => $gift['qty'], 'price' => 0, 'amount' => 0, 'discount_pct' => 0, 'campaign_discount' => 0, 'net_amount' => 0,
                 'campaign_id' => $gift['campaign_id'], 'discounts' => [],
             ];
@@ -289,6 +300,31 @@ class OrderEntryController extends Controller
         $order->forceFill(['line_count' => count($rows), 'total_amount' => round($total, 4)])->save();
 
         return $order;
+    }
+
+    /**
+     * Sətirdəki miqdar və qiymət seçilmiş vahiddədir (məs. 2 bidon × 500 ₼); stok, maya və kampaniya üçün əsas vahidə çevrilir.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     * @return list<array<string, mixed>>
+     */
+    public static function toBaseUnits(array $lines): array
+    {
+        $ids = array_filter(array_map(fn ($l) => $l['unit_id'] ?? null, $lines));
+        $units = DB::table('product_units as pu')->join('units as u', 'u.id', '=', 'pu.unit_id')->whereIn('pu.id', $ids ?: [0])
+            ->get(['pu.id', 'pu.product_id', 'pu.factor', 'u.name'])->keyBy('id');
+
+        return array_map(function ($l) use ($units) {
+            $unit = ! empty($l['unit_id']) ? ($units[(int) $l['unit_id']] ?? null) : null;
+            $unit = $unit && (int) $unit->product_id === (int) $l['product_id'] ? $unit : null;
+            $factor = $unit ? (float) $unit->factor : 1.0;
+
+            return array_merge($l, [
+                'unit_id' => $unit?->id, 'unit_name' => $unit?->name, 'factor' => $factor,
+                'unit_qty' => (float) $l['qty'], 'unit_price' => (float) $l['price'],
+                'qty' => round((float) $l['qty'] * $factor, 4), 'price' => (float) $l['price'] / $factor,
+            ]);
+        }, $lines);
     }
 
     private function authorizeManual(Request $request, SalesOrder $order, bool $mustBeOpen = false): void

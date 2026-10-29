@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Controllers\OrderEntryController;
 use App\Models\Customer;
 use App\Models\SalesOrder;
 use App\Services\BatchService;
@@ -42,6 +43,7 @@ class StoreOrderRequest extends FormRequest
             'lines.*.qty' => ['required', 'numeric', 'gt:0', 'max:1000000'],
             'lines.*.price' => ['required', 'numeric', 'min:0', 'max:10000000'],
             'lines.*.discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'lines.*.unit_id' => ['nullable', 'integer', 'exists:product_units,id'],
             'apply_campaigns' => ['nullable', 'boolean'],
             'excluded_campaigns' => ['nullable', 'array'],
             'excluded_campaigns.*' => ['integer'],
@@ -62,7 +64,9 @@ class StoreOrderRequest extends FormRequest
                 $validator->errors()->add('customer_id', __('Bu müştəri sizə bağlı deyil.'));
             }
             // qiymət nəzarəti: məhsul kartındakı minimum qiymət və maksimum endirim
-            $lines = collect($this->input('lines', []))->filter(fn ($l) => ($l['op_type'] ?? 'sale') === 'sale' && is_numeric($l['product_id'] ?? null));
+            $lines = collect(OrderEntryController::toBaseUnits(collect($this->input('lines', []))
+                ->filter(fn ($l) => is_numeric($l['product_id'] ?? null) && is_numeric($l['qty'] ?? null) && is_numeric($l['price'] ?? null))->all()))
+                ->filter(fn ($l) => ($l['op_type'] ?? 'sale') === 'sale');
             $limits = DB::table('products')->whereIn('id', $lines->pluck('product_id')->all() ?: [0])->get(['id', 'code', 'min_price', 'max_discount_pct'])->keyBy('id');
             // vaxtı bitmiş mal satılmır: qeydiyyatlı partiyası olan mal üçün sifariş vaxtı bitməmiş qalığı keçə bilməz
             $valid = app(BatchService::class)->validStock();

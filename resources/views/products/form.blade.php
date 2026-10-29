@@ -15,8 +15,8 @@
                 units: config.units.map((u) => ({ key: Math.random(), unit_id: Number(u.unit_id) || '', factor: u.factor ?? '', barcode: u.barcode ?? '', weight_kg: u.weight_kg ?? '' })),
                 baseUnit: config.baseUnit,
                 vatMode: config.vatMode,
-                saleUnit: config.saleUnit ? Number(config.saleUnit) : '',
-                purchaseUnit: config.purchaseUnit ? Number(config.purchaseUnit) : '',
+                saleUnit: config.saleUnit ? String(config.saleUnit) : '',
+                purchaseUnit: config.purchaseUnit ? String(config.purchaseUnit) : '',
                 alternatives: config.alternatives.filter((id) => products.has(id)),
                 altQuery: '', altOpen: false,
                 unitName(id) { return config.unitNames[id] ?? ''; },
@@ -88,7 +88,7 @@
                 </div>
                 <table class="w-full max-w-4xl text-sm" x-show="units.length">
                     <thead><tr class="text-left text-xs uppercase text-muted">
-                        <th class="pb-1 pr-2">{{ __('Vahid') }}</th><th class="pb-1 pr-2">{{ __('Əmsal') }}</th><th class="pb-1 pr-2">{{ __('Barkod') }}</th><th class="pb-1 pr-2">{{ __('Çəki, kq') }}</th><th class="pb-1 pr-2">{{ __('Susmaya görə') }}</th><th></th>
+                        <th class="pb-1 pr-2">{{ __('Vahid') }}</th><th class="pb-1 pr-2">{{ __('Əmsal') }}</th><th class="pb-1 pr-2">{{ __('Barkod') }}</th><th class="pb-1 pr-2">{{ __('Çəki, kq') }}</th><th></th>
                     </tr></thead>
                     <tbody>
                         <template x-for="(u, i) in units" :key="u.key">
@@ -105,15 +105,29 @@
                                 </td>
                                 <td class="pb-2 pr-2"><input class="input font-mono" maxlength="64" :name="`units[${i}][barcode]`" x-model="u.barcode" :aria-label="'{{ __('Barkod') }} ' + (i + 1)"></td>
                                 <td class="pb-2 pr-2"><input type="number" step="0.001" min="0" class="input" :name="`units[${i}][weight_kg]`" x-model="u.weight_kg" :aria-label="'{{ __('Çəki, kq') }} ' + (i + 1)"></td>
-                                <td class="pb-2 pr-2 text-xs">
-                                    <label class="flex items-center gap-1"><input type="radio" name="sale_unit" :value="u.unit_id" x-model.number="saleUnit" class="size-3.5"> {{ __('satış') }}</label>
-                                    <label class="flex items-center gap-1"><input type="radio" name="purchase_unit" :value="u.unit_id" x-model.number="purchaseUnit" class="size-3.5"> {{ __('alış') }}</label>
-                                </td>
                                 <td class="pb-2"><button type="button" class="btn btn-sm btn-danger px-2" @click="units.splice(i, 1)" aria-label="{{ __('Sətri sil') }}"><x-icon name="trash" size="14"/></button></td>
                             </tr>
                         </template>
                     </tbody>
                 </table>
+                {{-- susmaya görə vahid: sifarişdə (satış) və alışda avtomatik seçilir --}}
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                        <label class="label" for="p-sale-unit">{{ __('Satışda susmaya görə vahid') }}</label>
+                        <select id="p-sale-unit" name="sale_unit" class="select" x-model="saleUnit">
+                            <option value="" x-text="unitName(baseUnit) + ' ({{ __('əsas vahid') }})'"></option>
+                            <template x-for="u in units.filter((x) => x.unit_id && Number(x.factor) > 0)" :key="u.key"><option :value="u.unit_id" x-text="unitName(u.unit_id) + ' = ' + u.factor + ' ' + unitName(baseUnit)" :selected="String(u.unit_id) === String(saleUnit)"></option></template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label" for="p-purchase-unit">{{ __('Alışda susmaya görə vahid') }}</label>
+                        <select id="p-purchase-unit" name="purchase_unit" class="select" x-model="purchaseUnit">
+                            <option value="" x-text="unitName(baseUnit) + ' ({{ __('əsas vahid') }})'"></option>
+                            <template x-for="u in units.filter((x) => x.unit_id && Number(x.factor) > 0)" :key="u.key"><option :value="u.unit_id" x-text="unitName(u.unit_id) + ' = ' + u.factor + ' ' + unitName(baseUnit)" :selected="String(u.unit_id) === String(purchaseUnit)"></option></template>
+                        </select>
+                    </div>
+                    <div class="flex items-end text-xs text-muted sm:col-span-2">{{ __('Sifariş və transferdə məhsul seçiləndə bu vahid avtomatik gəlir (dəyişmək olar). Stok həmişə əsas vahiddə saxlanılır.') }}</div>
+                </div>
             </div>
         </section>
 

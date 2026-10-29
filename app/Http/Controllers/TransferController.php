@@ -213,11 +213,12 @@ class TransferController extends ReportController
         foreach (DB::table('stock_balances')->get(['product_id', 'warehouse_id', 'qty']) as $r) {
             $stock[$r->product_id][$r->warehouse_id] = round((float) $r->qty - ($reserved[$r->product_id][$r->warehouse_id] ?? 0), 2);
         }
-        $units = DB::table('product_units as pu')->join('units as u', 'u.id', '=', 'pu.unit_id')->get(['pu.product_id', 'pu.id', 'pu.factor', 'u.name'])->groupBy('product_id');
+        $units = DB::table('product_units as pu')->join('units as u', 'u.id', '=', 'pu.unit_id')->get(['pu.product_id', 'pu.id', 'pu.factor', 'pu.is_sale_default', 'u.name'])->groupBy('product_id');
         $unitBarcodes = DB::table('product_barcodes as b')->leftJoin('product_units as pu', 'pu.id', '=', 'b.product_unit_id')->get(['b.product_id', 'b.barcode', 'pu.factor']);
         $products = DB::table('products')->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'barcode'])
             ->map(fn ($p) => ['id' => $p->id, 'code' => $p->code, 'name' => $p->name, 'barcode' => $p->barcode, 'stock' => (object) ($stock[$p->id] ?? []),
-                'units' => ($units[$p->id] ?? collect())->map(fn ($u) => ['name' => $u->name, 'factor' => (float) $u->factor])->values()])->values();
+                'units' => ($units[$p->id] ?? collect())->map(fn ($u) => ['name' => $u->name, 'factor' => (float) $u->factor])->values(),
+                'sale_factor' => (float) (($units[$p->id] ?? collect())->firstWhere('is_sale_default', true)?->factor ?? 1)])->values();
         $lines = $source ? DB::table('warehouse_transfer_lines')->where('warehouse_transfer_id', $source->id)->orderBy('row_no')->get(['product_id', 'qty'])
             ->map(fn ($l) => ['product_id' => $l->product_id, 'qty' => (float) $l->qty])->all() : [];
         $main = $warehouses->firstWhere('type', 'main') ?? $warehouses->first();

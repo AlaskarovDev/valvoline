@@ -16,10 +16,12 @@
             const products = new Map(config.products.map((p) => [p.id, p]));
             const customers = new Map(config.customers.map((c) => [c.id, c]));
             const norm = (s) => String(s ?? '').toLocaleLowerCase('az').replace(/\s+/g, ' ').trim();
-            const blank = () => ({ key: Math.random(), product_id: null, op_type: 'sale', qty: 1, price: 0, discount: 0, query: '', open: false });
+            const blank = () => ({ key: Math.random(), product_id: null, op_type: 'sale', qty: 1, price: 0, discount: 0, query: '', open: false, unit_id: '', factor: 1 });
+            const factorOf = (p, unitId) => Number(p?.units?.find((u) => String(u.id) === String(unitId))?.factor ?? 1);
             const line = (l) => {
                 const p = products.get(Number(l.product_id));
-                return { ...blank(), ...l, product_id: p ? p.id : null, query: p ? p.code + ' — ' + p.name : '' };
+                const unitId = l.unit_id ? String(l.unit_id) : '';
+                return { ...blank(), ...l, unit_id: unitId, factor: factorOf(p, unitId), product_id: p ? p.id : null, query: p ? p.code + ' — ' + p.name : '' };
             };
             const c = customers.get(Number(config.values.customer_id));
 
@@ -43,7 +45,7 @@
                 init() {
                     if (this.customer_id) this.loadPrices();
                     if (this.applyCampaigns) this.refreshCampaigns();
-                    this.$watch(() => JSON.stringify([this.customer_id, this.date, this.lines.map((l) => [l.product_id, l.op_type, l.qty, l.price, l.discount])]), () => {
+                    this.$watch(() => JSON.stringify([this.customer_id, this.date, this.lines.map((l) => [l.product_id, l.op_type, l.qty, l.price, l.discount, l.unit_id])]), () => {
                         if (!this.applyCampaigns) return;
                         clearTimeout(this.timer);
                         this.timer = setTimeout(() => this.refreshCampaigns(), 400);
@@ -71,7 +73,7 @@
                     // müştəri dəyişəndə qiymətlər müştərinin qiymət növünə / özəl qiymətinə görə yenilənir
                     if (changed) this.loadPrices().then(() => this.lines.forEach((l) => {
                         const info = this.priceInfo(l);
-                        if (info && l.op_type === 'sale') l.price = info.price;
+                        if (info && l.op_type === 'sale') l.price = Math.round(info.price * l.factor * 100) / 100;
                     }));
                     // satış nümayəndəsi müştəridən avtomatik gəlir
                     if (c.manager_id && !this.$refs.manager.disabled) this.manager_id = c.manager_id;
@@ -85,7 +87,10 @@
                 pickProduct(l, p) {
                     l.product_id = p.id;
                     l.query = p.code + ' — ' + p.name;
-                    l.price = l.op_type === 'sale' ? (this.customerPrices[p.id]?.price ?? p.price) : 0;
+                    // satışda susmaya görə vahid (məs. bidon) avtomatik seçilir
+                    l.unit_id = p.sale_unit ? String(p.sale_unit) : '';
+                    l.factor = factorOf(p, l.unit_id);
+                    l.price = l.op_type === 'sale' ? Math.round((this.customerPrices[p.id]?.price ?? p.price) * l.factor * 100) / 100 : 0;
                     l.open = false;
                 },
                 stockOf(productId) {
@@ -97,6 +102,15 @@
                     this.$nextTick(() => { const inputs = this.$root.querySelectorAll('[data-product-input]'); inputs[inputs.length - 1]?.focus(); });
                 },
                 removeLine(i) { this.lines.splice(i, 1); if (!this.lines.length) this.lines.push(blank()); },
+                unitChanged(l) {
+                    const p = products.get(l.product_id);
+                    const next = factorOf(p, l.unit_id);
+                    if (l.op_type === 'sale') l.price = Math.round((Number(l.price) || 0) / l.factor * next * 100) / 100;
+                    l.factor = next;
+                },
+                baseQty(l) { return (Number(l.qty) || 0) * l.factor; },
+                unitsOf(l) { return products.get(l.product_id)?.units ?? []; },
+                baseUnitOf(l) { return products.get(l.product_id)?.base_unit ?? ''; },
                 gross(l) { return (Number(l.qty) || 0) * (Number(l.price) || 0); },
                 net(l) { return this.gross(l) * (1 - (Number(l.discount) || 0) / 100); },
                 lineResult(i) { return this.applyCampaigns && this.campaignResult ? (this.campaignResult.lines[i] ?? null) : null; },
@@ -130,7 +144,7 @@
                             headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
                             body: JSON.stringify({
                                 customer_id: this.customer_id, date: this.date, order_id: config.orderId, excluded: this.excluded,
-                                lines: this.lines.map((l) => ({ product_id: l.product_id, op_type: l.op_type, qty: Number(l.qty) || 0, price: Number(l.price) || 0, discount: Number(l.discount) || 0 })),
+                                lines: this.lines.map((l) => ({ product_id: l.product_id, op_type: l.op_type, qty: this.baseQty(l), price: (Number(l.price) || 0) / l.factor, discount: Number(l.discount) || 0 })),
                             }),
                         });
                         if (!response.ok) throw new Error(response.status);
@@ -215,7 +229,7 @@
                 </div>
             </div>
             <div class="overflow-x-auto lg:overflow-visible">
-                <table class="w-full min-w-[860px] text-sm">
+                <table class="w-full min-w-[980px] text-sm">
                     <thead>
                         <tr class="border-b border-line text-left text-xs uppercase text-muted">
                             <th class="w-8 px-3 py-2">#</th>
@@ -223,6 +237,7 @@
                             <th class="w-24 px-3 py-2 text-right" title="{{ __('Real stok − açıq sifarişlərdə rezerv') }}">{{ __('Rezerv stok') }}</th>
                             <th class="w-40 px-3 py-2">{{ __('Tip') }}</th>
                             <th class="w-24 px-3 py-2 text-right">{{ __('Miqdar') }}</th>
+                            <th class="w-32 px-3 py-2">{{ __('Vahid') }}</th>
                             <th class="w-28 px-3 py-2 text-right">{{ __('Qiymət') }}</th>
                             <th class="w-24 px-3 py-2 text-right">{{ __('Endirim') }} %</th>
                             <th class="w-32 px-3 py-2 text-right">{{ __('Yekun') }}</th>
@@ -249,15 +264,23 @@
                                         <li x-show="!productMatches(l).length" class="px-3 py-2 text-xs text-muted">{{ __('Mal tapılmadı') }}</li>
                                     </ul>
                                 </td>
-                                <td class="px-3 py-2 pt-4 text-right tabular-nums" :class="l.product_id && stockOf(l.product_id) < Number(l.qty) ? 'neg font-semibold' : 'text-muted'"
-                                    :title="l.product_id && stockOf(l.product_id) < Number(l.qty) ? '{{ __('Anbarda kifayət qədər qalıq yoxdur') }}' : ''"
+                                <td class="px-3 py-2 pt-4 text-right tabular-nums" :class="l.product_id && stockOf(l.product_id) < baseQty(l) ? 'neg font-semibold' : 'text-muted'"
+                                    :title="l.product_id && stockOf(l.product_id) < baseQty(l) ? '{{ __('Anbarda kifayət qədər qalıq yoxdur') }}' : ''"
                                     x-text="l.product_id ? stockOf(l.product_id) : '—'"></td>
                                 <td class="px-3 py-2">
                                     <select class="select" :name="`lines[${i}][op_type]`" x-model="l.op_type" @change="if (l.op_type !== 'sale') l.price = 0" :aria-label="'{{ __('Tip') }} ' + (i + 1)">
                                         <template x-for="(label, key) in opTypes" :key="key"><option :value="key" x-text="label" :selected="key === l.op_type"></option></template>
                                     </select>
                                 </td>
-                                <td class="px-3 py-2"><input type="number" step="any" min="0.0001" required class="input text-right" :name="`lines[${i}][qty]`" x-model="l.qty" :aria-label="'{{ __('Miqdar') }} ' + (i + 1)"></td>
+                                <td class="px-3 py-2"><input type="number" step="any" min="0.0001" required class="input text-right" :name="`lines[${i}][qty]`" x-model="l.qty" :aria-label="'{{ __('Miqdar') }} ' + (i + 1)">
+                                    <div class="mt-1 text-right text-[11px] text-muted" x-show="l.factor !== 1" x-cloak x-text="'= ' + baseQty(l) + ' ' + baseUnitOf(l)"></div></td>
+                                <td class="px-3 py-2">
+                                    <input type="hidden" :name="`lines[${i}][unit_id]`" :value="l.unit_id">
+                                    <select class="select" x-model="l.unit_id" @change="unitChanged(l)" :disabled="!l.product_id" :aria-label="'{{ __('Vahid') }} ' + (i + 1)">
+                                        <option value="" x-text="baseUnitOf(l) || '{{ __('əsas') }}'"></option>
+                                        <template x-for="u in unitsOf(l)" :key="u.id"><option :value="String(u.id)" x-text="u.name + ' (' + u.factor + ')'" :selected="String(u.id) === l.unit_id"></option></template>
+                                    </select>
+                                </td>
                                 <td class="px-3 py-2"><input type="number" step="0.01" min="0" required class="input text-right" :name="`lines[${i}][price]`" x-model="l.price" :aria-label="'{{ __('Qiymət') }} ' + (i + 1)">
                                     <div class="mt-1 text-right text-[11px] leading-tight" x-show="priceInfo(l)" x-cloak :class="priceInfo(l)?.special ? 'text-primary-text font-semibold' : 'text-muted'" x-text="(priceInfo(l)?.special ? '★ ' : '') + (priceInfo(l)?.label ?? '')"></div></td>
                                 <td class="px-3 py-2"><input type="number" step="0.01" min="0" max="100" class="input text-right" :name="`lines[${i}][discount]`" x-model="l.discount" :aria-label="'{{ __('Endirim') }} ' + (i + 1)"></td>
@@ -271,7 +294,7 @@
                             <template x-for="d in (lineResult(i)?.discounts ?? [])" :key="d.campaign_id">
                                 <tr class="campaign-row text-xs">
                                     <td></td>
-                                    <td colspan="5" class="px-3 pb-2">
+                                    <td colspan="6" class="px-3 pb-2">
                                         <span class="inline-flex flex-wrap items-center gap-2">
                                             <span aria-hidden="true">↳</span>
                                             <span class="badge badge-primary"><x-icon name="tag" size="11"/> <span x-text="d.code"></span></span>
@@ -286,7 +309,7 @@
                             <template x-for="g in giftsOf(i)" :key="'g' + g.campaign_id">
                                 <tr class="campaign-row text-xs">
                                     <td></td>
-                                    <td colspan="5" class="px-3 pb-2">
+                                    <td colspan="6" class="px-3 pb-2">
                                         <span class="inline-flex flex-wrap items-center gap-2">
                                             <span aria-hidden="true">↳</span>
                                             <span class="badge badge-primary"><x-icon name="tag" size="11"/> <span x-text="g.code"></span></span>
@@ -302,10 +325,10 @@
                         </tbody>
                     </template>
                     <tfoot class="text-sm">
-                        <tr><td colspan="7" class="px-3 pt-3 text-right text-muted">{{ __('Məbləğ (endirimsiz)') }}</td><td class="px-3 pt-3 text-right tabular-nums" x-text="money(sum((l) => gross(l)))"></td><td></td></tr>
-                        <tr><td colspan="7" class="px-3 text-right text-muted">{{ __('Endirim') }}</td><td class="px-3 text-right tabular-nums" x-text="money(sum((l) => gross(l) - net(l)))"></td><td></td></tr>
-                        <tr x-show="applyCampaigns" x-cloak><td colspan="7" class="px-3 text-right text-muted">{{ __('Kampaniya endirimi') }}</td><td class="px-3 text-right tabular-nums pos" x-text="'−' + money(sum((l, i) => campaignDiscount(i)))"></td><td></td></tr>
-                        <tr><td colspan="7" class="px-3 pb-3 text-right font-semibold">{{ __('Yekun') }}</td><td class="px-3 pb-3 text-right text-base font-semibold tabular-nums" x-text="money(sum((l, i) => final(l, i)))"></td><td></td></tr>
+                        <tr><td colspan="8" class="px-3 pt-3 text-right text-muted">{{ __('Məbləğ (endirimsiz)') }}</td><td class="px-3 pt-3 text-right tabular-nums" x-text="money(sum((l) => gross(l)))"></td><td></td></tr>
+                        <tr><td colspan="8" class="px-3 text-right text-muted">{{ __('Endirim') }}</td><td class="px-3 text-right tabular-nums" x-text="money(sum((l) => gross(l) - net(l)))"></td><td></td></tr>
+                        <tr x-show="applyCampaigns" x-cloak><td colspan="8" class="px-3 text-right text-muted">{{ __('Kampaniya endirimi') }}</td><td class="px-3 text-right tabular-nums pos" x-text="'−' + money(sum((l, i) => campaignDiscount(i)))"></td><td></td></tr>
+                        <tr><td colspan="8" class="px-3 pb-3 text-right font-semibold">{{ __('Yekun') }}</td><td class="px-3 pb-3 text-right text-base font-semibold tabular-nums" x-text="money(sum((l, i) => final(l, i)))"></td><td></td></tr>
                     </tfoot>
                 </table>
             </div>

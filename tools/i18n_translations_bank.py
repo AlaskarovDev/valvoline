@@ -1137,4 +1137,9 @@ T = {
     'Səyyar anbar (istəyə görə)': ('Склад автолавки (необязательно)', 'Van warehouse (optional)'),
     'Yoxdur — soyuq satış / mərkəzi anbardan': ('Нет — холодные продажи / с центрального склада', 'None — cold sales / from the main warehouse'),
     'anbarsız': ('без склада', 'no warehouse'),
+    'Alışda susmaya görə vahid': ('Единица закупки по умолчанию', 'Default purchase unit'),
+    'Satışda susmaya görə vahid': ('Единица продажи по умолчанию', 'Default sales unit'),
+    'Sifariş və transferdə məhsul seçiləndə bu vahid avtomatik gəlir (dəyişmək olar). Stok həmişə əsas vahiddə saxlanılır.': ('При выборе товара в заказе и перемещении эта единица подставляется автоматически (можно изменить). Остаток всегда хранится в базовой единице.', 'This unit is pre-selected when the product is picked in orders and transfers (can be changed). Stock is always kept in the base unit.'),
+    'Vahiddə': ('В единице', 'In unit'),
+    'əsas vahid': ('базовая единица', 'base unit'),
 }
