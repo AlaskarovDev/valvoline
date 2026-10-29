@@ -96,7 +96,7 @@ class WarehouseModuleTest extends TestCase
         $this->actingAs($this->admin)->post(route('orders.store'), ['date' => now()->toDateString(), 'order_no' => '1', 'customer_id' => $customer, 'warehouse_id' => $this->main,
             'lines' => [['product_id' => $this->product, 'op_type' => 'sale', 'qty' => 15, 'price' => 50]]])->assertRedirect();
 
-        $this->post(route('transfers.store'), $this->payload(10, ['then' => 'send']))->assertSessionHas('error');
+        $this->post(route('transfers.store'), $this->payload(10, ['then' => 'send']))->assertSessionHas('popup', fn ($p) => str_contains($p['message'], 'VE1'));
         $this->assertSame('draft', WarehouseTransfer::query()->value('status'), 'rezervdən sonra sərbəst 5-dir');
 
         $this->post(route('transfers.store'), $this->payload(4, ['then' => 'send']));
