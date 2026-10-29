@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Customer;
 use App\Models\SalesOrder;
+use App\Services\BatchService;
 use App\Support\Fmt;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -62,6 +63,15 @@ class StoreOrderRequest extends FormRequest
             // qiymət nəzarəti: məhsul kartındakı minimum qiymət və maksimum endirim
             $lines = collect($this->input('lines', []))->filter(fn ($l) => ($l['op_type'] ?? 'sale') === 'sale' && is_numeric($l['product_id'] ?? null));
             $limits = DB::table('products')->whereIn('id', $lines->pluck('product_id')->all() ?: [0])->get(['id', 'code', 'min_price', 'max_discount_pct'])->keyBy('id');
+            // vaxtı bitmiş mal satılmır: qeydiyyatlı partiyası olan mal üçün sifariş vaxtı bitməmiş qalığı keçə bilməz
+            $valid = app(BatchService::class)->validStock();
+            foreach ($lines->groupBy(fn ($l) => (int) $l['product_id']) as $productId => $group) {
+                if (isset($valid[$productId]) && $valid[$productId]['expired'] > 0 && $group->sum(fn ($l) => (float) $l['qty']) > $valid[$productId]['valid'] + 1e-6) {
+                    $validator->errors()->add('lines.'.$group->keys()->first().'.qty', __(':code: vaxtı bitməmiş qalıq yalnız :qty — vaxtı bitmiş mal satılmır.', [
+                        'code' => $limits[$productId]->code ?? $productId, 'qty' => rtrim(rtrim(number_format(max($valid[$productId]['valid'], 0), 2, ',', ''), '0'), ','),
+                    ]));
+                }
+            }
             foreach ($lines as $i => $line) {
                 $p = $limits[(int) $line['product_id']] ?? null;
                 $discount = (float) ($line['discount'] ?? 0);

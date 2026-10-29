@@ -1,0 +1,1 @@
+<span @class(['badge', 'badge-warn' => in_array($status, ['sent', 'partial'], true), 'badge-primary' => $status === 'received', 'badge-neg' => $status === 'cancelled'])>{{ $labels[$status] ?? $status }}</span>

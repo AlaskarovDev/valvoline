@@ -184,7 +184,7 @@ class OrderEntryController extends Controller
             ->get(['id', 'code', 'name', 'sale_price', 'barcode'])
             ->map(fn ($p) => ['id' => $p->id, 'code' => $p->code, 'name' => $p->name, 'barcode' => $p->barcode,
                 'price' => round($basePrices[$p->id]['price'] ?? (float) $p->sale_price, 2), 'stock' => (object) ($stock[$p->id] ?? [])])->values();
-        $warehouses = Warehouse::query()->orderByDesc('is_main')->orderBy('name')->get(['id', 'name', 'is_main']);
+        $warehouses = Warehouse::query()->sellable()->orderByDesc('is_main')->orderBy('name')->get(['id', 'name', 'is_main']);
 
         $lines = $order
             ? DB::table('sales_order_items')->where('sales_order_id', $order->id)->whereNull('campaign_id')->orderBy('row_no')->get()

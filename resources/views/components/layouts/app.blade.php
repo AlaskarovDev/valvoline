@@ -49,6 +49,10 @@
         __('Anbar') => [
             ['stock.index', __('Anbar qalığı və dəyəri'), 'stock', true],
             ['movements.index', __('Anbar hərəkətləri'), 'movements', true],
+            ['transfers.index', __('Anbar transferləri'), 'truck', true],
+            ['batches.index', __('Son istifadə tarixləri'), 'warning', true],
+            ['write-offs.index', __('Silinmə aktları'), 'trash', true],
+            ['warehouses.index', __('Anbarlar'), 'stock', true],
             ['purchases.index', __('İdxal partiyaları'), 'truck', $isAdmin],
         ],
         __('Maliyyə') => [
