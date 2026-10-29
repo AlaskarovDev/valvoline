@@ -34,6 +34,7 @@ use App\Http\Controllers\Reports\SalesController;
 use App\Http\Controllers\Reports\SalesDocumentController;
 use App\Http\Controllers\Reports\StockController;
 use App\Http\Controllers\SalesRepController;
+use App\Http\Controllers\StockDocumentController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WarehouseController;
@@ -53,6 +54,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/sifarisler', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('/hesabat/sifarisler-ve-qazanc', [OrderController::class, 'profit'])->name('order-profit.index');
     Route::get('/sifarisler/yeni', [OrderEntryController::class, 'create'])->name('orders.create');
     Route::post('/sifarisler', [OrderEntryController::class, 'store'])->name('orders.store');
     Route::post('/sifarisler/kampaniya', [CampaignController::class, 'preview'])->name('orders.campaigns');
@@ -97,6 +99,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/silinme-aktlari', [WriteOffController::class, 'index'])->name('write-offs.index');
     Route::get('/silinme-aktlari/{writeOff}', [WriteOffController::class, 'show'])->name('write-offs.show');
     Route::get('/anbarlar', [WarehouseController::class, 'index'])->name('warehouses.index');
+    Route::get('/stok-senedleri', [StockDocumentController::class, 'index'])->name('stock-docs.index');
+    Route::get('/stok-senedleri/yeni', [StockDocumentController::class, 'create'])->name('stock-docs.create');
+    Route::post('/stok-senedleri', [StockDocumentController::class, 'store'])->name('stock-docs.store');
+    Route::get('/stok-senedleri/{stockDocument}', [StockDocumentController::class, 'show'])->name('stock-docs.show');
+    Route::delete('/stok-senedleri/{stockDocument}', [StockDocumentController::class, 'destroy'])->name('stock-docs.destroy');
     Route::get('/kassalar', [FinanceController::class, 'registers'])->name('finance.registers');
     Route::get('/kassalar/{register}', [FinanceController::class, 'register'])->whereNumber('register')->name('finance.register');
     Route::get('/maliyye-senedleri', [FinanceController::class, 'documents'])->name('finance.documents');
@@ -132,6 +139,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/mehsullar/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::post('/mehsullar/{product}/status', [ProductController::class, 'toggle'])->name('products.toggle');
         Route::get('/qiymet-kartlari', [PriceCardController::class, 'index'])->name('prices.index');
+        Route::get('/musteriye-ozel-qiymetler', [PriceCardController::class, 'customerIndex'])->name('customer-prices.index');
         Route::post('/qiymet-kartlari', [PriceCardController::class, 'store'])->name('prices.store');
         Route::post('/qiymet-kartlari/toplu', [PriceCardController::class, 'bulk'])->name('prices.bulk');
         Route::post('/qiymet-kartlari/excel', [PriceCardController::class, 'import'])->name('prices.import');

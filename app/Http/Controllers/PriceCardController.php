@@ -24,7 +24,15 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PriceCardController extends ReportController
 {
-    public function index(Request $request): View|Response
+    /**
+     * Müştəriyə özəl qiymət kartları (ayrıca alt menyu).
+     */
+    public function customerIndex(Request $request): View|Response
+    {
+        return $this->index($request, true);
+    }
+
+    public function index(Request $request, bool $customerOnly = false): View|Response
     {
         $state = (string) $request->query('state', 'current');
         $today = now()->toDateString();
@@ -33,7 +41,8 @@ class PriceCardController extends ReportController
             ->leftJoin('product_units as pu', 'pu.id', '=', 'c.product_unit_id')->leftJoin('units as u', 'u.id', '=', 'pu.unit_id')
             ->when(in_array($request->query('type'), ['sale', 'purchase'], true), fn ($q) => $q->where('c.type', $request->query('type')))
             ->when(is_numeric($request->query('list')), fn ($q) => $q->where('c.price_list_id', (int) $request->query('list')))
-            ->when($request->query('kind') === 'customer', fn ($q) => $q->whereNotNull('c.customer_id'))
+            // əsas siyahıda yalnız qiymət növü kartları, müştəriyə özəl kartlar ayrıca səhifədədir
+            ->when($customerOnly, fn ($q) => $q->whereNotNull('c.customer_id'), fn ($q) => $q->whereNull('c.customer_id'))
             ->when(is_numeric($request->query('customer')), fn ($q) => $q->where('c.customer_id', (int) $request->query('customer')))
             ->when($state === 'current', fn ($q) => $q->where('c.is_active', true)->whereDate('c.valid_from', '<=', $today)->where(fn ($w) => $w->whereNull('c.valid_to')->orWhereDate('c.valid_to', '>=', $today)))
             ->when($state === 'future', fn ($q) => $q->where('c.is_active', true)->whereDate('c.valid_from', '>', $today))
@@ -41,7 +50,7 @@ class PriceCardController extends ReportController
             ->select('c.id', 'c.product_id', 'p.code', 'p.name', 'c.type', 'c.price', 'c.vat_included', 'c.min_qty', 'c.valid_from', 'c.valid_to', 'c.is_active', 'c.note',
                 'l.name as list_name', 'cu.name as customer_name', 'c.customer_id', 'u.name as unit_name', 'p.vat_rate', 'p.vat_mode');
 
-        $table = Table::make('cards', __('Qiymət kartları'))
+        $table = Table::make('cards', $customerOnly ? __('Müştəriyə özəl qiymətlər') : __('Qiymət kartları'))
             ->column('code', __('Kod'), 'text', ['sql' => 'p.code', 'link' => fn ($r) => route('products.show', $r->product_id)])
             ->column('name', __('Mal'), 'text', ['sql' => 'p.name'])
             ->column('type', __('Növ'), 'text', ['sql' => 'c.type', 'format' => fn ($v) => $v === 'sale' ? e(__('Satış')) : '<span class="badge">'.e(__('Alış')).'</span>'])
@@ -61,7 +70,9 @@ class PriceCardController extends ReportController
         }
 
         return view('prices.index', [
-            'title' => __('Qiymət kartları'), 'table' => $table, 'rows' => $table->resolve($request), 'state' => $state,
+            'title' => $customerOnly ? __('Müştəriyə özəl qiymətlər') : __('Qiymət kartları'), 'customerOnly' => $customerOnly,
+            'products' => $customerOnly ? DB::table('products')->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']) : collect(),
+            'table' => $table, 'rows' => $table->resolve($request), 'state' => $state,
             'priceLists' => DB::table('price_lists')->orderByDesc('is_default')->orderBy('name')->get(),
             'customers' => DB::table('customers')->orderBy('name')->get(['id', 'name', 'code']),
             'brands' => DB::table('brands')->orderBy('name')->get(['id', 'name']),

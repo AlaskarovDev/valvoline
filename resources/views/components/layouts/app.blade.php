@@ -25,11 +25,12 @@
     $menu = [
         __('Hesabatlar') => [
             ['dashboard', __('İdarə paneli'), 'dashboard', true],
+            ['order-profit.index', __('Sifarişlər və qazanc'), 'margin', true],
             ['sales.index', __('Satış hesabatı'), 'sales', true],
             ['margin.index', __('Marjinallıq'), 'margin', true],
         ],
         __('Satış və Kampaniyalar') => [
-            ['orders.index', __('Sifarişlər və qazanc'), 'orders', true],
+            ['orders.index', __('Sifarişlər'), 'orders', true],
             ['deliveries.index', __('Təhvil-təslim sənədləri'), 'truck', true],
             ['invoices.index', __('Satış fakturaları'), 'invoice', true],
             ['returns.index', __('Qaytarmalar'), 'returns', true],
@@ -37,10 +38,19 @@
             ['reps.index', __('Satış nümayəndələri'), 'users', $isAdmin],
         ],
         __('Məhsul idarəetməsi') => [
+            ['_sub', __('Əsas məlumat')],
             ['products.index', __('Məhsullar'), 'stock', true],
             ['prices.index', __('Qiymət kartları'), 'tag', $isAdmin],
+            ['customer-prices.index', __('Müştəriyə özəl qiymətlər'), 'users', $isAdmin],
             ['prices.list', __('Qiymət siyahısı'), 'invoice', true],
             ['product-settings.index', __('Məhsul parametrləri'), 'filter', $isAdmin],
+            ['_sub', __('Sənədlər')],
+            ['stock-docs.index', __('Bütün stok sənədləri'), 'invoice', true],
+            ['stock-docs.opening', __('Açılış sənədləri'), 'plus', true],
+            ['stock-docs.count_surplus', __('Sayım artığı'), 'up', true],
+            ['stock-docs.count_shortage', __('Sayım əskiyi'), 'down', true],
+            ['stock-docs.production_loss', __('İstehsal itkisi'), 'warning', true],
+            ['stock-docs.consumption', __('Sərf sənədləri'), 'expenses', true],
         ],
         __('Müştərilər') => [
             ['customers.index', __('Müştəri bazası'), 'customers', true],
@@ -100,12 +110,42 @@
         </div>
         <nav class="flex-1 overflow-y-auto px-2 pb-6">
             @foreach ($menu as $section => $items)
-                @php $visible = array_filter($items, fn ($i) => $i[3]); @endphp
+                @php
+                    // alt başlıqlar (['_sub', ad]) — altında görünən bənd yoxdursa göstərilmir
+                    $visible = [];
+                    $pendingSub = null;
+                    foreach ($items as $i) {
+                        if ($i[0] === '_sub') {
+                            $pendingSub = $i;
+                        } elseif ($i[3]) {
+                            if ($pendingSub) {
+                                $visible[] = $pendingSub;
+                                $pendingSub = null;
+                            }
+                            $visible[] = $i;
+                        }
+                    }
+                @endphp
                 @if ($visible)
                     <div class="nav-section">{{ $section }}</div>
-                    @foreach ($visible as [$route, $label, $icon])
-                        @php $active = request()->routeIs((str_ends_with($route, '.index') ? \Illuminate\Support\Str::beforeLast($route, '.') : $route).'*'); @endphp
-                        <a href="{{ route($route) }}" @class(['nav-link', 'active' => $active]) @if($active) aria-current="page" @endif>
+                    @foreach ($visible as $item)
+                        @if ($item[0] === '_sub')
+                            <div class="nav-subsection">{{ $item[1] }}</div>
+                            @continue
+                        @endif
+                        @php [$route, $label, $icon] = $item; @endphp
+                        @php
+                            if (str_starts_with($route, 'stock-docs.') && $route !== 'stock-docs.index') {
+                                $docType = \Illuminate\Support\Str::after($route, 'stock-docs.');
+                                $href = route('stock-docs.index', ['type' => $docType]);
+                                $active = request()->routeIs('stock-docs*') && request('type', optional(request()->route('stockDocument'))->type) === $docType;
+                            } else {
+                                $href = route($route);
+                                $active = request()->routeIs((str_ends_with($route, '.index') ? \Illuminate\Support\Str::beforeLast($route, '.') : $route).'*')
+                                    && ! ($route === 'stock-docs.index' && request('type', optional(request()->route('stockDocument'))->type));
+                            }
+                        @endphp
+                        <a href="{{ $href }}" @class(['nav-link', 'active' => $active]) @if($active) aria-current="page" @endif>
                             <x-icon :name="$icon"/> <span>{{ $label }}</span>
                         </a>
                     @endforeach

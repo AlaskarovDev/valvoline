@@ -56,7 +56,7 @@ class ReportPagesTest extends TestCase
     public static function pages(): array
     {
         return [
-            'dashboard' => ['dashboard'], 'orders' => ['orders.index'], 'sales' => ['sales.index'], 'margin' => ['margin.index'],
+            'dashboard' => ['dashboard'], 'orders' => ['orders.index'], 'order-profit' => ['order-profit.index'], 'sales' => ['sales.index'], 'margin' => ['margin.index'],
             'returns' => ['returns.index'], 'customers' => ['customers.index'], 'debts' => ['debts.index'], 'payments' => ['payments.index'],
             'stock' => ['stock.index'], 'movements' => ['movements.index'], 'purchases' => ['purchases.index'], 'expenses' => ['expenses.index'],
             'pnl' => ['pnl.index'], 'cash' => ['cash.index'], 'quality' => ['quality.index'], 'import' => ['import.index'],
@@ -88,7 +88,26 @@ class ReportPagesTest extends TestCase
         $this->get(route('customers.index', ['tab' => 'inactive', 'days' => 30]))->assertOk();
         $this->get(route('debts.index', ['tab' => 'advances']))->assertOk();
         $this->get(route('stock.index', ['asof' => '2025-06-30', 'only' => 'all']))->assertOk();
-        $this->get(route('orders.index', ['from' => '2025-02-03', 'to' => '2025-05-17', 'orders_sort' => 'margin', 'orders_dir' => 'asc', 'orders_q' => 'MMC']))->assertOk();
+        $this->get(route('order-profit.index', ['from' => '2025-02-03', 'to' => '2025-05-17', 'orders_sort' => 'margin', 'orders_dir' => 'asc', 'orders_q' => 'MMC', 'only' => 'loss']))->assertOk();
+        $this->get(route('orders.index', ['from' => '2025-02-03', 'to' => '2025-05-17', 'orders_sort' => 'total_amount', 'orders_q' => 'MMC']))->assertOk();
+    }
+
+    /**
+     * Satış → «Sifarişlər» maya və qazancı göstərmir; bunlar «Sifarişlər və qazanc» hesabatındadır.
+     */
+    public function test_orders_list_hides_cost_and_profit_report_shows_it(): void
+    {
+        $this->actingAs($this->admin);
+        $order = SalesOrder::query()->firstOrFail();
+        $this->get(route('orders.index', ['preset' => 'all']))->assertOk()
+            ->assertViewHas('table', fn ($t) => ! collect($t->columns)->pluck('key')->intersect(['total_cogs', 'gross_profit', 'margin', 'net_profit'])->count())
+            ->assertSee(route('orders.create'), false)->assertDontSee('Yalnız zərərlilər');
+        $this->get(route('order-profit.index', ['preset' => 'all']))->assertOk()
+            ->assertViewHas('table', fn ($t) => collect($t->columns)->pluck('key')->intersect(['total_cogs', 'gross_profit', 'margin', 'net_profit'])->count() === 4)
+            ->assertSee('Yalnız zərərlilər')->assertSee('?view=profit', false);
+        $this->get(route('orders.show', $order))->assertOk()->assertDontSee('Qaytarmadan sonra xalis qazanc')
+            ->assertViewHas('table', fn ($t) => ! collect($t->columns)->pluck('key')->contains('cogs'));
+        $this->get(route('orders.show', [$order, 'view' => 'profit']))->assertOk()->assertSee('Qaytarmadan sonra xalis qazanc');
     }
 
     public function test_every_pnl_number_opens_its_calculation(): void

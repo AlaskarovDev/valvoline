@@ -66,7 +66,7 @@ class LocalizationTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         $this->actingAs($admin)->get(route('locale', $locale));
 
-        $routes = ['dashboard', 'orders.index', 'sales.index', 'margin.index', 'returns.index', 'customers.index', 'debts.index', 'payments.index',
+        $routes = ['dashboard', 'orders.index', 'order-profit.index', 'sales.index', 'margin.index', 'returns.index', 'customers.index', 'debts.index', 'payments.index',
             'stock.index', 'movements.index', 'purchases.index', 'expenses.index', 'pnl.index', 'cash.index', 'quality.index', 'import.index',
             'aliases.index', 'categories.index', 'users.index', 'accounting.balance', 'accounting.pl', 'accounting.cashflow', 'accounting.overview', 'accounting.reconcile', 'bank.index', 'flowsheet.index'];
         $leftovers = [];

@@ -535,6 +535,15 @@
         color: var(--primary-text);
     }
 
+    .nav-subsection {
+        margin: 8px 0 2px;
+        padding: 0 12px 0 22px;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--muted);
+        opacity: 0.85;
+    }
+
     .nav-section {
         padding: 16px 10px 6px;
         font-size: 10px;

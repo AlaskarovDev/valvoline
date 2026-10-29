@@ -10,27 +10,51 @@
                     <select id="pf-type" name="type" class="select h-[34px] text-xs" onchange="this.form.submit()">
                         <option value="">{{ __('Hamısı') }}</option><option value="sale" @selected(request('type') === 'sale')>{{ __('Satış') }}</option><option value="purchase" @selected(request('type') === 'purchase')>{{ __('Alış') }}</option>
                     </select></div>
+                @unless ($customerOnly)
                 <div><label class="label" for="pf-list">{{ __('Qiymət növü') }}</label>
                     <select id="pf-list" name="list" class="select h-[34px] text-xs" onchange="this.form.submit()">
                         <option value="">{{ __('Hamısı') }}</option>
                         @foreach ($priceLists as $l)<option value="{{ $l->id }}" @selected((string) request('list') === (string) $l->id)>{{ $l->name }}</option>@endforeach
                     </select></div>
-                <div><label class="label" for="pf-kind">{{ __('Müştəriyə özəl') }}</label>
-                    <select id="pf-kind" name="kind" class="select h-[34px] text-xs" onchange="this.form.submit()">
-                        <option value="">{{ __('Hamısı') }}</option><option value="customer" @selected(request('kind') === 'customer')>{{ __('Yalnız müştəriyə özəl') }}</option>
-                    </select></div>
+                @endunless
+                @if ($customerOnly)
                 <div><label class="label" for="pf-customer">{{ __('Müştəri') }}</label>
                     <select id="pf-customer" name="customer" class="select h-[34px] max-w-56 text-xs" onchange="this.form.submit()">
                         <option value="">{{ __('Hamısı') }}</option>
                         @foreach ($customers as $c)<option value="{{ $c->id }}" @selected((string) request('customer') === (string) $c->id)>{{ $c->name }}</option>@endforeach
                     </select></div>
+                @endif
+                @if ($customerOnly)
+                <div class="flex gap-2 sm:ml-auto">
+                    <button type="button" class="btn btn-sm btn-primary h-[34px]" @click="bulk = !bulk"><x-icon name="plus" size="14"/> {{ __('Özəl qiymət əlavə et') }}</button>
+                </div>
+                @else
                 <div class="flex gap-2 sm:ml-auto">
                     <button type="button" class="btn btn-sm h-[34px]" @click="upload = !upload; bulk = false"><x-icon name="import" size="14"/> {{ __('Excel-dən yüklə') }}</button>
                     <button type="button" class="btn btn-sm btn-primary h-[34px]" @click="bulk = !bulk; upload = false"><x-icon name="refresh" size="14"/> {{ __('Toplu qiymət dəyişikliyi') }}</button>
                 </div>
+                @endif
             </form>
         </section>
 
+        @if ($customerOnly)
+        <section class="card lg:col-span-2" x-show="bulk" x-cloak>
+            <div class="card-head"><div><h2 class="card-title">{{ __('Müştəriyə özəl qiymət') }}</h2><div class="card-sub">{{ __('Bu müştəriyə bu mal üçün qiymət növündən asılı olmayaraq tətbiq olunur. Eyni müştəri və mal üçün yeni kart köhnəsini bağlayır.') }}</div></div></div>
+            <form method="POST" action="{{ route('prices.store') }}" class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6">
+                @csrf
+                <input type="hidden" name="type" value="sale">
+                <div class="sm:col-span-2"><label class="label" for="cp-customer">{{ __('Müştəri') }}</label><select id="cp-customer" name="customer_id" class="select" required>@foreach ($customers as $c)<option value="{{ $c->id }}" @selected((string) request('customer') === (string) $c->id)>{{ $c->name }} · {{ $c->code }}</option>@endforeach</select></div>
+                <div class="sm:col-span-2"><label class="label" for="cp-product">{{ __('Mal') }}</label><select id="cp-product" name="product_id" class="select" required>@foreach ($products as $p)<option value="{{ $p->id }}">{{ $p->code }} — {{ $p->name }}</option>@endforeach</select></div>
+                <div><label class="label" for="cp-price">{{ __('Qiymət') }}</label><input id="cp-price" type="number" step="0.0001" min="0.0001" name="price" required class="input"></div>
+                <div><label class="label" for="cp-vat">{{ __('ƏDV') }}</label><select id="cp-vat" name="vat_included" class="select"><option value="1">{{ __('ƏDV daxil') }}</option><option value="0">{{ __('ƏDV xaric') }}</option></select></div>
+                <div><label class="label" for="cp-minqty">{{ __('Min. miqdar') }}</label><input id="cp-minqty" type="number" step="any" min="0" name="min_qty" value="0" class="input"></div>
+                <div><label class="label" for="cp-from">{{ __('Başlama tarixi') }}</label><input id="cp-from" type="date" name="valid_from" required class="input" value="{{ now()->toDateString() }}"></div>
+                <div><label class="label" for="cp-to">{{ __('Bitmə tarixi') }}</label><input id="cp-to" type="date" name="valid_to" class="input"></div>
+                <div class="sm:col-span-2"><label class="label" for="cp-note">{{ __('Qeyd') }}</label><input id="cp-note" name="note" maxlength="255" class="input"></div>
+                <div class="flex items-end"><button class="btn btn-primary w-full">{{ __('Yadda saxla') }}</button></div>
+            </form>
+        </section>
+        @else
         <section class="card lg:col-span-2" x-show="bulk" x-cloak>
             <div class="card-head"><div><h2 class="card-title">{{ __('Toplu qiymət dəyişikliyi') }}</h2><div class="card-sub">{{ __('Seçilmiş mallar üçün yeni tarixli kartlar yaradılır, köhnələri bağlanır — tarixçə saxlanır.') }}</div></div></div>
             <form method="POST" action="{{ route('prices.bulk') }}" class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6" onsubmit="return confirm(@js(__('Seçilmiş mallar üçün yeni qiymətlər yaradılsın?')))">
@@ -65,6 +89,7 @@
                 <div class="sm:col-span-4 flex justify-end"><button class="btn btn-primary"><x-icon name="import" size="14"/> {{ __('Yüklə') }}</button></div>
             </form>
         </section>
+        @endif
     </div>
 
     <x-table :table="$table" :rows="$rows">

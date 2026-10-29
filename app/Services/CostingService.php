@@ -334,6 +334,17 @@ class CostingService
             ]);
         }
 
+        // açılış sənədi: seçilmiş anbara ilkin qalıq öz mayası ilə (FIFO partiyası yaranır)
+        foreach (DB::table('stock_document_lines as l')->join('stock_documents as d', 'd.id', '=', 'l.stock_document_id')
+            ->where('d.type', 'opening')->orderBy('l.id')
+            ->get(['l.id', 'd.date', 'l.product_id', 'l.qty', 'l.unit_cost', 'd.warehouse_id', 'd.doc_no']) as $row) {
+            $push([
+                'date' => (string) $row->date, 'source_order' => 1, 'source_id' => $row->id, 'product_id' => $row->product_id,
+                'warehouse_id' => $row->warehouse_id ?? $mainWarehouse, 'type' => 'opening', 'qty' => (float) $row->qty,
+                'unit_cost' => (float) $row->unit_cost, 'source_type' => 'stock_document_line', 'doc_no' => $row->doc_no,
+            ]);
+        }
+
         foreach (DB::table('stock_adjustments')->whereNotNull('product_id')->orderBy('id')
             ->get(['id', 'date', 'product_id', 'qty', 'warehouse_id']) as $row) {
             $push([

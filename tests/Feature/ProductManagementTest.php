@@ -119,7 +119,7 @@ class ProductManagementTest extends TestCase
 
         $this->getJson(route('prices.customer', ['customer_id' => $customer->id, 'date' => $today->toDateString()]))->assertOk()->assertJsonPath($id.'.price', 47.2);
         $this->get(route('prices.list', ['customer' => $customer->id]))->assertOk()->assertSee('VE11258')->assertSee('Topdan');
-        $this->get(route('prices.index', ['state' => 'all']))->assertOk()->assertSee('Qaraj');
+        $this->get(route('customer-prices.index', ['state' => 'all']))->assertOk()->assertSee('Qaraj');
     }
 
     public function test_bulk_change_and_excel_import(): void
