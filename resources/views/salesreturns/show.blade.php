@@ -10,6 +10,10 @@
         @if ($doc->manager)<span class="badge">{{ __('Menecer') }}: {{ $doc->manager->name }}</span>@endif
         <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
             <a href="{{ route('sales-returns.show', [$doc, 'print' => 1]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
+            @if (! $doc->cancelled_at && $doc->invoice?->etax_serial)
+                <form method="POST" action="{{ route('einvoices.export-returns') }}">@csrf<input type="hidden" name="ids[]" value="{{ $doc->id }}">
+                    <button class="btn btn-sm" title="{{ __('Əsas e-qaimə: :serial', ['serial' => $doc->invoice->etax_serial]) }}"><x-icon name="download" size="14"/> {{ __('e-qaimə Excel') }}</button></form>
+            @endif
             @unless ($doc->cancelled_at)<x-cancel-button :action="route('sales-returns.destroy', $doc)" :confirm="__('Qaytarma ləğv edilsin? Müştəri borcu bərpa olunacaq, mal anbardan çıxacaq.')"/>@endunless
         </div>
     </div>

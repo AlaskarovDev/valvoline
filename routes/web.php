@@ -9,6 +9,7 @@ use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\CustomerCardController;
+use App\Http\Controllers\EInvoiceController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ImportController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierPaymentController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VatController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\WorkplaceController;
 use App\Http\Controllers\WriteOffController;
@@ -84,6 +86,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/sifarisler/{order}/duzelis', [OrderEntryController::class, 'edit'])->name('orders.edit')->middleware('perm:sales');
     Route::put('/sifarisler/{order}', [OrderEntryController::class, 'update'])->name('orders.update')->middleware('perm:sales');
     Route::delete('/sifarisler/{order}', [OrderEntryController::class, 'destroy'])->name('orders.destroy')->middleware('perm:sales');
+    Route::get('/e-qaime/satis', [EInvoiceController::class, 'sales'])->name('einvoices.sales')->middleware('perm:sales');
+    Route::post('/e-qaime/satis/ixrac', [EInvoiceController::class, 'export'])->name('einvoices.export')->middleware('perm:sales');
+    Route::post('/e-qaime/satis/qaytarma-ixrac', [EInvoiceController::class, 'exportReturns'])->name('einvoices.export-returns')->middleware('perm:sales');
+    Route::post('/e-qaime/satis/tutusdurma', [EInvoiceController::class, 'reconcile'])->name('einvoices.reconcile')->middleware('perm:sales');
+    Route::post('/satis-fakturalari/{invoice}/e-qaime', [EInvoiceController::class, 'serial'])->name('einvoices.serial')->middleware('perm:sales');
     Route::get('/qaytarma-qaimeleri', [SalesReturnController::class, 'index'])->name('sales-returns.index')->middleware('perm:sales');
     Route::get('/qaytarma-qaimeleri/yeni', [SalesReturnController::class, 'create'])->name('sales-returns.create')->middleware('perm:sales');
     Route::post('/qaytarma-qaimeleri', [SalesReturnController::class, 'store'])->name('sales-returns.store')->middleware('perm:sales');
@@ -146,6 +153,10 @@ Route::middleware('auth')->group(function () {
     Route::put('/techizatcilar/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update')->middleware('perm:purchases');
     Route::get('/techizatciya-odenis', [SupplierPaymentController::class, 'create'])->name('supplier-payments.create')->middleware('perm:finance.manage');
     Route::post('/techizatciya-odenis', [SupplierPaymentController::class, 'store'])->name('supplier-payments.store')->middleware('perm:finance.manage');
+    Route::get('/e-qaime/alis', [EInvoiceController::class, 'incoming'])->name('einvoices.incoming')->middleware('perm:purchases');
+    Route::post('/e-qaime/alis', [EInvoiceController::class, 'import'])->name('einvoices.import')->middleware('perm:purchases');
+    Route::get('/e-qaime/alis/{incomingEInvoice}', [EInvoiceController::class, 'show'])->whereNumber('incomingEInvoice')->name('einvoices.incoming.show')->middleware('perm:purchases');
+    Route::post('/e-qaime/alis/{incomingEInvoice}', [EInvoiceController::class, 'map'])->whereNumber('incomingEInvoice')->name('einvoices.incoming.map')->middleware('perm:purchases');
     Route::get('/alis-senedleri', [PurchaseDocumentController::class, 'index'])->name('purchase-docs.index')->middleware('perm:purchases');
     Route::get('/alis-senedleri/yeni', [PurchaseDocumentController::class, 'create'])->name('purchase-docs.create')->middleware('perm:purchases');
     Route::get('/alis-senedleri/mezenne', [PurchaseDocumentController::class, 'rate'])->name('purchase-docs.rate')->middleware('perm:purchases');
@@ -252,6 +263,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/muhasibat/cash-flow', [AccountingController::class, 'cashFlow'])->name('accounting.cashflow')->middleware('perm:accounting');
     Route::post('/muhasibat/cash-flow/tesnifat', [AccountingController::class, 'classify'])->name('accounting.classify')->middleware('perm:accounting');
 
+    Route::get('/edv', [VatController::class, 'index'])->name('vat.index')->middleware('perm:accounting');
     Route::get('/bank-hesablari', [BankAccountController::class, 'index'])->name('bank.index')->middleware('perm:finance.manage');
     Route::post('/bank-hesablari', [BankAccountController::class, 'store'])->name('bank.store')->middleware('perm:finance.manage');
     Route::delete('/bank-hesablari/emeliyyat/{transaction}', [BankAccountController::class, 'destroyTransaction'])->name('bank.tx.destroy')->middleware('perm:finance.manage');

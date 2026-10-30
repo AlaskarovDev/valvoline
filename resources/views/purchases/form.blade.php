@@ -48,6 +48,13 @@
         @csrf
         <input type="hidden" name="type" value="{{ $type }}">
         @if ($original)<input type="hidden" name="original_document_id" value="{{ $original->id }}">@endif
+        @if ($einvoice)
+            <input type="hidden" name="incoming_einvoice_id" value="{{ $einvoice->id }}">
+            <div class="card border-l-4 px-4 py-3 text-sm" style="border-left-color: var(--primary)">
+                {{ __('e-qaimə № :serial əsasında: qiymətlər ƏDV-sizdir; uyğunlaşdırılmamış mallar sətirlərə düşməyib — lazım olsa əl ilə əlavə edin.', ['serial' => $einvoice->serial_number]) }}
+                <a href="{{ route('einvoices.incoming.show', $einvoice) }}" class="text-primary-text hover:underline">{{ __('Uyğunluğa qayıt') }}</a>
+            </div>
+        @endif
         <div class="flex flex-wrap items-center gap-2">
             <a href="{{ route('purchase-docs.index', ['type' => $type]) }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Geri') }}</a>
             @if ($original)<a href="{{ route('purchase-docs.show', $original) }}" class="badge badge-primary">{{ __('Əsas mədaxil') }}: {{ $original->doc_no }}</a>@endif
@@ -73,8 +80,8 @@
                 </div>
                 <div><label class="label" for="pd-wh">{{ __('Anbar') }}</label><select id="pd-wh" name="warehouse_id" class="select">@foreach ($warehouses as $w)<option value="{{ $w->id }}" @selected($values['warehouse_id'] === $w->id)>{{ $w->name }}</option>@endforeach</select></div>
                 <div><label class="label" for="pd-wp">{{ __('İş yeri') }}</label><select id="pd-wp" name="workplace_id" class="select">@foreach ($workplaces as $w)<option value="{{ $w->id }}" @selected($values['workplace_id'] === $w->id)>{{ $w->code }} — {{ $w->name }}</option>@endforeach</select></div>
-                <div><label class="label" for="pd-inv">{{ __('Təchizatçı qaiməsi №') }}</label><input id="pd-inv" name="supplier_invoice_no" maxlength="64" class="input" value="{{ old('supplier_invoice_no') }}"></div>
-                <div><label class="label" for="pd-invd">{{ __('Qaimə tarixi') }}</label><input id="pd-invd" name="supplier_invoice_date" type="date" class="input" value="{{ old('supplier_invoice_date') }}"></div>
+                <div><label class="label" for="pd-inv">{{ __('Təchizatçı qaiməsi №') }}</label><input id="pd-inv" name="supplier_invoice_no" maxlength="64" class="input" value="{{ old('supplier_invoice_no', $einvoice?->serial_number) }}"></div>
+                <div><label class="label" for="pd-invd">{{ __('Qaimə tarixi') }}</label><input id="pd-invd" name="supplier_invoice_date" type="date" class="input" value="{{ old('supplier_invoice_date', $einvoice?->issued_at?->toDateString()) }}"></div>
                 <label class="flex items-center gap-2 text-sm sm:col-span-2"><input type="hidden" name="vat_included" value="0"><input type="checkbox" name="vat_included" value="1" class="size-4" x-model="vatIncluded"> {{ __('Qiymətlərə ƏDV daxildir') }}</label>
                 @if ($type === 'receipt')
                     <div><label class="label" for="pd-customs">{{ __('Gömrük xərci') }} (₼)</label><input id="pd-customs" name="customs_cost" type="number" step="0.01" min="0" class="input" x-model="costs.customs"></div>

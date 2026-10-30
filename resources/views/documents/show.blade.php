@@ -54,6 +54,31 @@
     @if ($doc->note)
         <div class="card px-4 py-3 text-sm"><span class="label">{{ __('Əlavə qeydlər') }}</span>{{ $doc->note }}</div>
     @endif
+    @if ($isInvoice && ! $doc->cancelled_at)
+        <section class="card flex flex-wrap items-end gap-3 px-4 py-3 text-sm" aria-label="{{ __('e-qaimə') }}">
+            <div class="min-w-0">
+                <span class="label">{{ __('e-qaimə') }}</span>
+                @if ($doc->etax_serial)
+                    <span class="font-mono font-semibold">{{ $doc->etax_serial }}</span>@if ($doc->etax_status) <span class="badge">{{ $doc->etax_status }}</span>@endif
+                @elseif ($doc->etax_exported_at)
+                    <span class="text-muted">{{ __('ixrac edilib :date, seriya nömrəsi gözlənilir', ['date' => Fmt::date(substr((string) $doc->etax_exported_at, 0, 10))]) }}</span>
+                @else
+                    <span class="text-muted">{{ __('hələ göndərilməyib') }}</span>
+                @endif
+            </div>
+            @unless ($doc->etax_serial)
+                <form method="POST" action="{{ route('einvoices.export') }}">
+                    @csrf<input type="hidden" name="ids[]" value="{{ $doc->id }}">
+                    <button class="btn btn-sm"><x-icon name="download" size="14"/> {{ __('e-qaimə Excel') }}</button>
+                </form>
+            @endunless
+            <form method="POST" action="{{ route('einvoices.serial', $doc) }}" class="flex items-end gap-2 sm:ml-auto">
+                @csrf
+                <div><label class="label" for="etax-serial">{{ __('Seriya nömrəsi') }}</label><input id="etax-serial" name="etax_serial" value="{{ old('etax_serial', $doc->etax_serial) }}" maxlength="32" placeholder="MT2610…" class="input h-8 w-40 font-mono"></div>
+                <button class="btn btn-sm">{{ __('Yadda saxla') }}</button>
+            </form>
+        </section>
+    @endif
 
     <section class="card overflow-hidden">
         <div class="card-head"><h2 class="card-title">{{ __('Mal sətirləri') }}</h2></div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Reports\ReportController;
 use App\Jobs\RebuildAnalytics;
+use App\Models\IncomingEInvoice;
 use App\Models\PurchaseDocument;
 use App\Models\Supplier;
 use App\Models\Warehouse;
@@ -11,6 +12,7 @@ use App\Models\Workplace;
 use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
 use App\Services\CurrencyRates;
+use App\Services\EInvoiceService;
 use App\Services\PurchaseService;
 use App\Support\Fmt;
 use App\Support\Vat;
@@ -68,20 +70,22 @@ class PurchaseDocumentController extends ReportController
         $products = DB::table('products')->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'barcode', 'vat_mode', 'vat_rate'])
             ->map(fn ($p) => ['id' => $p->id, 'code' => $p->code, 'name' => $p->name, 'barcode' => $p->barcode, 'vat' => Vat::rate($p->vat_mode, $p->vat_rate),
                 'last' => isset($lastCost[$p->id]) ? (float) $lastCost[$p->id] : null])->values();
-        $lines = old('lines', $original ? DB::table('purchase_document_lines')->where('purchase_document_id', $original->id)->orderBy('row_no')
-            ->get(['product_id', 'qty', 'price'])->map(fn ($l) => ['product_id' => $l->product_id, 'qty' => (float) $l->qty, 'price' => (float) $l->price])->all() : []);
+        // daxil olan e-qaimədən: təchizatçı, seriya, tarix və uyğunlaşdırılmış sətirlər (qiymət ƏDV-siz)
+        $einvoice = $type === 'receipt' && is_numeric($request->query('einvoice')) ? IncomingEInvoice::query()->find((int) $request->query('einvoice')) : null;
+        $lines = old('lines', $einvoice ? app(EInvoiceService::class)->purchaseLines($einvoice)->all() : ($original ? DB::table('purchase_document_lines')->where('purchase_document_id', $original->id)->orderBy('row_no')
+            ->get(['product_id', 'qty', 'price'])->map(fn ($l) => ['product_id' => $l->product_id, 'qty' => (float) $l->qty, 'price' => (float) $l->price])->all() : []));
         $suppliers = Supplier::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'currency', 'payment_days']);
         $warehouses = Warehouse::query()->where('is_active', true)->where('type', '<>', 'transit')->orderByDesc('is_main')->orderBy('name')->get(['id', 'name']);
 
         return view('purchases.form', [
-            'title' => PurchaseDocument::typeLabels()[$type], 'type' => $type, 'original' => $original, 'warehouses' => $warehouses,
+            'title' => PurchaseDocument::typeLabels()[$type], 'type' => $type, 'original' => $original, 'warehouses' => $warehouses, 'einvoice' => $einvoice,
             'workplaces' => Workplace::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
             'config' => [
                 'type' => $type, 'products' => $products, 'suppliers' => $suppliers, 'lines' => $lines,
-                'supplier' => (int) old('supplier_id', $original->supplier_id ?? $request->integer('supplier')) ?: null,
+                'supplier' => (int) old('supplier_id', $original->supplier_id ?? $einvoice->supplier_id ?? $request->integer('supplier')) ?: null,
                 'rate' => old('rate', $original?->rate), 'vatIncluded' => (bool) old('vat_included', $original->vat_included ?? false),
                 'costs' => ['customs' => old('customs_cost', ''), 'transport' => old('transport_cost', ''), 'other' => old('other_cost', '')],
-                'date' => old('date', now()->toDateString()), 'rateUrl' => route('purchase-docs.rate'),
+                'date' => old('date', $einvoice?->issued_at && $einvoice->issued_at->lte(now()) ? $einvoice->issued_at->toDateString() : now()->toDateString()), 'rateUrl' => route('purchase-docs.rate'),
             ],
             'values' => ['warehouse_id' => (int) old('warehouse_id', $original->warehouse_id ?? $warehouses->first()?->id), 'workplace_id' => (int) old('workplace_id', Workplace::defaultIdFor($request->user()))],
         ]);
@@ -96,6 +100,7 @@ class PurchaseDocumentController extends ReportController
             'warehouse_id' => ['required', 'integer', Rule::exists('warehouses', 'id')->where('is_active', true)],
             'workplace_id' => ['nullable', 'integer', 'exists:workplaces,id'],
             'original_document_id' => ['nullable', 'integer', 'exists:purchase_documents,id'],
+            'incoming_einvoice_id' => ['nullable', 'integer', 'exists:incoming_einvoices,id'],
             'rate' => ['nullable', 'numeric', 'gt:0', 'max:100000'],
             'vat_included' => ['nullable', 'boolean'],
             'supplier_invoice_no' => ['nullable', 'string', 'max:64'],
@@ -115,6 +120,9 @@ class PurchaseDocumentController extends ReportController
             $doc = $service->create($type, $data, array_values($data['lines']), $request->user()->id);
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['rate' => $e->getMessage()]);
+        }
+        if (! empty($data['incoming_einvoice_id'])) {
+            IncomingEInvoice::query()->whereKey($data['incoming_einvoice_id'])->update(['purchase_document_id' => $doc->id]);
         }
         $this->rebuild();
 
