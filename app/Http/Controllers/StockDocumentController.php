@@ -28,7 +28,7 @@ class StockDocumentController extends ReportController
         $filters = $this->filters($request, 'all');
         $types = StockDocument::typeLabels();
         $type = array_key_exists((string) $request->query('type'), $types) ? $request->query('type') : null;
-        $query = DB::table('stock_documents as d')->join('warehouses as w', 'w.id', '=', 'd.warehouse_id')->leftJoin('workplaces as wp', 'wp.id', '=', 'd.workplace_id')
+        $query = $this->applyState($request, DB::table('stock_documents as d'), 'd')->join('warehouses as w', 'w.id', '=', 'd.warehouse_id')->leftJoin('workplaces as wp', 'wp.id', '=', 'd.workplace_id')
             ->whereBetween('d.date', [$filters->fromDate(), $filters->toDate()])
             ->when($type, fn ($q) => $q->where('d.type', $type))
             ->select('d.id', 'd.doc_no', 'd.type', 'd.date', 'd.total_qty', 'd.total_cost', 'd.purpose', 'd.note', 'w.name as warehouse_name', 'wp.name as workplace_name');
@@ -112,7 +112,7 @@ class StockDocumentController extends ReportController
 
     public function show(Request $request, StockDocument $stockDocument): View
     {
-        $doc = $stockDocument->load('warehouse', 'workplace', 'creator');
+        $doc = $stockDocument->load('warehouse', 'workplace', 'creator', 'canceller');
         $lines = DB::table('stock_document_lines')->where('stock_document_id', $doc->id)->orderBy('row_no')->get();
         // sənəddən sonrakı hesablamanın mayası (artıq / əskik / itki / sərf üçün)
         $costs = DB::table('stock_movements as m')->join('stock_adjustments as a', 'a.id', '=', 'm.source_id')
@@ -127,15 +127,16 @@ class StockDocumentController extends ReportController
         ]);
     }
 
-    public function destroy(Request $request, StockDocument $stockDocument): RedirectResponse
+    public function destroy(Request $request, StockDocument $stockDocument, StockDocumentService $service): RedirectResponse
     {
         abort_unless($request->user()->isAdmin(), 403);
+        $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
         $no = $stockDocument->doc_no;
         $type = StockDocument::typeLabels()[$stockDocument->type];
-        $stockDocument->delete();
+        $service->cancel($stockDocument, $request->user()->id, $reason);
         $this->rebuild();
 
-        return redirect()->route('stock-docs.index', ['type' => $stockDocument->type])->with('popup', ['title' => __('Sənəd ləğv edildi'),
+        return redirect()->route('stock-docs.show', $stockDocument)->with('popup', ['title' => __('Sənəd ləğv edildi'),
             'message' => __(':type № :no ləğv edildi, stok əvvəlki vəziyyətə qaytarıldı.', ['type' => $type, 'no' => $no]), 'docs' => []]);
     }
 

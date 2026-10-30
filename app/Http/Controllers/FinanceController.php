@@ -72,7 +72,7 @@ class FinanceController extends ReportController
         $filters = $this->filters($request, 'last_12');
         $types = FinanceDocument::typeLabels();
         $type = array_key_exists((string) $request->query('type'), $types) ? $request->query('type') : null;
-        $query = DB::table('finance_documents as d')->join('workplaces as w', 'w.id', '=', 'd.workplace_id')
+        $query = $this->applyState($request, DB::table('finance_documents as d'), 'd')->join('workplaces as w', 'w.id', '=', 'd.workplace_id')
             ->leftJoin('cash_registers as r1', 'r1.id', '=', 'd.cash_register_id')->leftJoin('cash_registers as r2', 'r2.id', '=', 'd.to_cash_register_id')
             ->leftJoin('bank_accounts as b1', 'b1.id', '=', 'd.bank_account_id')->leftJoin('bank_accounts as b2', 'b2.id', '=', 'd.to_bank_account_id')
             ->leftJoin('customers as c', 'c.id', '=', 'd.customer_id')
@@ -181,7 +181,7 @@ class FinanceController extends ReportController
 
     public function showDocument(Request $request, FinanceDocument $document): View
     {
-        $document->load('workplace', 'register', 'toRegister', 'account.bankRef', 'toAccount.bankRef', 'customer', 'manager', 'creator');
+        $document->load('workplace', 'register', 'toRegister', 'account.bankRef', 'toAccount.bankRef', 'customer', 'manager', 'creator', 'canceller');
 
         return view($request->boolean('print') ? 'finance.document-print' : 'finance.document', [
             'title' => FinanceDocument::typeLabels()[$document->type].' № '.$document->doc_no, 'doc' => $document, 'types' => FinanceDocument::typeLabels(),
@@ -191,13 +191,14 @@ class FinanceController extends ReportController
     public function destroyDocument(Request $request, FinanceDocument $document): RedirectResponse
     {
         abort_unless($request->user()->isAdmin(), 403);
+        $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
         $no = $document->doc_no;
         $type = FinanceDocument::typeLabels()[$document->type];
-        $this->finance->cancel($document);
+        $this->finance->cancel($document, $request->user()->id, $reason);
         AnalyticsRebuilder::markQueued();
         RebuildAnalytics::dispatchAfterResponse();
 
-        return redirect()->route('finance.documents')->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi.', ['type' => $type, 'no' => $no]), 'docs' => []]);
+        return redirect()->route('finance.documents.show', $document)->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi.', ['type' => $type, 'no' => $no]), 'docs' => []]);
     }
 
     public function banks(Request $request): View

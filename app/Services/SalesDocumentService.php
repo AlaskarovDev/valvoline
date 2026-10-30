@@ -46,12 +46,14 @@ class SalesDocumentService
      */
     public function deliver(SalesOrder $order, ?int $userId, ?Carbon $date = null): DeliveryNote
     {
+        $order->assertNotCancelled();
         if ($order->status !== 'open') {
             throw new RuntimeException(__('Sifariş artıq təhvil verilib.'));
         }
 
         return DB::transaction(function () use ($order, $userId, $date) {
             $date ??= Carbon::parse($order->date)->max(now()->startOfDay());
+            PeriodLock::assertOpen($date);
             $items = DB::table('sales_order_items')->where('sales_order_id', $order->id)->orderBy('row_no')->get();
             $note = DeliveryNote::query()->create([
                 'doc_no' => app(NumberingService::class)->next('delivery_note', ['date' => $date, 'workplace_id' => $order->workplace_id, 'warehouse_id' => $order->warehouse_id, 'manager_id' => $order->manager_id]),
@@ -83,14 +85,16 @@ class SalesDocumentService
      */
     public function invoice(SalesOrder $order, ?int $userId, ?Carbon $date = null): array
     {
+        $order->assertNotCancelled();
         if ($order->status === 'invoiced') {
             throw new RuntimeException(__('Sifariş artıq fakturalanıb.'));
         }
 
         return DB::transaction(function () use ($order, $userId, $date) {
             $created = $order->status === 'open' ? $this->deliver($order, $userId, $date) : null;
-            $note = $created ?? DeliveryNote::query()->where('sales_order_id', $order->id)->latest('id')->firstOrFail();
+            $note = $created ?? DeliveryNote::query()->active()->where('sales_order_id', $order->id)->latest('id')->firstOrFail();
             $date ??= Carbon::parse($note->date)->max(now()->startOfDay());
+            PeriodLock::assertOpen($date);
             $items = DB::table('sales_order_items')->where('sales_order_id', $order->id)->get()->keyBy('id');
             $lines = DB::table('delivery_note_lines')->where('delivery_note_id', $note->id)->orderBy('row_no')->get();
             $sale = $items->where('op_type', 'sale');
@@ -132,33 +136,53 @@ class SalesDocumentService
     }
 
     /**
-     * Fakturanı ləğv edir: satış sətirləri silinir, sifariş «təhvil verilib» vəziyyətinə qayıdır.
+     * Fakturanı ləğv edir: faktura və nömrəsi qalır («ləğv edilib»), satış sətirləri (gəlir + müştəri borcu) götürülür —
+     * onların surəti fakturada saxlanılır ki, sənəd açılanda görünsün. Sifariş «təhvil verilib» vəziyyətinə qayıdır.
      */
-    public function cancelInvoice(SalesInvoice $invoice): void
+    public function cancelInvoice(SalesInvoice $invoice, ?int $userId = null, ?string $reason = null): void
     {
-        DB::transaction(function () use ($invoice) {
+        $invoice->assertNotCancelled();
+        PeriodLock::assertOpen($invoice->date);
+        DB::transaction(function () use ($invoice, $userId, $reason) {
+            $lines = DB::table('sales_lines as l')->leftJoin('delivery_note_lines as d', 'd.id', '=', 'l.delivery_note_line_id')
+                ->where('l.sales_invoice_id', $invoice->id)->orderBy('l.row_no')->get(['l.*', 'd.sales_order_item_id']);
             DB::table('sales_lines')->where('sales_invoice_id', $invoice->id)->delete();
             if ($invoice->sales_order_id) {
                 $order = SalesOrder::query()->find($invoice->sales_order_id);
                 $order?->forceFill(['status' => 'shipped', 'invoice_no' => $order->invoice_no === $invoice->doc_no ? null : $order->invoice_no])->save();
             }
-            $invoice->delete();
+            $invoice->markCancelled($userId, $reason, ['cancelled_lines' => $lines->toJson(JSON_UNESCAPED_UNICODE)]);
         });
     }
 
     /**
-     * Təhvil-təslimi ləğv edir (fakturası yoxdursa): stok geri qayıdır, sifariş yenidən rezervdə olur.
+     * Təhvil-təslimi ləğv edir (aktiv fakturası yoxdursa): sənəd qalır, stok hesablamasından çıxır (mal anbara qayıdır),
+     * sifariş yenidən rezervdə olur.
      */
-    public function cancelDelivery(DeliveryNote $note): void
+    public function cancelDelivery(DeliveryNote $note, ?int $userId = null, ?string $reason = null): void
     {
-        if (SalesInvoice::query()->where('delivery_note_id', $note->id)->exists()) {
+        $note->assertNotCancelled();
+        if (SalesInvoice::query()->active()->where('delivery_note_id', $note->id)->exists()) {
             throw new RuntimeException(__('Bu təhvil-təslimə faktura bağlıdır — əvvəlcə fakturanı ləğv edin.'));
         }
-        DB::transaction(function () use ($note) {
+        PeriodLock::assertOpen($note->date);
+        DB::transaction(function () use ($note, $userId, $reason) {
             if ($note->sales_order_id) {
                 SalesOrder::query()->whereKey($note->sales_order_id)->update(['status' => 'open']);
             }
-            $note->delete();
+            $note->markCancelled($userId, $reason);
         });
+    }
+
+    /**
+     * Əl ilə sifarişi ləğv edir (yalnız rezervdə olan): rezerv azad olunur, sifariş və nömrəsi qalır.
+     */
+    public function cancelOrder(SalesOrder $order, ?int $userId = null, ?string $reason = null): void
+    {
+        $order->assertNotCancelled();
+        if ($order->status !== 'open') {
+            throw new RuntimeException(__('Təhvil verilmiş sifariş ləğv edilmir — əvvəlcə təhvil-təslim sənədini ləğv edin.'));
+        }
+        $order->markCancelled($userId, $reason, ['status' => 'cancelled']);
     }
 }

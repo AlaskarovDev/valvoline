@@ -139,10 +139,20 @@ class OrderEntryTest extends TestCase
 
         // ləğv: TT fakturası olduğu üçün ləğv olunmur; əvvəl faktura
         $this->delete(route('deliveries.destroy', $delivery))->assertSessionHas('error');
-        $this->delete(route('invoices.destroy', $invoice))->assertRedirect(route('invoices.index'));
+        $this->delete(route('invoices.destroy', $invoice), ['reason' => 'Səhv qiymət'])->assertRedirect(route('invoices.show', $invoice));
         $this->assertSame(['shipped', 0], [$order->refresh()->status, DB::table('sales_lines')->where('sales_order_id', $order->id)->count()]);
-        $this->delete(route('deliveries.destroy', $delivery))->assertRedirect(route('deliveries.index'));
+        // faktura silinmir: nömrəsi, sətirlərinin surəti və səbəbi qalır
+        $this->assertSame('Səhv qiymət', DB::table('sales_invoices')->where('id', $invoice)->whereNotNull('cancelled_at')->value('cancel_reason'));
+        $this->get(route('invoices.show', $invoice))->assertOk()->assertSee('Bu sənəd ləğv edilib')->assertSee('Səhv qiymət')->assertSee('MaxLife');
+        $this->get(route('invoices.index'))->assertDontSee('SF-000001');
+        $this->get(route('invoices.index', ['state' => 'cancelled']))->assertSee('SF-000001');
+        $this->delete(route('invoices.destroy', $invoice))->assertSessionHas('error');
+
+        $this->delete(route('deliveries.destroy', $delivery))->assertRedirect(route('deliveries.show', $delivery));
         $this->assertSame('open', $order->refresh()->status);
+        $this->assertNotNull(DB::table('delivery_notes')->where('id', $delivery)->value('cancelled_at'));
+        // yenidən fakturalananda yeni nömrələr verilir (ləğv edilmiş nömrə təkrar istifadə olunmur)
+        $this->post(route('orders.invoice', $order))->assertSessionHas('popup', fn ($p) => collect($p['docs'])->pluck('no')->all() === ['TT-000002', 'SF-000002']);
     }
 
     public function test_save_and_invoice_creates_both_documents_at_once(): void
@@ -171,9 +181,11 @@ class OrderEntryTest extends TestCase
         $this->get(route('orders.edit', $imported))->assertForbidden();
         $this->delete(route('orders.destroy', $imported))->assertForbidden();
 
-        $this->delete(route('orders.destroy', $order))->assertRedirect(route('orders.index'));
-        $this->assertDatabaseMissing('sales_orders', ['id' => $order->id]);
-        $this->assertSame(0, DB::table('sales_order_items')->where('sales_order_id', $order->id)->count());
+        $this->delete(route('orders.destroy', $order), ['reason' => 'Müştəri imtina etdi'])->assertRedirect(route('orders.show', $order));
+        $this->assertSame(['cancelled', 'Müştəri imtina etdi'], [$order->refresh()->status, $order->cancel_reason]);
+        $this->assertSame([], app(SalesDocumentService::class)->reserved());
+        $this->get(route('orders.edit', $order))->assertForbidden();
+        $this->post(route('orders.send', $order))->assertForbidden();
     }
 
     public function test_validation_and_manager_restriction(): void

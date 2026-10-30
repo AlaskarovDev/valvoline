@@ -26,10 +26,10 @@ class SalesDocumentController extends ReportController
     public function deliveries(Request $request): View|Response
     {
         $filters = $this->filters($request, 'this_month');
-        $query = $this->scoped($request, DB::table('delivery_notes as d'), 'd')
+        $query = $this->applyState($request, $this->scoped($request, DB::table('delivery_notes as d'), 'd'), 'd')
             ->leftJoin('sales_orders as o', 'o.id', '=', 'd.sales_order_id')
             ->leftJoin('warehouses as w', 'w.id', '=', 'd.warehouse_id')
-            ->leftJoin('sales_invoices as i', 'i.delivery_note_id', '=', 'd.id')
+            ->leftJoin('sales_invoices as i', fn ($j) => $j->on('i.delivery_note_id', '=', 'd.id')->whereNull('i.cancelled_at'))
             ->whereBetween('d.date', [$filters->fromDate(), $filters->toDate()])
             ->when($filters->customerId, fn ($q) => $q->where('d.customer_id', $filters->customerId))
             ->select('d.id', 'd.date', 'd.doc_no', 'd.customer_id', 'd.customer_name', 'd.total_qty', 'd.total_amount', 'd.total_cogs',
@@ -59,7 +59,7 @@ class SalesDocumentController extends ReportController
     public function invoices(Request $request): View|Response
     {
         $filters = $this->filters($request, 'this_month');
-        $query = $this->scoped($request, DB::table('sales_invoices as i'), 'i')
+        $query = $this->applyState($request, $this->scoped($request, DB::table('sales_invoices as i'), 'i'), 'i')
             ->leftJoin('sales_orders as o', 'o.id', '=', 'i.sales_order_id')
             ->leftJoin('delivery_notes as d', 'd.id', '=', 'i.delivery_note_id')
             ->leftJoin('managers as m', 'm.id', '=', 'i.manager_id')
@@ -93,7 +93,7 @@ class SalesDocumentController extends ReportController
     {
         $this->authorizeDoc($request, $delivery->manager_id);
         $lines = DB::table('delivery_note_lines')->where('delivery_note_id', $delivery->id)->orderBy('row_no')->get();
-        $invoice = SalesInvoice::query()->where('delivery_note_id', $delivery->id)->first();
+        $invoice = SalesInvoice::query()->active()->where('delivery_note_id', $delivery->id)->first();
 
         return view($request->boolean('print') ? 'documents.print' : 'documents.show', [
             'title' => __('Təhvil-təslim sənədi').' № '.$delivery->doc_no,
@@ -104,7 +104,8 @@ class SalesDocumentController extends ReportController
                 $delivery->order ? [__('Sifariş'), $delivery->order->order_no, route('orders.show', $delivery->order)] : null,
                 $invoice ? [__('Satış fakturası'), $invoice->doc_no, route('invoices.show', $invoice)] : null,
             ]),
-            'canCancel' => $invoice === null,
+            'canCancel' => $invoice === null && ! $delivery->isCancelled(),
+            'history' => ['DeliveryNote', $delivery->id, $delivery->doc_no],
             'totals' => ['qty' => $lines->sum('qty'), 'amount' => $lines->where('op_type', 'sale')->sum('net_amount'), 'cogs' => $lines->sum('cogs')],
         ]);
     }
@@ -112,9 +113,12 @@ class SalesDocumentController extends ReportController
     public function invoice(Request $request, SalesInvoice $invoice): View
     {
         $this->authorizeDoc($request, $invoice->manager_id);
-        $lines = DB::table('sales_lines as l')->leftJoin('delivery_note_lines as d', 'd.id', '=', 'l.delivery_note_line_id')
-            ->where('l.sales_invoice_id', $invoice->id)->orderBy('l.row_no')
-            ->get(['l.*', 'd.sales_order_item_id']);
+        // ləğv edilmiş fakturanın satış sətirləri götürülüb — ləğv anındakı surət göstərilir
+        $lines = $invoice->isCancelled()
+            ? collect(json_decode((string) $invoice->cancelled_lines))
+            : DB::table('sales_lines as l')->leftJoin('delivery_note_lines as d', 'd.id', '=', 'l.delivery_note_line_id')
+                ->where('l.sales_invoice_id', $invoice->id)->orderBy('l.row_no')
+                ->get(['l.*', 'd.sales_order_item_id']);
 
         return view($request->boolean('print') ? 'documents.print' : 'documents.show', [
             'title' => __('Satış fakturası').' № '.$invoice->doc_no,
@@ -125,7 +129,8 @@ class SalesDocumentController extends ReportController
                 $invoice->order ? [__('Sifariş'), $invoice->order->order_no, route('orders.show', $invoice->order)] : null,
                 $invoice->deliveryNote ? [__('Təhvil-təslim sənədi'), $invoice->deliveryNote->doc_no, route('deliveries.show', $invoice->deliveryNote)] : null,
             ]),
-            'canCancel' => true,
+            'canCancel' => ! $invoice->isCancelled(),
+            'history' => ['SalesInvoice', $invoice->id, $invoice->doc_no],
             'totals' => ['qty' => $lines->sum('qty'), 'gross' => (float) $invoice->gross_amount, 'discount' => (float) $invoice->discount_amount, 'amount' => (float) $invoice->total_amount, 'cogs' => $lines->sum('cogs')],
         ]);
     }
@@ -154,22 +159,22 @@ class SalesDocumentController extends ReportController
     {
         $this->authorizeDoc($request, $delivery->manager_id);
         try {
-            $documents->cancelDelivery($delivery);
+            $documents->cancelDelivery($delivery, $request->user()->id, $this->reason($request));
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
         $this->rebuild();
 
-        return redirect()->route('deliveries.index')->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi, mal anbara qaytarıldı və sifariş yenidən rezervdədir.', ['type' => __('Təhvil-təslim sənədi'), 'no' => $delivery->doc_no])]);
+        return redirect()->route('deliveries.show', $delivery)->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi, mal anbara qaytarıldı və sifariş yenidən rezervdədir.', ['type' => __('Təhvil-təslim sənədi'), 'no' => $delivery->doc_no])]);
     }
 
     public function cancelInvoice(Request $request, SalesInvoice $invoice, SalesDocumentService $documents): RedirectResponse
     {
         $this->authorizeDoc($request, $invoice->manager_id);
-        $documents->cancelInvoice($invoice);
+        $documents->cancelInvoice($invoice, $request->user()->id, $this->reason($request));
         $this->rebuild();
 
-        return redirect()->route('invoices.index')->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi, müştəri borcundan çıxarıldı.', ['type' => __('Satış fakturası'), 'no' => $invoice->doc_no])]);
+        return redirect()->route('invoices.show', $invoice)->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi, müştəri borcundan çıxarıldı.', ['type' => __('Satış fakturası'), 'no' => $invoice->doc_no])]);
     }
 
     /**
@@ -203,6 +208,11 @@ class SalesDocumentController extends ReportController
     {
         $restricted = $request->user()->restrictedManagerId();
         abort_if($restricted !== null && $managerId !== $restricted, 403);
+    }
+
+    private function reason(Request $request): ?string
+    {
+        return $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
     }
 
     private function rebuild(): void

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\BankStatementService;
 use App\Services\FlowClassifier;
+use App\Services\PeriodLock;
 use App\Support\AccountingSheets;
 use App\Support\Fmt;
 use App\Support\NameNormalizer;
@@ -165,6 +166,7 @@ class BankAccountController extends Controller
             'doc_no' => ['nullable', 'string', 'max:64'],
         ]);
         $date = substr((string) $data['date'], 0, 10);
+        PeriodLock::assertOpen($date);
         DB::table('bank_transactions')->insert([
             'bank_account_id' => $account,
             'date' => $date,
@@ -205,7 +207,11 @@ class BankAccountController extends Controller
 
     public function destroyTransaction(int $transaction): RedirectResponse
     {
-        DB::table('bank_transactions')->where('id', $transaction)->firstOrFail();
+        $tx = DB::table('bank_transactions')->where('id', $transaction)->firstOrFail();
+        if ($tx->finance_document_id) {
+            return back()->with('error', __('Bu əməliyyat maliyyə sənədindən yaranıb — sənədi ləğv edin.'));
+        }
+        PeriodLock::assertOpen($tx->date);
         DB::table('bank_transactions')->where('id', $transaction)->delete();
 
         return back()->with('status', __('Əməliyyat silindi.'));

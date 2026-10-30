@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\DocumentActionException;
+use App\Http\Middleware\RecordAudit;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,7 +17,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Paylaşılan hostinq provayderin CDN / proksisi arxasındadır.
         $middleware->trustProxies(at: '*');
-        $middleware->web(append: [SetLocale::class]);
+        $middleware->web(append: [SetLocale::class, RecordAudit::class]);
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(fn () => route('dashboard'));
     })
@@ -23,6 +25,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+        // bağlanmış dövr, artıq ləğv edilmiş sənəd və s. — istifadəçi mesajla geri qaytarılır
+        $exceptions->render(fn (DocumentActionException $e, Request $request) => $request->expectsJson()
+            ? response()->json(['message' => $e->getMessage()], 422)
+            : back()->withInput()->with('error', $e->getMessage()));
     })->create();
 
 /*

@@ -24,6 +24,8 @@ class StockWriteOffService
         $workplace = $workplaceId ?? ($transferId ? DB::table('warehouse_transfers')->where('id', $transferId)->value('workplace_id') : null)
             ?? Workplace::defaultIdFor($userId ? User::query()->find($userId) : null);
 
+        PeriodLock::assertOpen($date);
+
         return DB::transaction(function () use ($warehouseId, $date, $reason, $lines, $userId, $note, $transferId, $workplace) {
             $products = DB::table('products')->whereIn('id', array_column($lines, 'product_id'))->get(['id', 'code', 'name', 'current_avg_cost'])->keyBy('id');
             $doc = StockWriteOff::query()->create([
@@ -60,9 +62,15 @@ class StockWriteOffService
         });
     }
 
-    public function cancel(StockWriteOff $doc): void
+    /**
+     * Aktı ləğv edir: akt və sətirləri qalır («ləğv edilib»), stok düzəlişi götürülür, partiya / transfer kəsiri geri qaytarılır.
+     */
+    public function cancel(StockWriteOff $doc, ?int $userId = null, ?string $reason = null): void
     {
-        DB::transaction(function () use ($doc) {
+        $doc->assertNotCancelled();
+        PeriodLock::assertOpen($doc->date);
+        DB::transaction(function () use ($doc, $userId, $reason) {
+            DB::table('stock_adjustments')->where('stock_write_off_id', $doc->id)->delete();
             foreach (DB::table('stock_write_off_lines')->where('stock_write_off_id', $doc->id)->whereNotNull('product_batch_id')->get() as $l) {
                 DB::table('product_batches')->where('id', $l->product_batch_id)->decrement('written_off_qty', (float) $l->qty);
             }
@@ -75,7 +83,7 @@ class StockWriteOffService
                 }
                 DB::table('warehouse_transfers')->where('id', $doc->warehouse_transfer_id)->where('status', 'received')->update(['status' => 'partial']);
             }
-            $doc->delete();
+            $doc->markCancelled($userId, $reason);
         });
     }
 

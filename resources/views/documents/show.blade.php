@@ -23,23 +23,21 @@
         <div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
             <a href="{{ route($showRoute, [$doc, 'print' => 1]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
             @if ($canCancel)
-                <form method="POST" action="{{ route($isInvoice ? 'invoices.destroy' : 'deliveries.destroy', $doc) }}"
-                      onsubmit="return confirm(@js($isInvoice ? __('Faktura ləğv edilsin? Məbləğ müştəri borcundan çıxarılacaq.') : __('Təhvil-təslim ləğv edilsin? Mal anbara qaytarılacaq, sifariş yenidən rezervə düşəcək.')))">
-                    @csrf @method('DELETE')
-                    <button class="btn btn-sm btn-danger"><x-icon name="trash" size="14"/> {{ __('Ləğv et') }}</button>
-                </form>
-            @else
+                <x-cancel-button :action="route($isInvoice ? 'invoices.destroy' : 'deliveries.destroy', $doc)"
+                                 :confirm="$isInvoice ? __('Faktura ləğv edilsin? Məbləğ müştəri borcundan çıxarılacaq.') : __('Təhvil-təslim ləğv edilsin? Mal anbara qaytarılacaq, sifariş yenidən rezervə düşəcək.')"/>
+            @elseif (! $doc->cancelled_at)
                 <span class="text-xs text-muted">{{ __('Faktura bağlıdır — ləğv üçün əvvəlcə fakturanı ləğv edin.') }}</span>
             @endif
         </div>
     </div>
 
+    <x-cancelled-banner :doc="$doc"/>
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-kpi :label="__('Miqdar')" :value="Fmt::qty($totals['qty'])"/>
         @if ($isInvoice)
             <x-kpi :label="__('Məbləğ (endirimsiz)')" :value="Fmt::money($totals['gross'])"/>
             <x-kpi :label="__('Endirim')" :value="Fmt::money($totals['discount'])"/>
-            <x-kpi :label="__('Yekun')" :value="Fmt::money($totals['amount'])" :meta="__('müştəri borcuna yazılıb')"/>
+            <x-kpi :label="__('Yekun')" :value="Fmt::money($totals['amount'])" :meta="$doc->cancelled_at ? __('ləğv edilib — borcda deyil') : __('müştəri borcuna yazılıb')"/>
         @else
             <x-kpi :label="__('Məbləğ')" :value="Fmt::money($totals['amount'])"/>
             <x-kpi :label="__('Maya')" :value="Fmt::money($totals['cogs'])" :meta="__('real stokdan çıxıb')"/>
@@ -95,4 +93,5 @@
         </div>
     </section>
     <p class="text-xs text-muted">{{ __('Yaradıb') }}: {{ $doc->creator?->name ?? '—' }} · {{ $doc->created_at?->format('d.m.Y H:i') }}</p>
+    <x-audit-history :type="$history[0]" :id="$history[1]" :no="$history[2]"/>
 </x-layouts.app>

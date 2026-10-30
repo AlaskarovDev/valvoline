@@ -12,7 +12,8 @@
     @if ($type)
         <div class="card px-4 py-3 text-sm text-muted">{{ $help[$type] }}</div>
     @endif
-    <x-filters :filters="$filters" :own="['type']">
+    <x-filters :filters="$filters" :own="['type', 'state']">
+        <x-state-filter/>
         <select name="type" class="select h-[30px] w-auto text-xs" onchange="this.form.submit()" aria-label="{{ __('Sənəd növü') }}">
             <option value="">{{ __('Bütün sənəd növləri') }}</option>
             @foreach ($types as $k => $l)<option value="{{ $k }}" @selected($type === $k)>{{ $l }}</option>@endforeach

@@ -9,6 +9,7 @@
         header { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #111; padding-bottom: 10px; }
         header .company { font-size: 16px; font-weight: 700; }
         header .muted, .muted { color: #555; }
+        .cancelled-stamp { margin: 0 0 10px; padding: 6px 10px; border: 2px solid #b42318; color: #b42318; font-weight: 700; text-align: center; letter-spacing: .08em; }
         h1 { margin: 18px 0 2px; font-size: 20px; text-align: center; letter-spacing: .02em; }
         .doc-meta { text-align: center; margin-bottom: 16px; }
         .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }

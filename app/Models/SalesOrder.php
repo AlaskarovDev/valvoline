@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Cancellable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SalesOrder extends Model
 {
+    use Cancellable;
+
     protected $table = 'sales_orders';
 
     protected $guarded = ['id'];

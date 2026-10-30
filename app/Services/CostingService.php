@@ -325,7 +325,7 @@ class CostingService
             ]);
         }
 
-        foreach (DB::table('delivery_note_lines as l')->join('delivery_notes as n', 'n.id', '=', 'l.delivery_note_id')->whereNotNull('l.product_id')->orderBy('l.id')
+        foreach (DB::table('delivery_note_lines as l')->join('delivery_notes as n', 'n.id', '=', 'l.delivery_note_id')->whereNull('n.cancelled_at')->whereNotNull('l.product_id')->orderBy('l.id')
             ->get(['l.id', 'n.date', 'l.product_id', 'l.qty', 'l.op_type', 'n.customer_id', 'n.doc_no', 'n.warehouse_id']) as $row) {
             $push([
                 'date' => (string) $row->date, 'source_order' => 4, 'source_id' => $row->id, 'product_id' => $row->product_id,
@@ -336,7 +336,7 @@ class CostingService
 
         // açılış sənədi: seçilmiş anbara ilkin qalıq öz mayası ilə (FIFO partiyası yaranır)
         foreach (DB::table('stock_document_lines as l')->join('stock_documents as d', 'd.id', '=', 'l.stock_document_id')
-            ->where('d.type', 'opening')->orderBy('l.id')
+            ->where('d.type', 'opening')->whereNull('d.cancelled_at')->orderBy('l.id')
             ->get(['l.id', 'd.date', 'l.product_id', 'l.qty', 'l.unit_cost', 'd.warehouse_id', 'd.doc_no']) as $row) {
             $push([
                 'date' => (string) $row->date, 'source_order' => 1, 'source_id' => $row->id, 'product_id' => $row->product_id,
@@ -392,7 +392,8 @@ class CostingService
     {
         $updates = [];
         $totals = [];
-        foreach (DB::table('delivery_note_lines')->get(['id', 'delivery_note_id', 'qty']) as $line) {
+        // ləğv edilmiş TT-nin mayası ləğv anındakı kimi qalır (tarixçə üçün)
+        foreach (DB::table('delivery_note_lines as l')->join('delivery_notes as n', 'n.id', '=', 'l.delivery_note_id')->whereNull('n.cancelled_at')->get(['l.id', 'l.delivery_note_id', 'l.qty']) as $line) {
             $unit = $costs[$line->id]['unit_cost'] ?? 0.0;
             $cogs = round((float) $line->qty * $unit, 4);
             $updates[$line->id] = ['unit_cost' => round($unit, 4), 'cogs' => $cogs];

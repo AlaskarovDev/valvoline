@@ -27,7 +27,7 @@ class WriteOffController extends ReportController
     {
         $filters = $this->filters($request, 'last_12');
         $reasons = StockWriteOffService::reasons();
-        $query = DB::table('stock_write_offs as d')->join('warehouses as w', 'w.id', '=', 'd.warehouse_id')
+        $query = $this->applyState($request, DB::table('stock_write_offs as d'), 'd')->join('warehouses as w', 'w.id', '=', 'd.warehouse_id')
             ->whereBetween('d.date', [$filters->fromDate(), $filters->toDate()])
             ->select('d.id', 'd.doc_no', 'd.date', 'd.reason', 'd.total_qty', 'd.total_cost', 'd.note', 'w.name as warehouse_name');
         $table = Table::make('writeoffs', __('Silinmə aktları'))
@@ -90,11 +90,12 @@ class WriteOffController extends ReportController
     public function destroy(Request $request, StockWriteOff $writeOff, StockWriteOffService $service): RedirectResponse
     {
         abort_unless($request->user()->isAdmin(), 403);
+        $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
         $no = $writeOff->doc_no;
-        $service->cancel($writeOff);
+        $service->cancel($writeOff, $request->user()->id, $reason);
         $this->rebuild();
 
-        return redirect()->route('write-offs.index')->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi, mal stoka qaytarıldı.', ['type' => __('Silinmə aktı'), 'no' => $no]), 'docs' => []]);
+        return redirect()->route('write-offs.show', $writeOff)->with('popup', ['title' => __('Sənəd ləğv edildi'), 'message' => __(':type № :no ləğv edildi, mal stoka qaytarıldı.', ['type' => __('Silinmə aktı'), 'no' => $no]), 'docs' => []]);
     }
 
     private function rebuild(): void

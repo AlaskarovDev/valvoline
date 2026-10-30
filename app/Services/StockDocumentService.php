@@ -21,6 +21,7 @@ class StockDocumentService
     {
         [$prefix, $sign] = StockDocument::TYPES[$type];
         $date = Carbon::parse($header['date']);
+        PeriodLock::assertOpen($date);
         $system = DB::table('stock_balances')->where('warehouse_id', $header['warehouse_id'])
             ->whereIn('product_id', array_column($lines, 'product_id'))->pluck('qty', 'product_id');
         $products = DB::table('products')->whereIn('id', array_column($lines, 'product_id'))->get(['id', 'code', 'name', 'current_avg_cost'])->keyBy('id');
@@ -87,5 +88,19 @@ class StockDocumentService
     private function fmt(float $v): string
     {
         return rtrim(rtrim(number_format($v, 2, ',', ' '), '0'), ',');
+    }
+
+    /**
+     * Sənədi ləğv edir: sənəd və sətirləri qalır («ləğv edilib»), stok düzəlişləri götürülür; açılış sənədi
+     * maya hesablamasından çıxır (CostingService ləğv edilmiş sənədləri oxumur).
+     */
+    public function cancel(StockDocument $doc, ?int $userId = null, ?string $reason = null): void
+    {
+        $doc->assertNotCancelled();
+        PeriodLock::assertOpen($doc->date);
+        DB::transaction(function () use ($doc, $userId, $reason) {
+            DB::table('stock_adjustments')->where('stock_document_id', $doc->id)->delete();
+            $doc->markCancelled($userId, $reason);
+        });
     }
 }

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Cancellable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StockDocument extends Model
 {
+    use Cancellable;
+
     /** növ => [prefiks, stoka işarə (+1 / −1)] */
     public const TYPES = [
         'opening' => ['AC-', 1],

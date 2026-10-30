@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Cancellable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FinanceDocument extends Model
 {
+    use Cancellable;
+
     public const PREFIXES = ['cash_opening' => 'KA-', 'cash_receipt' => 'KM-', 'cash_transfer' => 'KT-', 'bank_opening' => 'BA-', 'bank_transfer' => 'BT-'];
 
     protected $table = 'finance_documents';

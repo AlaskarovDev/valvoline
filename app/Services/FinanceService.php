@@ -27,7 +27,7 @@ class FinanceService
         $until ??= now()->endOfDay();
         $register = DB::table('cash_registers')->find($registerId);
         $mainId = (int) DB::table('cash_registers')->where('type', 'main')->value('id');
-        $opening = DB::table('finance_documents')->where('type', 'cash_opening')->where('cash_register_id', $registerId)
+        $opening = DB::table('finance_documents')->where('type', 'cash_opening')->where('cash_register_id', $registerId)->whereNull('cancelled_at')
             ->whereDate('date', '<=', $until->toDateString())->orderByDesc('date')->orderByDesc('id')->first();
         $from = $opening ? substr((string) $opening->date, 0, 10) : null;
         $rows = collect();
@@ -38,7 +38,7 @@ class FinanceService
 
         $docs = $after(DB::table('finance_documents as d')->leftJoin('customers as c', 'c.id', '=', 'd.customer_id')
             ->leftJoin('cash_registers as r1', 'r1.id', '=', 'd.cash_register_id')->leftJoin('cash_registers as r2', 'r2.id', '=', 'd.to_cash_register_id')
-            ->whereIn('d.type', ['cash_receipt', 'cash_transfer'])
+            ->whereIn('d.type', ['cash_receipt', 'cash_transfer'])->whereNull('d.cancelled_at')
             ->where(fn ($q) => $q->where('d.cash_register_id', $registerId)->orWhere('d.to_cash_register_id', $registerId)), 'd.date')
             ->get(['d.*', 'c.name as customer_name', 'r1.code as from_code', 'r2.code as to_code']);
         foreach ($docs as $d) {
@@ -89,7 +89,7 @@ class FinanceService
     public function bankBalance(int $accountId, ?Carbon $until = null): array
     {
         $until ??= now()->endOfDay();
-        $opening = DB::table('finance_documents')->where('type', 'bank_opening')->where('bank_account_id', $accountId)
+        $opening = DB::table('finance_documents')->where('type', 'bank_opening')->where('bank_account_id', $accountId)->whereNull('cancelled_at')
             ->whereDate('date', '<=', $until->toDateString())->orderByDesc('date')->orderByDesc('id')->first();
         $tx = DB::table('bank_transactions')->where('bank_account_id', $accountId)
             ->when($opening, fn ($q) => $q->whereDate('date', '>=', substr((string) $opening->date, 0, 10)))->whereDate('date', '<=', $until->toDateString())
@@ -103,6 +103,8 @@ class FinanceService
      */
     public function create(string $type, array $data, ?int $userId): FinanceDocument
     {
+        PeriodLock::assertOpen($data['date'] ?? null);
+
         return DB::transaction(function () use ($type, $data, $userId) {
             $doc = FinanceDocument::query()->create(array_merge([
                 'doc_no' => app(NumberingService::class)->next('fin_'.$type, ['date' => $data['date'] ?? null, 'workplace_id' => $data['workplace_id'] ?? null, 'manager_id' => $data['manager_id'] ?? null]),
@@ -139,13 +141,17 @@ class FinanceService
         });
     }
 
-    public function cancel(FinanceDocument $doc): void
+    /**
+     * Sənədi ləğv edir: sənəd qalır («ləğv edilib»), yaratdığı ödəniş və bank əməliyyatları götürülür.
+     */
+    public function cancel(FinanceDocument $doc, ?int $userId = null, ?string $reason = null): void
     {
-        DB::transaction(function () use ($doc) {
-            // ödəniş və bank əməliyyatları finance_document_id ilə kaskad silinir
+        $doc->assertNotCancelled();
+        PeriodLock::assertOpen($doc->date);
+        DB::transaction(function () use ($doc, $userId, $reason) {
             DB::table('payments')->where('finance_document_id', $doc->id)->delete();
             DB::table('bank_transactions')->where('finance_document_id', $doc->id)->delete();
-            $doc->delete();
+            $doc->markCancelled($userId, $reason);
         });
     }
 

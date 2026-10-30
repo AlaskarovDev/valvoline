@@ -91,6 +91,8 @@
         ],
         __('Tənzimləmələr') => [
             ['numbering.index', __('Nömrələmə servisi'), 'filter', $isAdmin],
+            ['period-lock.index', __('Dövr bağlama'), 'info', $isAdmin],
+            ['audit.index', __('Audit jurnalı'), 'quality', $isAdmin],
             ['workplaces.index', __('İş yerləri'), 'dashboard', $isAdmin],
             ['users.index', __('İstifadəçilər'), 'users', $isAdmin],
             ['categories.index', __('Xərc kateqoriyaları'), 'tag', $isAdmin],

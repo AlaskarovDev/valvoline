@@ -33,6 +33,6 @@
             </form>
         </section>
     @endif
-    <x-filters :filters="$filters"/>
+    <x-filters :filters="$filters" :own="['state']"><x-state-filter/></x-filters>
     <x-table :table="$table" :rows="$rows"/>
 </x-layouts.app>

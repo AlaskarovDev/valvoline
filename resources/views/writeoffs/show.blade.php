@@ -9,12 +9,14 @@
         @if ($transfer)<a href="{{ route('transfers.show', $transfer->id) }}" class="badge badge-primary">{{ __('Anbar transferi') }} {{ $transfer->doc_no }}</a>@endif
         <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
             <a href="{{ route('write-offs.show', [$doc, 'print' => 1]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
-            @if (auth()->user()->isAdmin())
-                <form method="POST" action="{{ route('write-offs.destroy', $doc) }}" onsubmit="return confirm(@js(__('Silinmə aktı ləğv edilsin? Mal stoka qaytarılacaq.')))">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">{{ __('Ləğv et') }}</button></form>
+            @if (auth()->user()->isAdmin() && ! $doc->cancelled_at)
+                <x-cancel-button :action="route('write-offs.destroy', $doc)" :confirm="__('Silinmə aktı ləğv edilsin? Mal stoka qaytarılacaq.')"/>
             @endif
         </div>
     </div>
+    <x-cancelled-banner :doc="$doc"/>
     @if ($doc->note)<div class="card px-4 py-3 text-sm"><span class="label">{{ __('Qeyd') }}</span>{{ $doc->note }}</div>@endif
     @include('writeoffs._lines')
     <p class="text-xs text-muted">{{ __('Yaradıb') }}: {{ $doc->creator?->name ?? '—' }} · {{ $doc->created_at?->format('d.m.Y H:i') }}</p>
+    <x-audit-history type="StockWriteOff" :id="$doc->id" :no="$doc->doc_no"/>
 </x-layouts.app>

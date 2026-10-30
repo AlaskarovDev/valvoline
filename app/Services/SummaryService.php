@@ -94,7 +94,7 @@ class SummaryService
             $items = DB::table('sales_order_items')->whereIn('sales_order_id', $pending)->groupBy('sales_order_id')
                 ->selectRaw("sales_order_id, COUNT(*) AS line_count, SUM(CASE WHEN op_type = 'sale' THEN net_amount ELSE 0 END) AS amount")
                 ->get()->keyBy('sales_order_id');
-            $cogs = DB::table('delivery_notes')->whereIn('sales_order_id', $pending)->groupBy('sales_order_id')
+            $cogs = DB::table('delivery_notes')->whereNull('cancelled_at')->whereIn('sales_order_id', $pending)->groupBy('sales_order_id')
                 ->selectRaw('sales_order_id, SUM(total_cogs) AS cogs')->pluck('cogs', 'sales_order_id');
             foreach ($pending as $id) {
                 $amount = (float) ($items[$id]->amount ?? 0);

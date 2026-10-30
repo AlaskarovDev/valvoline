@@ -10,6 +10,8 @@
 <body>
 <div class="toolbar"><button type="button" class="primary" onclick="window.print()">{{ __('Çap et') }}</button><button type="button" onclick="window.close()">{{ __('Bağla') }}</button></div>
 <div class="sheet">
+@if ($doc->cancelled_at ?? null)<div class="cancelled-stamp">{{ __('LƏĞV EDİLİB') }} · {{ $doc->cancelled_at->format('d.m.Y') }}</div>@endif
+
     <header><div><div class="company">{{ $company['name'] }}</div>@if ($company['voen'])<div class="muted">{{ __('VÖEN') }}: {{ $company['voen'] }}</div>@endif</div></header>
     <h1>{{ __('Malın silinməsi aktı') }} № {{ $doc->doc_no }}</h1>
     <div class="doc-meta muted">{{ __('Tarix') }}: {{ Fmt::date($doc->date) }} · {{ __('Anbar') }}: {{ $doc->warehouse->name }} · {{ __('Səbəb') }}: {{ $reasons[$doc->reason] ?? $doc->reason }}@if ($doc->workplace) · {{ __('İş yeri') }}: {{ $doc->workplace->name }}@endif</div>

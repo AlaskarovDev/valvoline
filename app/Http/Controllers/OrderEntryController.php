@@ -62,11 +62,11 @@ class OrderEntryController extends Controller
     public function destroy(Request $request, SalesOrder $order): RedirectResponse
     {
         $this->authorizeManual($request, $order, true);
-        $no = $order->order_no;
-        $order->delete();
+        $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
+        $this->documents->cancelOrder($order, $request->user()->id, $reason);
         $this->rebuild();
 
-        return redirect()->route('orders.index')->with('popup', ['title' => __('Sifariş silindi'), 'message' => __('Sifariş № :no silindi, rezerv azad olundu.', ['no' => $no])]);
+        return redirect()->route('orders.show', $order)->with('popup', ['title' => __('Sifariş ləğv edildi'), 'message' => __('Sifariş № :no ləğv edildi, rezerv azad olundu.', ['no' => $order->order_no])]);
     }
 
     /**
@@ -326,6 +326,7 @@ class OrderEntryController extends Controller
         abort_unless($order->source === 'manual', 403, __('İmportdan gələn sifariş burada dəyişdirilmir — faylı yenidən import edin.'));
         $restricted = $request->user()->restrictedManagerId();
         abort_if($restricted !== null && $order->manager_id !== $restricted, 403);
+        abort_if($order->isCancelled(), 403, __('Bu sənəd artıq ləğv edilib.'));
         abort_if($mustBeOpen && $order->status !== 'open', 403, __('Təhvil verilmiş sifariş dəyişdirilmir — əvvəlcə təhvil-təslim sənədini ləğv edin.'));
     }
 

@@ -62,6 +62,7 @@ class WarehouseTransferService
             }
         }
         $date ??= Carbon::parse($transfer->date);
+        PeriodLock::assertOpen($date);
         DB::transaction(function () use ($transfer, $lines, $userId, $date) {
             $this->move($transfer, $lines->map(fn ($l) => [$l, (float) $l->qty]), $transfer->from_warehouse_id, self::transitId(), $date);
             $transfer->forceFill(['status' => 'sent', 'sent_date' => $date->toDateString(), 'sent_by' => $userId, 'sent_at' => now()])->save();
@@ -78,6 +79,7 @@ class WarehouseTransferService
             throw new RuntimeException(__('Yalnız göndərilmiş transfer qəbul edilir.'));
         }
         $date ??= now()->startOfDay()->max(Carbon::parse($transfer->sent_date ?? $transfer->date));
+        PeriodLock::assertOpen($date);
         $lines = DB::table('warehouse_transfer_lines')->where('warehouse_transfer_id', $transfer->id)->orderBy('row_no')->get();
         DB::transaction(function () use ($transfer, $lines, $received, $notes, $userId, $date) {
             $moves = [];
@@ -132,6 +134,9 @@ class WarehouseTransferService
 
     public function cancel(WarehouseTransfer $transfer, ?string $reason = null): void
     {
+        if ($transfer->status !== 'draft') {
+            PeriodLock::assertOpen($transfer->sent_date ?? $transfer->date);
+        }
         if ($transfer->status === 'draft' || ($transfer->status === 'sent' && ! DB::table('warehouse_transfer_lines')->where('warehouse_transfer_id', $transfer->id)->where('received_qty', '>', 0)->exists())) {
             DB::transaction(function () use ($transfer, $reason) {
                 DB::table('stock_transfers')->where('warehouse_transfer_id', $transfer->id)->delete();

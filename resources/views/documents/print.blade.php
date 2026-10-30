@@ -20,6 +20,8 @@
     <button type="button" onclick="window.close()">{{ __('Bağla') }}</button>
 </div>
 <div class="sheet">
+@if ($doc->cancelled_at ?? null)<div class="cancelled-stamp">{{ __('LƏĞV EDİLİB') }} · {{ $doc->cancelled_at->format('d.m.Y') }}</div>@endif
+
     <header>
         <div>
             <div class="company">{{ $company['name'] }}</div>

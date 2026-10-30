@@ -20,7 +20,7 @@ class OrderController extends ReportController
     public function index(Request $request): View|Response
     {
         $filters = $this->filters($request, 'this_month');
-        $query = $this->query($filters)
+        $query = $this->applyState($request, $this->query($filters), 'o')
             ->leftJoin('warehouses as w', 'w.id', '=', 'o.warehouse_id')
             ->select('o.id', 'o.date', 'o.order_no', 'o.invoice_no', 'o.status', 'o.source', 'o.line_count', 'o.total_amount', 'o.return_amount',
                 'o.customer_id', DB::raw('COALESCE(c.name, o.customer_name) AS customer_name'), 'm.name as manager_name', 'w.name as warehouse_name');
@@ -53,7 +53,7 @@ class OrderController extends ReportController
     public function profit(Request $request): View|Response
     {
         $filters = $this->filters($request, 'this_month');
-        $query = $this->query($filters)
+        $query = $this->query($filters)->whereNull('o.cancelled_at')
             ->when($request->query('only') === 'loss', fn ($q) => $q->where('o.gross_profit', '<', 0))
             ->select('o.id', 'o.date', 'o.order_no', 'o.invoice_no', 'o.status', 'o.line_count', 'o.total_amount', 'o.total_cogs', 'o.gross_profit',
                 'o.return_amount', 'o.net_profit', 'o.customer_id', DB::raw('COALESCE(c.name, o.customer_name) AS customer_name'), 'm.name as manager_name',
@@ -81,7 +81,7 @@ class OrderController extends ReportController
             return $response;
         }
         $rows = $table->resolve($request);
-        $loss = $this->query($filters)->where('o.gross_profit', '<', 0)->count();
+        $loss = $this->query($filters)->whereNull('o.cancelled_at')->where('o.gross_profit', '<', 0)->count();
 
         return view('reports.orders', ['title' => __('Sifarişlər və qazanc'), 'filters' => $filters, 'table' => $table, 'rows' => $rows, 'lossCount' => $loss, 'profit' => true]);
     }
@@ -181,8 +181,8 @@ class OrderController extends ReportController
             'returnTable' => $returnTable,
             'returnRows' => $returnTable->resolve($request),
             'margin' => $order->total_amount != 0 ? $order->gross_profit / $order->total_amount : null,
-            'deliveries' => DB::table('delivery_notes')->where('sales_order_id', $order->id)->orderBy('id')->get(['id', 'doc_no', 'date']),
-            'invoices' => DB::table('sales_invoices')->where('sales_order_id', $order->id)->orderBy('id')->get(['id', 'doc_no', 'date']),
+            'deliveries' => DB::table('delivery_notes')->where('sales_order_id', $order->id)->orderBy('id')->get(['id', 'doc_no', 'date', 'cancelled_at']),
+            'invoices' => DB::table('sales_invoices')->where('sales_order_id', $order->id)->orderBy('id')->get(['id', 'doc_no', 'date', 'cancelled_at']),
             'fmt' => Fmt::class,
             'profit' => $profit,
         ]);
