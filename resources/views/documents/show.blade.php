@@ -9,6 +9,7 @@
     <div class="flex flex-wrap items-center gap-2">
         <a href="{{ route($listRoute) }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Geri') }}</a>
         <span class="badge">{{ Fmt::date($doc->date) }}</span>
+        @if ($isInvoice && $doc->due_date)<span @class(['badge', 'badge-neg' => ! $doc->cancelled_at && $doc->due_date < now()->toDateString()])>{{ __('Ödəniş tarixi') }}: {{ Fmt::date($doc->due_date) }}</span>@endif
         @if ($doc->customer)
             <a href="{{ route('customers.show', $doc->customer) }}" class="badge badge-primary">{{ $doc->customer->name }} · {{ $doc->customer->code }}</a>
         @else

@@ -37,7 +37,7 @@
 
     <h1>{{ $heading }} № {{ $doc->doc_no }}</h1>
     <div class="doc-meta muted">
-        {{ __('Tarix') }}: {{ Fmt::date($doc->date) }}@if ($doc->workplace) · {{ __('İş yeri') }}: {{ $doc->workplace->name }}@endif
+        {{ __('Tarix') }}: {{ Fmt::date($doc->date) }}@if ($kind === 'invoice' && $doc->due_date) · {{ __('Ödəniş tarixi') }}: {{ Fmt::date($doc->due_date) }}@endif @if ($doc->workplace) · {{ __('İş yeri') }}: {{ $doc->workplace->name }}@endif
         @if ($kind !== 'order' && $doc->order) · {{ __('Sifariş') }} № {{ $doc->order->order_no }}@endif
         @if ($kind === 'invoice' && $doc->deliveryNote) · {{ __('Təhvil-təslim') }} № {{ $doc->deliveryNote->doc_no }}@endif
     </div>

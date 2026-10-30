@@ -13,6 +13,7 @@ use App\Models\Warehouse;
 use App\Models\Workplace;
 use App\Services\AnalyticsRebuilder;
 use App\Services\CampaignEngine;
+use App\Services\CreditControl;
 use App\Services\NumberingService;
 use App\Services\PriceService;
 use App\Services\SalesDocumentService;
@@ -153,10 +154,17 @@ class OrderEntryController extends Controller
     private function form(Request $request, ?SalesOrder $order): View
     {
         $restricted = $request->user()->restrictedManagerId();
+        // kredit vəziyyəti: borc, gecikmiş borc, limit, digər fakturalanmamış sifarişlər
+        $balances = DB::table('customer_balances')->get(['customer_id', 'balance', 'overdue_amount', 'overdue_days'])->keyBy('customer_id');
+        $openOrders = app(CreditControl::class)->openOrders(null, $order?->id);
         $customers = Customer::query()
             ->when($restricted !== null, fn ($q) => $q->where('manager_id', $restricted))
-            ->orderBy('name')->get(['id', 'code', 'name', 'manager_id', 'voen'])
-            ->map(fn ($c) => ['id' => $c->id, 'code' => $c->code, 'name' => $c->name, 'manager_id' => $c->manager_id, 'voen' => $c->voen])->values();
+            ->orderBy('name')->get(['id', 'code', 'name', 'manager_id', 'voen', 'status', 'block_reason', 'credit_limit', 'payment_days'])
+            ->map(fn ($c) => ['id' => $c->id, 'code' => $c->code, 'name' => $c->name, 'manager_id' => $c->manager_id, 'voen' => $c->voen,
+                'blocked' => $c->status === 'blocked', 'block_reason' => $c->block_reason,
+                'limit' => $c->credit_limit !== null ? (float) $c->credit_limit : null, 'payment_days' => (int) $c->payment_days,
+                'debt' => round((float) ($balances[$c->id]->balance ?? 0), 2), 'open' => round($openOrders[$c->id] ?? 0, 2),
+                'overdue' => round((float) ($balances[$c->id]->overdue_amount ?? 0), 2), 'overdue_days' => (int) ($balances[$c->id]->overdue_days ?? 0)])->values();
         // rezerv stok = real stok − digər açıq sifarişlərdə rezerv olunan
         $reserved = $this->documents->reserved($order?->id);
         $stock = [];
@@ -197,7 +205,7 @@ class OrderEntryController extends Controller
                 'date' => old('date', $order?->date?->toDateString() ?? now()->toDateString()),
                 'order_no' => $order?->order_no,
                 'invoice_no' => old('invoice_no', $order->invoice_no ?? ''),
-                'customer_id' => (int) old('customer_id', $order->customer_id ?? 0) ?: null,
+                'customer_id' => (int) old('customer_id', $order->customer_id ?? $request->integer('customer')) ?: null,
                 'manager_id' => (int) old('manager_id', $order->manager_id ?? ($restricted ?? 0)) ?: null,
                 'warehouse_id' => (int) old('warehouse_id', $order->warehouse_id ?? $warehouses->firstWhere('is_main', true)?->id ?? $warehouses->first()?->id),
                 'note' => old('note', $order->note ?? ''),

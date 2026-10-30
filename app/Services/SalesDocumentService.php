@@ -102,6 +102,7 @@ class SalesDocumentService
             $invoice = SalesInvoice::query()->create([
                 'doc_no' => app(NumberingService::class)->next('sales_invoice', ['date' => $date, 'workplace_id' => $order->workplace_id, 'warehouse_id' => $order->warehouse_id, 'manager_id' => $order->manager_id]),
                 'date' => $date->toDateString(), 'period' => $date->format('Y-m'),
+                'due_date' => $date->copy()->addDays((int) DB::table('customers')->where('id', $order->customer_id)->value('payment_days'))->toDateString(),
                 'sales_order_id' => $order->id, 'delivery_note_id' => $note->id,
                 'customer_id' => $order->customer_id, 'customer_code' => $order->customer_code, 'customer_name' => $order->customer_name,
                 'manager_id' => $order->manager_id, 'warehouse_id' => $order->warehouse_id, 'workplace_id' => $order->workplace_id, 'note' => $order->note,

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Borc yaşı (aging): ödənişlər və qaytarmalar FIFO ilə ən köhnə sifarişlərə bağlanır,
  * qalan borc sifariş tarixinə görə 0–30, 31–60, 61–90, 90+ gün qruplarına bölünür.
+ * Gecikmiş borc: qalan borcun ödəniş tarixi (satış tarixi + müştərinin ödəniş müddəti) keçmiş hissəsi.
  */
 class CustomerBalanceService
 {
@@ -29,8 +30,8 @@ class CustomerBalanceService
             ->get()->keyBy('customer_id');
 
         $rows = [];
-        foreach (DB::table('customers')->pluck('id') as $customerId) {
-            $aging = $this->aging($customerId, $asOf);
+        foreach (DB::table('customers')->pluck('payment_days', 'id') as $customerId => $paymentDays) {
+            $aging = $this->aging($customerId, $asOf, (int) $paymentDays);
             $s = (float) ($sales[$customerId] ?? 0);
             $r = (float) ($returns[$customerId] ?? 0);
             $p = (float) ($payments[$customerId] ?? 0);
@@ -46,6 +47,8 @@ class CustomerBalanceService
                 'aging_61_90' => $aging['61_90'],
                 'aging_90_plus' => $aging['90_plus'],
                 'oldest_unpaid_date' => $aging['oldest'],
+                'overdue_amount' => $aging['overdue'],
+                'overdue_days' => $aging['overdue_days'],
                 'first_sale_date' => $dates->first_d ?? null,
                 'last_sale_date' => $dates->last_d ?? null,
                 'last_payment_date' => $lastPayment[$customerId] ?? null,
@@ -69,9 +72,9 @@ class CustomerBalanceService
     }
 
     /**
-     * @return array{'0_30': float, '31_60': float, '61_90': float, '90_plus': float, oldest: string|null}
+     * @return array{'0_30': float, '31_60': float, '61_90': float, '90_plus': float, oldest: string|null, overdue: float, overdue_days: int}
      */
-    public function aging(int $customerId, Carbon $asOf): array
+    public function aging(int $customerId, Carbon $asOf, int $paymentDays = 0): array
     {
         // borc yaradanlar: satış sifarişləri (tarix üzrə) + müştəriyə geri ödənişlər (mənfi ödəniş)
         $charges = DB::table('sales_lines')->where('customer_id', $customerId)->where('op_type', 'sale')
@@ -91,7 +94,7 @@ class CustomerBalanceService
             ->where('date', '<=', $asOf->toDateString())->sum('net_amount');
         usort($charges, fn ($a, $b) => $a['date'] <=> $b['date']);
 
-        $buckets = ['0_30' => 0.0, '31_60' => 0.0, '61_90' => 0.0, '90_plus' => 0.0, 'oldest' => null];
+        $buckets = ['0_30' => 0.0, '31_60' => 0.0, '61_90' => 0.0, '90_plus' => 0.0, 'oldest' => null, 'overdue' => 0.0, 'overdue_days' => 0];
         foreach ($charges as $charge) {
             $open = $charge['amount'];
             if ($credits > 0) {
@@ -111,8 +114,13 @@ class CustomerBalanceService
                 default => '90_plus',
             };
             $buckets[$key] += $open;
+            $late = $days - $paymentDays;
+            if ($late > 0) {
+                $buckets['overdue'] += $open;
+                $buckets['overdue_days'] = max($buckets['overdue_days'], (int) $late);
+            }
         }
-        foreach (['0_30', '31_60', '61_90', '90_plus'] as $key) {
+        foreach (['0_30', '31_60', '61_90', '90_plus', 'overdue'] as $key) {
             $buckets[$key] = round($buckets[$key], 4);
         }
 

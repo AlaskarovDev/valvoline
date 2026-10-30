@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Reports;
 use App\Models\Customer;
 use App\Reports\ReportFilters;
 use App\Reports\Table;
+use App\Services\CreditControl;
 use App\Services\CustomerBalanceService;
 use App\Support\Fmt;
 use Illuminate\Http\Request;
@@ -29,20 +30,26 @@ class CustomerController extends ReportController
             ->when($request->query('type') === 'internal', fn ($q) => $q->where('c.type', 'internal'), fn ($q) => $q->when($request->query('type') !== 'any', fn ($q2) => $q2->where('c.type', 'customer')))
             ->when($tab === 'inactive', fn ($q) => $q->whereNotNull('b.last_sale_date')
                 ->where('b.last_sale_date', '<', Carbon::parse($asOf)->subDays($days)->toDateString()))
-            ->select('c.id', 'c.code', 'c.name', 'c.voen', 'c.type', 'm.name as manager',
+            ->when($request->query('only') === 'overdue', fn ($q) => $q->where('b.overdue_amount', '>', 0.005))
+            ->when($request->query('only') === 'blocked', fn ($q) => $q->where('c.status', 'blocked'))
+            ->select('c.id', 'c.code', 'c.name', 'c.voen', 'c.type', 'c.region', 'c.status', 'c.credit_limit', 'c.payment_days', 'b.overdue_amount', 'b.overdue_days', 'm.name as manager',
                 'b.first_sale_date', 'b.last_sale_date', 'b.sales_total', 'b.returns_total', 'b.payments_total', 'b.balance', 'b.last_payment_date', 'b.order_count',
                 DB::raw('CASE WHEN b.order_count > 0 THEN b.sales_total / b.order_count ELSE NULL END AS avg_order'));
 
         $table = Table::make('customers', $tab === 'inactive' ? __(':days+ gündür alış etməyən müştərilər', ['days' => $days]) : __('Müştəri bazası'))
             ->column('code', __('Kod'), 'text', ['sql' => 'c.code'])
-            ->column('name', __('Müştəri'), 'text', ['sql' => 'c.name', 'link' => fn ($r) => route('customers.show', $r->id)])
+            ->column('name', __('Müştəri'), 'text', ['sql' => 'c.name', 'link' => fn ($r) => route('customers.show', $r->id),
+                'format' => fn ($v, $r) => e($v).($r->status === 'blocked' ? ' <span class="badge badge-neg">'.e(__('bloklu')).'</span>' : '')])
             ->column('manager', __('Menecer'), 'text', ['sql' => 'm.name'])
+            ->column('region', __('Region'), 'text', ['sql' => 'c.region', 'mobile' => false])
             ->column('voen', __('VÖEN'), 'text', ['sql' => 'c.voen'])
             ->column('first_sale_date', __('İlk satış'), 'date', ['sql' => 'b.first_sale_date'])
             ->column('last_sale_date', __('Son satış'), 'date', ['sql' => 'b.last_sale_date'])
             ->column('sales_total', __('Dövriyyə'), 'money', ['sql' => 'b.sales_total'])
             ->column('payments_total', __('Ödəniş'), 'money', ['sql' => 'b.payments_total'])
             ->column('balance', __('Balans'), 'money', ['sql' => 'b.balance', 'class' => fn ($v) => $v > 0.005 ? 'warn font-semibold' : ($v < -0.005 ? 'pos font-semibold' : '')])
+            ->column('overdue_amount', __('Gecikmiş borc'), 'money', ['sql' => 'b.overdue_amount', 'class' => fn ($v) => $v > 0.005 ? 'neg font-semibold' : ''])
+            ->column('credit_limit', __('Kredit limiti'), 'money', ['sql' => 'c.credit_limit', 'mobile' => false])
             ->column('last_payment_date', __('Son ödəniş'), 'date', ['sql' => 'b.last_payment_date'])
             ->column('order_count', __('Sifariş'), 'int', ['sql' => 'b.order_count'])
             ->column('avg_order', __('Orta sifariş'), 'money', ['sql' => 'CASE WHEN b.order_count > 0 THEN b.sales_total / b.order_count ELSE NULL END'])
@@ -139,6 +146,8 @@ class CustomerController extends ReportController
             'title' => $customer->name,
             'customer' => $customer->load('manager', 'aliases'),
             'balance' => $customer->balance,
+            'credit' => app(CreditControl::class)->snapshot($customer),
+            'canEdit' => $user->isAdmin() || $customer->manager_id === $user->manager_id,
             'filters' => $filters,
             'statementTable' => $statementTable,
             'statementRows' => $statementTable->resolve($request),

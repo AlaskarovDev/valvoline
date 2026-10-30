@@ -34,7 +34,7 @@ class DebtController extends ReportController
 
         $list = $base()
             ->when($tab === 'debtors', fn ($q) => $q->where('b.balance', '>', 0.005), fn ($q) => $q->where('b.balance', '<', -0.005))
-            ->select('c.id', 'c.code', 'c.name', 'm.name as manager', 'b.balance', 'b.aging_0_30', 'b.aging_31_60', 'b.aging_61_90', 'b.aging_90_plus',
+            ->select('c.id', 'c.code', 'c.name', 'm.name as manager', 'b.balance', 'b.overdue_amount', 'b.overdue_days', 'c.credit_limit', 'b.aging_0_30', 'b.aging_31_60', 'b.aging_61_90', 'b.aging_90_plus',
                 'b.oldest_unpaid_date', 'b.last_payment_date', 'b.last_sale_date', 'b.sales_total', 'b.payments_total',
                 DB::raw('b.aging_31_60 + b.aging_61_90 + b.aging_90_plus AS min_payment'),
                 DB::raw('-b.balance AS advance'));
@@ -44,6 +44,9 @@ class DebtController extends ReportController
             ->column('manager', __('Menecer'), 'text', ['sql' => 'm.name']);
         if ($tab === 'debtors') {
             $table->column('balance', __('Borc'), 'money', ['sql' => 'b.balance', 'class' => fn () => 'font-semibold'])
+                ->column('overdue_amount', __('Gecikmiş borc'), 'money', ['sql' => 'b.overdue_amount', 'class' => fn ($v) => $v > 0.005 ? 'neg font-semibold' : 'pos'])
+                ->column('overdue_days', __('Gecikmə (gün)'), 'int', ['sql' => 'b.overdue_days', 'class' => fn ($v) => $v > 0 ? 'neg' : ''])
+                ->column('credit_limit', __('Kredit limiti'), 'money', ['sql' => 'c.credit_limit', 'mobile' => false])
                 ->column('min_payment', __('0–30-a düşmək üçün min. ödəniş'), 'money', [
                     'sql' => '(b.aging_31_60 + b.aging_61_90 + b.aging_90_plus)',
                     'class' => fn ($v) => $v > 0.005 ? 'warn font-semibold' : 'pos',

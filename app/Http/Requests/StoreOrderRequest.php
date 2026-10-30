@@ -6,6 +6,7 @@ use App\Http\Controllers\OrderEntryController;
 use App\Models\Customer;
 use App\Models\SalesOrder;
 use App\Services\BatchService;
+use App\Services\CreditControl;
 use App\Services\NumberingService;
 use App\Support\Fmt;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -50,6 +51,7 @@ class StoreOrderRequest extends FormRequest
             'excluded_campaigns' => ['nullable', 'array'],
             'excluded_campaigns.*' => ['integer'],
             'then' => ['nullable', Rule::in(['send', 'invoice'])],
+            'credit_override' => ['nullable', 'boolean'],
         ];
     }
 
@@ -64,6 +66,17 @@ class StoreOrderRequest extends FormRequest
             $restricted = $this->user()->restrictedManagerId();
             if ($restricted !== null && Customer::query()->whereKey($this->integer('customer_id'))->value('manager_id') !== $restricted) {
                 $validator->errors()->add('customer_id', __('Bu müştəri sizə bağlı deyil.'));
+            }
+            // kredit nəzarəti: bloklu müştəri, kredit limiti (admin «limiti aş» ilə keçə bilər)
+            $customer = Customer::query()->find($this->integer('customer_id'));
+            if ($customer) {
+                $amount = collect(OrderEntryController::toBaseUnits(collect($this->input('lines', []))
+                    ->filter(fn ($l) => is_numeric($l['qty'] ?? null) && is_numeric($l['price'] ?? null) && ($l['op_type'] ?? 'sale') === 'sale')->all()))
+                    ->sum(fn ($l) => (float) $l['qty'] * (float) $l['price'] * (1 - (float) ($l['discount'] ?? 0) / 100));
+                $override = $this->user()->isAdmin() && $this->boolean('credit_override');
+                foreach (app(CreditControl::class)->violations($customer, round($amount, 2), $this->route('order')?->id, $override) as $message) {
+                    $validator->errors()->add('customer_id', $message);
+                }
             }
             // qiymət nəzarəti: məhsul kartındakı minimum qiymət və maksimum endirim
             $lines = collect(OrderEntryController::toBaseUnits(collect($this->input('lines', []))

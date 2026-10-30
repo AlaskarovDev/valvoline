@@ -15,7 +15,7 @@ class Customer extends Model
 
     protected function casts(): array
     {
-        return ['first_sale' => 'date', 'last_sale' => 'date'];
+        return ['first_sale' => 'date', 'last_sale' => 'date', 'credit_limit' => 'decimal:2', 'payment_days' => 'integer'];
     }
 
     public function manager(): BelongsTo

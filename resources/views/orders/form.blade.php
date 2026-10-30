@@ -113,6 +113,7 @@
                 baseUnitOf(l) { return products.get(l.product_id)?.base_unit ?? ''; },
                 gross(l) { return (Number(l.qty) || 0) * (Number(l.price) || 0); },
                 net(l) { return this.gross(l) * (1 - (Number(l.discount) || 0) / 100); },
+                creditLeft() { const c = this.customer(); return c && c.limit !== null ? c.limit - c.debt - c.open - this.sum((l, i) => this.final(l, i)) : null; },
                 lineResult(i) { return this.applyCampaigns && this.campaignResult ? (this.campaignResult.lines[i] ?? null) : null; },
                 campaignDiscount(i) { return this.lineResult(i)?.campaign_discount ?? 0; },
                 final(l, i) { return this.net(l) - this.campaignDiscount(i); },
@@ -188,6 +189,24 @@
                     <input id="o-customer" class="input" autocomplete="off" required placeholder="{{ __('Ad, kod və ya VÖEN ilə axtar…') }}"
                            x-model="customerQuery" @focus="customerOpen = true" @input="customerOpen = true; customer_id = null" @keydown.escape="customerOpen = false"
                            @keydown.enter.prevent="customerMatches()[0] && pickCustomer(customerMatches()[0])">
+                    {{-- kredit vəziyyəti: bloklu, limit, gecikmiş borc --}}
+                    <template x-if="customer()">
+                        <div class="mt-1.5 flex flex-col gap-1 text-xs" aria-live="polite">
+                            <div class="font-semibold neg" x-show="customer().blocked">{{ __('Müştəri bloklanıb — sifariş yazılmır.') }} <span class="font-normal" x-text="customer().block_reason ?? ''"></span></div>
+                            <div class="text-muted">
+                                {{ __('Borc') }}: <span class="tabular-nums" x-text="money(customer().debt)"></span>
+                                · {{ __('fakturalanmamış') }}: <span class="tabular-nums" x-text="money(customer().open)"></span>
+                                <template x-if="customer().limit !== null"><span> · {{ __('limit') }}: <span class="tabular-nums" x-text="money(customer().limit)"></span>
+                                    · {{ __('sərbəst') }}: <span class="tabular-nums font-semibold" :class="creditLeft() < 0 ? 'neg' : 'pos'" x-text="money(creditLeft())"></span></span></template>
+                            </div>
+                            <div class="warn font-semibold" x-show="customer().overdue > 0" x-text="@js(__('Gecikmiş borc')) + ': ' + money(customer().overdue) + ' (' + customer().overdue_days + ' ' + @js(__('gün')) + ')'"></div>
+                            @can('admin')
+                                <label class="flex items-center gap-1.5 text-ink" x-show="customer().limit !== null && creditLeft() < 0" x-cloak>
+                                    <input type="checkbox" name="credit_override" value="1" class="size-4" @checked(old('credit_override'))> {{ __('Limiti aşmağa icazə verirəm (admin)') }}
+                                </label>
+                            @endcan
+                        </div>
+                    </template>
                     <ul x-show="customerOpen" x-cloak class="card absolute z-30 mt-1 max-h-72 w-full overflow-auto py-1 text-sm">
                         <template x-for="c in customerMatches()" :key="c.id">
                             <li><button type="button" class="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left hover:bg-[var(--surface-2)]" @click="pickCustomer(c)">
@@ -228,7 +247,7 @@
                     <button type="button" class="btn btn-sm" x-show="applyCampaigns" x-cloak @click="removeCampaigns()"><x-icon name="x" size="14"/> {{ __('Kampaniyanı ləğv et') }}</button>
                 </div>
             </div>
-            <div class="overflow-x-auto lg:overflow-visible">
+            <div class="relative overflow-x-auto lg:overflow-visible">
                 <table class="w-full min-w-[980px] text-sm">
                     <thead>
                         <tr class="border-b border-line text-left text-xs uppercase text-muted">
@@ -356,7 +375,7 @@
 
             <div class="flex flex-wrap items-center justify-between gap-2 border-t border-line p-4">
                 <button type="button" class="btn btn-sm" @click="addLine()"><x-icon name="plus" size="14"/> {{ __('Məhsul əlavə et') }}</button>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center justify-end gap-2">
                     <a href="{{ $order ? route('orders.show', $order) : route('orders.index') }}" class="btn">{{ __('Ləğv et') }}</a>
                     <button class="btn" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading">{{ $order ? __('Yadda saxla') : __('Sifarişi yarat') }}</button>
                     <button name="then" value="send" class="btn" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading" title="{{ __('Sifarişi saxla və təhvil-təslim sənədi yarat') }}"><x-icon name="send" size="14"/> {{ __('Sifarişi göndər') }}</button>

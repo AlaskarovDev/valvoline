@@ -1,5 +1,13 @@
 <x-layouts.app :title="$title">
-    <x-filters :filters="$filters" :show="['manager']" :dates="false" :own="['tab', 'days', 'type']">
+    <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ route('customers.create') }}" class="btn btn-sm btn-primary"><x-icon name="plus" size="14"/> {{ __('Yeni müştəri') }}</a>
+    </div>
+    <x-filters :filters="$filters" :show="['manager']" :dates="false" :own="['tab', 'days', 'type', 'only']">
+        <select name="only" class="select h-[30px] w-auto text-xs" aria-label="{{ __('Kredit vəziyyəti') }}" onchange="this.form.submit()">
+            <option value="">{{ __('Bütün kredit vəziyyətləri') }}</option>
+            <option value="overdue" @selected(request('only') === 'overdue')>{{ __('Gecikmiş borcu olanlar') }}</option>
+            <option value="blocked" @selected(request('only') === 'blocked')>{{ __('Bloklu müştərilər') }}</option>
+        </select>
         <input type="hidden" name="tab" value="{{ $tab }}">
         <select name="type" class="select h-[30px] w-auto text-xs" aria-label="{{ __('Müştəri tipi') }}" onchange="this.form.submit()">
             <option value="" @selected(request('type') === null || request('type') === '')>{{ __('Yalnız müştərilər') }}</option>

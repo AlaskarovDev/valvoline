@@ -6,6 +6,35 @@
         @if ($customer->voen)<span class="badge">{{ __('VÖEN') }} {{ $customer->voen }}</span>@endif
         @if ($customer->manager)<span class="badge">Menecer: {{ $customer->manager->name }}</span>@endif
         @if ($customer->type === 'internal')<span class="badge badge-warn">{{ __('Daxili (müştəri deyil)') }}</span>@endif
+        @if ($customer->region)<span class="badge">{{ __('Region') }}: {{ $customer->region }}</span>@endif
+        @if ($customer->phone)<a href="tel:{{ preg_replace('/[^0-9+]/', '', $customer->phone) }}" class="badge">{{ $customer->phone }}</a>@endif
+        @if ($customer->contact_person)<span class="badge">{{ $customer->contact_person }}</span>@endif
+        @if ($canEdit)
+            <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+                <a href="{{ route('customers.edit', $customer) }}" class="btn btn-sm"><x-icon name="edit" size="14"/> {{ __('Kartı düzəlt') }}</a>
+                <a href="{{ route('orders.create', ['customer' => $customer->id]) }}" class="btn btn-sm btn-primary"><x-icon name="plus" size="14"/> {{ __('Sifariş əlavə et') }}</a>
+            </div>
+        @endif
+    </div>
+    @if ($credit['status'] === 'blocked')
+        <div class="card border-l-4 px-4 py-3 text-sm" style="border-left-color: var(--negative)" role="status">
+            <span class="font-semibold neg">{{ __('Müştəri bloklanıb — sifariş yazılmır.') }}</span> @if ($customer->block_reason){{ __('Səbəb') }}: {{ $customer->block_reason }}@endif
+        </div>
+    @endif
+    @if ($customer->address || $customer->email || $customer->note)
+        <div class="card px-4 py-3 text-sm text-muted">
+            @if ($customer->address)<span>{{ $customer->address }}</span>@endif
+            @if ($customer->email) · <a href="mailto:{{ $customer->email }}" class="text-primary-text hover:underline">{{ $customer->email }}</a>@endif
+            @if ($customer->note)<div class="mt-1 text-ink">{{ $customer->note }}</div>@endif
+        </div>
+    @endif
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <x-kpi :label="__('Ödəniş müddəti')" :value="$credit['payment_days'] ? __(':n gün', ['n' => $credit['payment_days']]) : __('dərhal')"/>
+        <x-kpi :label="__('Kredit limiti')" :value="$credit['limit'] !== null ? Fmt::money($credit['limit']) : __('limitsiz')"
+               :meta="$credit['limit'] !== null ? __('sərbəst').': '.Fmt::money($credit['available']) : null" :tone="$credit['limit'] !== null && $credit['available'] < 0 ? 'neg' : null"/>
+        <x-kpi :label="__('Fakturalanmamış sifarişlər')" :value="Fmt::money($credit['open_orders'])" :meta="__('limitə daxildir')"/>
+        <x-kpi :label="__('Gecikmiş borc')" :value="Fmt::money($credit['overdue'])" :tone="$credit['overdue'] > 0.005 ? 'neg' : 'pos'"
+               :meta="$credit['overdue'] > 0.005 ? __('ən uzun gecikmə: :n gün', ['n' => $credit['overdue_days']]) : __('gecikmə yoxdur')"/>
     </div>
 
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -61,4 +90,5 @@
             </ul>
         </section>
     </div>
+    <x-audit-history type="Customer" :id="$customer->id"/>
 </x-layouts.app>
