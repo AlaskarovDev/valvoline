@@ -66,7 +66,7 @@ class SalesDocumentController extends ReportController
             ->whereBetween('i.date', [$filters->fromDate(), $filters->toDate()])
             ->when($filters->customerId, fn ($q) => $q->where('i.customer_id', $filters->customerId))
             ->when($filters->managerId, fn ($q) => $q->where('i.manager_id', $filters->managerId))
-            ->select('i.id', 'i.date', 'i.doc_no', 'i.customer_id', 'i.customer_name', 'i.gross_amount', 'i.discount_amount', 'i.total_amount',
+            ->select('i.id', 'i.date', 'i.due_date', 'i.doc_no', 'i.customer_id', 'i.customer_name', 'i.gross_amount', 'i.discount_amount', 'i.total_amount', 'i.amount_ex_vat', 'i.vat_amount',
                 'o.id as order_id', 'o.order_no', 'd.id as delivery_id', 'd.doc_no as delivery_no', 'm.name as manager_name');
 
         $table = Table::make('invoices', __('Satış fakturaları'))
@@ -78,7 +78,10 @@ class SalesDocumentController extends ReportController
             ->column('manager_name', __('Menecer'), 'text', ['sql' => 'm.name', 'mobile' => false])
             ->column('gross_amount', __('Məbləğ (endirimsiz)'), 'money', ['sql' => 'i.gross_amount', 'mobile' => false])
             ->column('discount_amount', __('Endirim'), 'money', ['sql' => 'i.discount_amount', 'mobile' => false])
+            ->column('amount_ex_vat', __('ƏDV-siz'), 'money', ['sql' => 'i.amount_ex_vat', 'mobile' => false])
+            ->column('vat_amount', __('ƏDV'), 'money', ['sql' => 'i.vat_amount', 'mobile' => false])
             ->column('total_amount', __('Yekun'), 'money', ['sql' => 'i.total_amount', 'class' => fn () => 'font-semibold'])
+            ->column('due_date', __('Ödəniş tarixi'), 'date', ['sql' => 'i.due_date', 'mobile' => false])
             ->source($query)->sortBy('date', 'desc')->footer(auto: true)
             ->subtitle(__('Faktura müştəri borcuna və satış gəlirinə yazılır.'));
 

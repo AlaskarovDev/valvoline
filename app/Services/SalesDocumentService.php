@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DeliveryNote;
 use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
+use App\Support\Vat;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -112,10 +113,15 @@ class SalesDocumentService
             ]);
 
             $managerName = $order->manager_id ? DB::table('managers')->where('id', $order->manager_id)->value('name') : null;
+            // ƏDV fakturalama anındakı mal parametrləri ilə sətirdə saxlanılır
+            $vatInfo = DB::table('products')->whereIn('id', $lines->pluck('product_id')->filter()->all() ?: [0])->get(['id', 'vat_mode', 'vat_rate'])->keyBy('id');
+            $vatTotal = 0.0;
             $now = now();
             foreach ($lines as $i => $line) {
                 $item = $items[$line->sales_order_item_id] ?? null;
                 $qty = (float) $line->qty;
+                $p = $vatInfo[$line->product_id] ?? null;
+                $vat = Vat::split($line->op_type === 'sale' ? (float) $line->net_amount : 0.0, $p->vat_mode ?? 'standard', $p->vat_rate ?? 18);
                 DB::table('sales_lines')->insert([
                     'sales_order_id' => $order->id, 'sales_invoice_id' => $invoice->id, 'delivery_note_line_id' => $line->id,
                     'row_no' => $i + 1, 'date' => $invoice->date->toDateString(), 'period' => $invoice->period,
@@ -127,9 +133,12 @@ class SalesDocumentService
                     'qty' => $qty, 'price' => $line->price, 'amount' => $item->amount ?? 0, 'discount_pct' => $item->discount_pct ?? 0,
                     'campaign_discount' => $item->campaign_discount ?? 0, 'discount_price' => $qty > 0 ? round((float) $line->net_amount / $qty, 4) : 0,
                     'net_amount' => $line->net_amount, 'op_type' => $line->op_type, 'campaign_id' => $item->campaign_id ?? null,
+                    'vat_mode' => $vatInfo[$line->product_id]->vat_mode ?? 'standard', 'vat_rate' => $vat['rate'], 'vat_amount' => $vat['vat'],
                     'status' => 'ok', 'created_at' => $now, 'updated_at' => $now,
                 ]);
+                $vatTotal += $vat['vat'];
             }
+            $invoice->forceFill(['vat_amount' => round($vatTotal, 4), 'amount_ex_vat' => round((float) $invoice->total_amount - $vatTotal, 4)])->save();
             $order->forceFill(['status' => 'invoiced', 'invoice_no' => $order->invoice_no ?: $invoice->doc_no])->save();
 
             return ['delivery' => $created, 'invoice' => $invoice];

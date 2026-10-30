@@ -65,6 +65,7 @@
                 <th class="num" style="width: 60px">{{ __('Miqdar') }}</th>
                 <th class="num" style="width: 80px">{{ __('Qiymət') }}</th>
                 @if ($showDiscount)<th class="num" style="width: 80px">{{ __('Endirim') }}</th>@endif
+                @if ($kind === 'invoice')<th class="num" style="width: 80px">{{ __('ƏDV') }}</th>@endif
                 <th class="num" style="width: 92px">{{ __('Məbləğ') }}</th>
             </tr>
         </thead>
@@ -82,6 +83,7 @@
                     <td class="num">{{ Fmt::qty($l->qty) }}@isset($itemUnits[$l->sales_order_item_id ?? 0])<div class="sub">{{ Fmt::qty($itemUnits[$l->sales_order_item_id]->unit_qty) }} {{ $itemUnits[$l->sales_order_item_id]->unit_name }}</div>@endisset</td>
                     <td class="num">{{ Fmt::money($l->price) }}@isset($itemUnits[$l->sales_order_item_id ?? 0])<div class="sub">{{ Fmt::money($itemUnits[$l->sales_order_item_id]->unit_price) }} / {{ $itemUnits[$l->sales_order_item_id]->unit_name }}</div>@endisset</td>
                     @if ($showDiscount)<td class="num">{{ isset($l->amount) && (float) $l->amount - (float) $l->net_amount > 0.004 ? Fmt::money((float) $l->amount - (float) $l->net_amount) : '—' }}</td>@endif
+                    @if ($kind === 'invoice')<td class="num">{{ isset($l->vat_amount) ? Fmt::money($l->vat_amount) : '—' }}</td>@endif
                     <td class="num">{{ Fmt::money($l->net_amount) }}</td>
                 </tr>
             @endforeach
@@ -92,6 +94,7 @@
                 <td class="num">{{ Fmt::qty($totals['qty']) }}</td>
                 <td></td>
                 @if ($showDiscount)<td class="num">{{ Fmt::money($totals['discount'] ?? 0) }}</td>@endif
+                @if ($kind === 'invoice')<td class="num">{{ Fmt::money($doc->vat_amount) }}</td>@endif
                 <td class="num">{{ Fmt::money($totals['amount']) }}</td>
             </tr>
         </tfoot>
@@ -101,7 +104,14 @@
         <table class="totals">
             <tr><td>{{ __('Məbləğ (endirimsiz)') }}</td><td class="num">{{ Fmt::money($totals['gross'] ?? 0) }}</td></tr>
             <tr><td>{{ __('Endirim') }}</td><td class="num">−{{ Fmt::money($totals['discount'] ?? 0) }}</td></tr>
-            <tr class="grand"><td>{{ __('Ödəniləcək məbləğ') }}</td><td class="num">{{ Fmt::money($totals['amount']) }}</td></tr>
+            @if ($kind === 'invoice')
+                @foreach (\App\Support\Vat::summary($lines) as $g)
+                    <tr><td>{{ $g['label'] }}: {{ __('vergi bazası') }} {{ Fmt::money($g['base']) }}</td><td class="num">{{ Fmt::money($g['vat']) }}</td></tr>
+                @endforeach
+                <tr><td>{{ __('ƏDV-siz məbləğ') }}</td><td class="num">{{ Fmt::money($doc->amount_ex_vat) }}</td></tr>
+                <tr><td>{{ __('ƏDV cəmi') }}</td><td class="num">{{ Fmt::money($doc->vat_amount) }}</td></tr>
+            @endif
+            <tr class="grand"><td>{{ __('Ödəniləcək məbləğ') }}{{ $kind === 'invoice' ? ' ('.__('ƏDV daxil').')' : '' }}</td><td class="num">{{ Fmt::money($totals['amount']) }}</td></tr>
         </table>
     @endif
 

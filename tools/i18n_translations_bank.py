@@ -1373,4 +1373,11 @@ T = {
     'Əlaqə şəxsi': ('Контактное лицо', 'Contact person'),
     'Əsas (standart)': ('Основной (стандартный)', 'Base (standard)'),
     'ən uzun gecikmə: :n gün': ('макс. просрочка: :n дн.', 'longest overdue: :n days'),
+    '0 % dərəcə': ('ставка 0 %', '0 % rate'),
+    'endirim': ('скидка', 'discount'),
+    'vergi bazası': ('налоговая база', 'tax base'),
+    'ƏDV :rate %': ('НДС :rate %', 'VAT :rate %'),
+    'ƏDV cəmi': ('Итого НДС', 'Total VAT'),
+    'ƏDV-siz məbləğ': ('Сумма без НДС', 'Amount excl. VAT'),
+    'ƏDV-yə cəlb olunan': ('Облагается НДС', 'Subject to VAT'),
 }

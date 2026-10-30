@@ -36,8 +36,8 @@
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-kpi :label="__('Miqdar')" :value="Fmt::qty($totals['qty'])"/>
         @if ($isInvoice)
-            <x-kpi :label="__('Məbləğ (endirimsiz)')" :value="Fmt::money($totals['gross'])"/>
-            <x-kpi :label="__('Endirim')" :value="Fmt::money($totals['discount'])"/>
+            <x-kpi :label="__('ƏDV-siz məbləğ')" :value="Fmt::money($doc->amount_ex_vat)" :meta="__('endirim').': '.Fmt::money($totals['discount'])"/>
+            <x-kpi :label="__('ƏDV')" :value="Fmt::money($doc->vat_amount)"/>
             <x-kpi :label="__('Yekun')" :value="Fmt::money($totals['amount'])" :meta="$doc->cancelled_at ? __('ləğv edilib — borcda deyil') : __('müştəri borcuna yazılıb')"/>
         @else
             <x-kpi :label="__('Məbləğ')" :value="Fmt::money($totals['amount'])"/>
@@ -57,7 +57,7 @@
                     <tr>
                         <th>#</th><th>{{ __('Kod') }}</th><th>{{ __('Mal') }}</th><th>{{ __('Tip') }}</th>
                         <th class="num">{{ __('Miqdar') }}</th><th class="num">{{ __('Qiymət') }}</th>
-                        @if ($isInvoice)<th class="num">{{ __('Endirim') }}</th>@endif
+                        @if ($isInvoice)<th class="num">{{ __('Endirim') }}</th><th class="num">{{ __('ƏDV') }}</th>@endif
                         <th class="num">{{ __('Yekun') }}</th><th class="num">{{ __('Maya') }}</th>
                     </tr>
                 </thead>
@@ -75,7 +75,10 @@
                             <td>{{ $types[$l->op_type] ?? $l->op_type }}</td>
                             <td class="num">{{ Fmt::qty($l->qty) }}@isset($itemUnits[$l->sales_order_item_id ?? 0])<div class="text-xs text-muted">{{ Fmt::qty($itemUnits[$l->sales_order_item_id]->unit_qty) }} {{ $itemUnits[$l->sales_order_item_id]->unit_name }}</div>@endisset</td>
                             <td class="num">{{ Fmt::money($l->price) }}</td>
-                            @if ($isInvoice)<td class="num">{{ (float) $l->amount - (float) $l->net_amount > 0.004 ? Fmt::money((float) $l->amount - (float) $l->net_amount) : '—' }}</td>@endif
+                            @if ($isInvoice)
+                                <td class="num">{{ (float) $l->amount - (float) $l->net_amount > 0.004 ? Fmt::money((float) $l->amount - (float) $l->net_amount) : '—' }}</td>
+                                <td class="num">{{ isset($l->vat_amount) ? Fmt::money($l->vat_amount) : '—' }}<div class="text-xs text-muted">{{ ($l->vat_mode ?? 'standard') === 'standard' ? rtrim(rtrim(number_format((float) ($l->vat_rate ?? 0), 2, ',', ''), '0'), ',').' %' : (\App\Support\Vat::modeLabels()[$l->vat_mode] ?? '') }}</div></td>
+                            @endif
                             <td class="num font-semibold">{{ Fmt::money($l->net_amount) }}</td>
                             <td class="num text-muted">{{ $l->cogs !== null ? Fmt::money($l->cogs) : '…' }}</td>
                         </tr>
@@ -85,7 +88,7 @@
                     <tr>
                         <td colspan="4">{{ __('Cəmi') }}</td>
                         <td class="num">{{ Fmt::qty($totals['qty']) }}</td><td></td>
-                        @if ($isInvoice)<td class="num">{{ Fmt::money($totals['discount']) }}</td>@endif
+                        @if ($isInvoice)<td class="num">{{ Fmt::money($totals['discount']) }}</td><td class="num">{{ Fmt::money($doc->vat_amount) }}</td>@endif
                         <td class="num">{{ Fmt::money($totals['amount']) }}</td>
                         <td class="num">{{ Fmt::money($totals['cogs']) }}</td>
                     </tr>
