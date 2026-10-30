@@ -66,6 +66,7 @@ jobs:
           APP_KEY: ${{ secrets.APP_KEY }}
           DB_ENV: ${{ secrets.DB_ENV }}
           ADMIN_ENV: ${{ secrets.ADMIN_ENV }}
+          MAIL_ENV: ${{ secrets.MAIL_ENV }}
         run: |
           {
             echo 'APP_NAME="Valvo Analitika"'
@@ -87,6 +88,8 @@ jobs:
             printf '%s\n' "${DB_ENV:-DB_CONNECTION=sqlite
           DB_DATABASE=%STORAGE%/database.sqlite}"
             printf '%s\n' "${ADMIN_ENV:-}"
+            # SMTP (gündəlik xülasə): MAIL_MAILER=smtp, MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM_ADDRESS
+            printf '%s\n' "${MAIL_ENV:-MAIL_MAILER=log}"
           } | sed 's/^ *//' > server.env
           grep -c . server.env
 

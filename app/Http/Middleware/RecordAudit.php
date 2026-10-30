@@ -21,9 +21,9 @@ class RecordAudit
     /** Məlumatı dəyişməyən POST sorğuları (hesablama / önizləmə). */
     private const SKIP = ['orders.campaigns'];
 
-    private const SECRET = ['password', 'password_confirmation', 'current_password', '_token', '_method', 'token'];
+    private const SECRET = ['password', 'password_confirmation', 'current_password', '_token', '_method', 'token', 'otp', 'recovery_code'];
 
-    private const BIG = ['cancelled_lines', 'payload', 'remember_token', 'password'];
+    private const BIG = ['cancelled_lines', 'payload', 'remember_token', 'password', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_last_step'];
 
     private const MAX_PAYLOAD = 60000;
 

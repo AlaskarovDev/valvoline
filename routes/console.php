@@ -10,3 +10,5 @@ Artisan::command('inspire', function () {
 
 // serverdə cron qurulubsa (php artisan schedule:run) — gündəlik ehtiyat nüsxəsi; cron yoxdursa DailyBackup middleware-i edir
 Schedule::command('backup:database')->dailyAt('03:00');
+// gündəlik e-mail xülasəsi — 04:05 UTC = 08:05 Bakı (cron yoxdursa SendDailyDigest middleware-i göndərir)
+Schedule::command('digest:send')->dailyAt('04:05');

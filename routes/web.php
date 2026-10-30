@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AliasController;
 use App\Http\Controllers\AuditController;
@@ -60,10 +61,18 @@ Route::get('/dil/{locale}', LocaleController::class)->name('locale');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
     Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
+    Route::get('/login/2fa', [LoginController::class, 'challenge'])->name('two-factor.challenge');
+    Route::post('/login/2fa', [LoginController::class, 'verify'])->name('two-factor.verify')->middleware('throttle:two-factor');
 });
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+    Route::get('/hesabim', [AccountController::class, 'index'])->name('account.index');
+    Route::post('/hesabim/2fa', [AccountController::class, 'confirm'])->name('account.2fa.confirm')->middleware('throttle:two-factor');
+    Route::post('/hesabim/2fa/kodlar', [AccountController::class, 'recoveryCodes'])->name('account.2fa.codes');
+    Route::delete('/hesabim/2fa', [AccountController::class, 'disable'])->name('account.2fa.disable');
+    Route::post('/hesabim/xulase', [AccountController::class, 'digest'])->name('account.digest');
+    Route::post('/hesabim/xulase/yoxla', [AccountController::class, 'testDigest'])->name('account.digest.test')->middleware('throttle:3,1');
 
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/bildirisler', [NotificationController::class, 'index'])->name('notifications.index');
@@ -274,5 +283,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/istifadeciler', [UserController::class, 'index'])->name('users.index')->middleware('perm:settings');
     Route::post('/istifadeciler', [UserController::class, 'store'])->name('users.store')->middleware('perm:settings');
+    Route::put('/istifadeciler/2fa-rollar', [UserController::class, 'twoFactorRoles'])->name('users.2fa.roles')->middleware('perm:settings');
     Route::put('/istifadeciler/{user}', [UserController::class, 'update'])->name('users.update')->middleware('perm:settings');
+    Route::delete('/istifadeciler/{user}/2fa', [UserController::class, 'resetTwoFactor'])->name('users.2fa.reset')->middleware('perm:settings');
 });

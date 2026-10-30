@@ -231,10 +231,11 @@
                     <x-icon name="moon" size="16" class="dark:hidden"/><x-icon name="sun" size="16" class="hidden dark:block"/>
                 </button>
                 @if ($user)
-                    <div class="hidden text-right text-xs leading-tight sm:block">
+                    <a href="{{ route('account.index') }}" class="hidden rounded-md px-1.5 py-0.5 text-right text-xs leading-tight hover:bg-surface-2 sm:block" title="{{ __('Hesabım') }}">
                         <div class="font-medium">{{ $user->name }}</div>
                         <div class="text-muted">{{ $user->roleLabel() }}</div>
-                    </div>
+                    </a>
+                    <a href="{{ route('account.index') }}" class="btn btn-sm sm:hidden" aria-label="{{ __('Hesabım') }}"><x-icon name="users" size="16"/></a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button class="btn btn-sm" title="{{ __('Çıxış') }}" aria-label="{{ __('Çıxış') }}"><x-icon name="logout" size="16"/></button>

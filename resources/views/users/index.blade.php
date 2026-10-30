@@ -15,12 +15,32 @@
         </form>
     </section>
 
+    <section class="card">
+        <div class="card-head"><div><h2 class="card-title">{{ __('İki mərhələli giriş (2FA)') }}</h2>
+            <div class="card-sub">{{ __('Seçilmiş rolların istifadəçiləri 2FA-nı qoşmadan sistemdə işləyə bilməz (qoşma səhifəsinə yönləndirilir). Hər kəs özü «Hesabım» səhifəsində qoşa bilər.') }}</div></div></div>
+        <form method="POST" action="{{ route('users.2fa.roles') }}" class="flex flex-wrap items-center gap-x-4 gap-y-2 p-4 text-sm">
+            @csrf @method('PUT')
+            @foreach (\App\Support\Permissions::roles() as $key => $label)
+                <label class="flex items-center gap-2"><input type="checkbox" name="roles[]" value="{{ $key }}" class="size-4" @checked(in_array($key, $twoFactorRoles, true))> {{ $label }}</label>
+            @endforeach
+            <button class="btn btn-sm sm:ml-auto">{{ __('Yadda saxla') }}</button>
+        </form>
+    </section>
+
     <section class="card overflow-hidden">
         <div class="card-head"><h2 class="card-title">{{ __('İstifadəçilər') }}</h2><span class="card-sub">{{ $users->count() }}</span></div>
         <ul class="divide-y divide-line">
             @foreach ($users as $u)
                 <li class="grid grid-cols-1 gap-2 px-4 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,3fr)] lg:items-center lg:gap-4">
-                    <div class="font-medium">{{ $u->name }}</div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-medium">{{ $u->name }}</span>
+                        @if ($u->two_factor_confirmed_at)
+                            <span class="badge badge-pos">2FA</span>
+                            <form method="POST" action="{{ route('users.2fa.reset', $u) }}" onsubmit="return confirm(@js(__(':name üçün 2FA sıfırlansın? Növbəti girişdə yenidən qoşmalı olacaq.', ['name' => $u->name])))">
+                                @csrf @method('DELETE')<button class="text-xs text-primary-text hover:underline">{{ __('sıfırla') }}</button>
+                            </form>
+                        @endif
+                    </div>
                     <div class="truncate text-muted">{{ $u->email }}</div>
                     <form method="POST" action="{{ route('users.update', $u) }}" class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
                         @csrf @method('PUT')

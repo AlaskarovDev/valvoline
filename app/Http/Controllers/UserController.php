@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Manager;
 use App\Models\User;
+use App\Services\TwoFactorService;
+use App\Support\AppSettings;
 use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +20,7 @@ class UserController extends Controller
         return view('users.index', [
             'title' => __('İstifadəçilər'),
             'users' => User::query()->with('manager')->orderBy('name')->get(),
+            'twoFactorRoles' => TwoFactorService::requiredRoles(),
             'managers' => Manager::query()->orderBy('name')->get(),
         ]);
     }
@@ -53,5 +56,23 @@ class UserController extends Controller
         $user->fill($data)->save();
 
         return back()->with('status', __(':email yeniləndi.', ['email' => $user->email]));
+    }
+
+    /**
+     * Telefonu itirən istifadəçinin 2FA-sı söndürülür — növbəti girişdə yenidən qoşur.
+     */
+    public function resetTwoFactor(User $user, TwoFactorService $twoFactor): RedirectResponse
+    {
+        $twoFactor->disable($user);
+
+        return back()->with('status', __(':email üçün iki mərhələli giriş sıfırlandı.', ['email' => $user->email]));
+    }
+
+    public function twoFactorRoles(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['roles' => ['array'], 'roles.*' => [Rule::in(array_keys(Permissions::roles()))]]);
+        AppSettings::set(TwoFactorService::SETTING, json_encode(array_values($data['roles'] ?? [])), $request->user()->id);
+
+        return back()->with('status', __('2FA məcburi olan rollar yadda saxlanıldı.'));
     }
 }
