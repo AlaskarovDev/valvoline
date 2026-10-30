@@ -37,7 +37,7 @@ class AuditLabels
             'bank' => __('Bank hesabı'), 'bank.tx' => __('Bank əməliyyatı'),
             'accounting' => __('Mühasibat'), 'pnl' => __('Mənfəət və zərər'), 'categories' => __('Xərc kateqoriyası'),
             'import' => __('İmport'), 'users' => __('İstifadəçi'), 'workplaces' => __('İş yeri'), 'numbering' => __('Nömrələmə servisi'),
-            'period-lock' => __('Dövr bağlama'),
+            'period-lock' => __('Dövr bağlama'), 'roles' => __('Rollar və icazələr'), 'backups' => __('Ehtiyat nüsxəsi'),
         ];
     }
 

@@ -1408,4 +1408,13 @@ T = {
     'icazə var': ('есть доступ', 'allowed'),
     'İcazələr yadda saxlanıldı': ('Права сохранены', 'Permissions saved'),
     'İstifadəçilər, rollar, iş yerləri, nömrələmə, nümayəndələr, audit': ('Пользователи, роли, рабочие места, нумерация, представители, аудит', 'Users, roles, workplaces, numbering, sales reps, audit'),
+    ':name — :tables cədvəl, :rows sətir.': (':name — таблиц: :tables, строк: :rows.', ':name — :tables tables, :rows rows.'),
+    'Bütün baza gündə bir dəfə avtomatik nüsxələnir (son :n nüsxə saxlanılır). Fayllar serverdə vebdən bağlı qovluqdadır; yükləyib başqa yerdə də saxlayın.': ('Вся база автоматически копируется раз в день (хранятся последние :n копий). Файлы лежат на сервере в закрытой от веба папке; скачивайте и храните их и в другом месте.', 'The whole database is backed up automatically once a day (the last :n copies are kept). Files sit on the server in a folder closed to the web; download them and keep copies elsewhere too.'),
+    'Bərpa: faylı açın (gunzip) və MySQL-ə yükləyin (phpMyAdmin → Import). Bərpa bütün mövcud məlumatı nüsxədəki ilə əvəz edir.': ('Восстановление: распакуйте файл (gunzip) и загрузите в MySQL (phpMyAdmin → Import). Восстановление заменяет все текущие данные данными из копии.', 'Restore: unzip the file (gunzip) and load it into MySQL (phpMyAdmin → Import). Restoring replaces all current data with the backup.'),
+    'Ehtiyat nüsxələri': ('Резервные копии', 'Backups'),
+    'Ehtiyat nüsxəsi': ('Резервная копия', 'Backup'),
+    'Ehtiyat nüsxəsi faylı yaradıla bilmədi.': ('Не удалось создать файл резервной копии.', 'The backup file could not be created.'),
+    'Ehtiyat nüsxəsi yaradıldı': ('Резервная копия создана', 'Backup created'),
+    'Hələ nüsxə yoxdur — «İndi yarat» düyməsini basın.': ('Копий пока нет — нажмите «Создать сейчас».', 'No backups yet — press «Create now».'),
+    'İndi yarat': ('Создать сейчас', 'Create now'),
 }

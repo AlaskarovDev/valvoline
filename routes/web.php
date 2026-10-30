@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AliasController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\CampaignController;
@@ -170,6 +171,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/satis-numayendeleri', [SalesRepController::class, 'index'])->name('reps.index')->middleware('perm:settings');
     Route::post('/satis-numayendeleri', [SalesRepController::class, 'store'])->name('reps.store')->middleware('perm:settings');
     Route::put('/satis-numayendeleri/{manager}', [SalesRepController::class, 'update'])->name('reps.update')->middleware('perm:settings');
+    Route::get('/ehtiyat-nusxeleri', [BackupController::class, 'index'])->name('backups.index')->middleware('perm:settings');
+    Route::post('/ehtiyat-nusxeleri', [BackupController::class, 'store'])->name('backups.store')->middleware('perm:settings');
+    Route::get('/ehtiyat-nusxeleri/{file}', [BackupController::class, 'download'])->where('file', '[A-Za-z0-9.\-]+')->name('backups.download')->middleware('perm:settings');
     Route::get('/rollar', [RoleController::class, 'index'])->name('roles.index')->middleware('perm:settings');
     Route::put('/rollar', [RoleController::class, 'update'])->name('roles.update')->middleware('perm:settings');
     Route::get('/audit-jurnali', [AuditController::class, 'index'])->name('audit.index')->middleware('perm:settings');

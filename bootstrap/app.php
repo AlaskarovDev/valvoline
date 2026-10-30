@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\DocumentActionException;
+use App\Http\Middleware\DailyBackup;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\RecordAudit;
 use App\Http\Middleware\SetLocale;
@@ -18,7 +19,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Paylaşılan hostinq provayderin CDN / proksisi arxasındadır.
         $middleware->trustProxies(at: '*');
-        $middleware->web(append: [SetLocale::class, RecordAudit::class]);
+        $middleware->web(append: [SetLocale::class, RecordAudit::class, DailyBackup::class]);
         $middleware->alias(['perm' => EnsurePermission::class]);
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(fn () => route('dashboard'));

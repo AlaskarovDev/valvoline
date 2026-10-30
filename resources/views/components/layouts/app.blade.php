@@ -100,6 +100,7 @@
             ['numbering.index', __('Nömrələmə servisi'), 'filter', true],
             ['period-lock.index', __('Dövr bağlama'), 'info', true],
             ['audit.index', __('Audit jurnalı'), 'quality', true],
+            ['backups.index', __('Ehtiyat nüsxələri'), 'download', true],
             ['workplaces.index', __('İş yerləri'), 'dashboard', true],
             ['users.index', __('İstifadəçilər'), 'users', true],
             ['roles.index', __('Rollar və icazələr'), 'users', true],
