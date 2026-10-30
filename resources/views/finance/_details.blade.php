@@ -8,6 +8,9 @@
     @if ($d->account)<dt class="muted text-muted">{{ $d->type === 'bank_transfer' ? __('Göndərən hesab') : __('Bank hesabı') }}</dt><dd>{{ $d->account->bankRef?->name ? $d->account->bankRef->name.' · ' : '' }}{{ $d->account->name }}@if ($d->account->iban) · {{ $d->account->iban }}@endif</dd>@endif
     @if ($d->toAccount)<dt class="muted text-muted">{{ __('Qəbul edən hesab') }}</dt><dd>{{ $d->toAccount->bankRef?->name ? $d->toAccount->bankRef->name.' · ' : '' }}{{ $d->toAccount->name }}@if ($d->toAccount->iban) · {{ $d->toAccount->iban }}@endif</dd>@endif
     @if ($d->customer)<dt class="muted text-muted">{{ __('Müştəri') }}</dt><dd>{{ $d->customer->name }} · {{ $d->customer->code }}</dd>@endif
+    @if ($d->supplier)<dt class="muted text-muted">{{ __('Təchizatçı') }}</dt><dd>{{ $d->supplier->name }} · {{ $d->supplier->code }}</dd>
+        @if ($d->supplier->currency !== $d->currency)<dt class="muted text-muted">{{ __('Borcdan silinən məbləğ') }}</dt><dd>{{ Fmt::number($d->to_amount, 2) }} {{ $d->supplier->currency }}</dd>@endif
+    @endif
     @if ($d->manager)<dt class="muted text-muted">{{ __('Satış nümayəndəsi') }}</dt><dd>{{ $d->manager->name }}</dd>@endif
     <dt class="muted text-muted">{{ in_array($d->type, ['cash_opening', 'bank_opening'], true) ? __('İlkin qalıq') : __('Məbləğ') }}</dt><dd class="text-lg font-semibold">{{ Fmt::number($d->amount, 2) }} {{ $d->currency }}</dd>
     @if ($d->type === 'bank_transfer' && $d->to_amount && $d->toAccount && $d->toAccount->currency !== $d->currency)

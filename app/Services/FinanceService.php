@@ -38,11 +38,14 @@ class FinanceService
 
         $docs = $after(DB::table('finance_documents as d')->leftJoin('customers as c', 'c.id', '=', 'd.customer_id')
             ->leftJoin('cash_registers as r1', 'r1.id', '=', 'd.cash_register_id')->leftJoin('cash_registers as r2', 'r2.id', '=', 'd.to_cash_register_id')
-            ->whereIn('d.type', ['cash_receipt', 'cash_transfer'])->whereNull('d.cancelled_at')
+            ->leftJoin('suppliers as s', 's.id', '=', 'd.supplier_id')
+            ->whereIn('d.type', ['cash_receipt', 'cash_transfer', 'supplier_payment'])->whereNull('d.cancelled_at')
             ->where(fn ($q) => $q->where('d.cash_register_id', $registerId)->orWhere('d.to_cash_register_id', $registerId)), 'd.date')
-            ->get(['d.*', 'c.name as customer_name', 'r1.code as from_code', 'r2.code as to_code']);
+            ->get(['d.*', 'c.name as customer_name', 'r1.code as from_code', 'r2.code as to_code', 's.name as supplier_name']);
         foreach ($docs as $d) {
-            if ($d->type === 'cash_receipt') {
+            if ($d->type === 'supplier_payment') {
+                $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'supplier', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Təchizatçıya ödəniş').': '.$d->supplier_name, 'in' => 0.0, 'out' => (float) $d->amount]);
+            } elseif ($d->type === 'cash_receipt') {
                 $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'receipt', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Müştəri ödənişi').': '.$d->customer_name, 'in' => (float) $d->amount, 'out' => 0.0]);
             } elseif ((int) $d->cash_register_id === $registerId) {
                 $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'transfer_out', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Transfer → :code', ['code' => $d->to_code]), 'in' => 0.0, 'out' => (float) $d->amount]);
@@ -111,7 +114,7 @@ class FinanceService
                 'type' => $type, 'created_by' => $userId, 'currency' => $data['currency'] ?? 'AZN',
             ], array_intersect_key($data, array_flip([
                 'date', 'workplace_id', 'cash_register_id', 'to_cash_register_id', 'bank_account_id', 'to_bank_account_id',
-                'amount', 'to_amount', 'rate', 'customer_id', 'manager_id', 'note',
+                'amount', 'to_amount', 'rate', 'customer_id', 'manager_id', 'supplier_id', 'note',
             ]))));
             $now = now();
             if ($type === 'cash_receipt') {
@@ -126,6 +129,13 @@ class FinanceService
                     'cash_register_id' => $doc->cash_register_id, 'finance_document_id' => $doc->id, 'created_at' => $now, 'updated_at' => $now,
                 ]);
                 $doc->forceFill(['payment_id' => $paymentId])->save();
+            }
+            if ($type === 'supplier_payment' && $doc->bank_account_id) {
+                // təchizatçıya bankdan ödəniş → hesabdan məxaric
+                DB::table('bank_transactions')->insert(['bank_account_id' => $doc->bank_account_id, 'date' => $doc->date->toDateString(), 'period' => $doc->date->format('Y-m'),
+                    'doc_no' => $doc->doc_no, 'source' => 'transfer', 'finance_document_id' => $doc->id, 'user_id' => $userId, 'amount_in' => 0, 'amount_out' => $doc->amount,
+                    'counterparty' => DB::table('suppliers')->where('id', $doc->supplier_id)->value('name'),
+                    'description' => __('Təchizatçıya ödəniş').' '.$doc->doc_no.($doc->note ? ' — '.$doc->note : ''), 'created_at' => $now, 'updated_at' => $now]);
             }
             if ($type === 'bank_transfer') {
                 $accounts = DB::table('bank_accounts')->whereIn('id', [$doc->bank_account_id, $doc->to_bank_account_id])->pluck('name', 'id');

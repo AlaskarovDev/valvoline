@@ -44,6 +44,11 @@
             ['campaigns.index', __('Kampaniyalar'), 'tag', true],
             ['reps.index', __('Satış nümayəndələri'), 'users', true],
         ],
+        __('Alış') => [
+            ['purchase-docs.index', __('Alış sənədləri'), 'truck', true],
+            ['suppliers.index', __('Təchizatçılar'), 'users', true],
+            ['supplier-payments.create', __('Təchizatçıya ödəniş'), 'payments', true],
+        ],
         __('Məhsul idarəetməsi') => [
             ['_sub', __('Əsas məlumat')],
             ['products.index', __('Məhsullar'), 'stock', true],

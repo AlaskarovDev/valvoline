@@ -98,9 +98,12 @@ class FinanceController extends ReportController
         return view('finance.documents', ['title' => __('Maliyyə sənədləri'), 'filters' => $filters, 'table' => $table, 'rows' => $table->resolve($request), 'types' => $types, 'type' => $type]);
     }
 
-    public function createDocument(Request $request): View
+    public function createDocument(Request $request): View|RedirectResponse
     {
         $types = FinanceDocument::typeLabels();
+        if ($request->query('type') === 'supplier_payment') {
+            return redirect()->route('supplier-payments.create');
+        }
         $type = array_key_exists((string) $request->query('type'), $types) ? $request->query('type') : 'cash_receipt';
         $user = $request->user();
         $restricted = $user->restrictedManagerId();
@@ -123,7 +126,7 @@ class FinanceController extends ReportController
     public function storeDocument(Request $request): RedirectResponse
     {
         $type = $request->input('type');
-        abort_unless(array_key_exists((string) $type, FinanceDocument::typeLabels()), 422);
+        abort_unless(array_key_exists((string) $type, FinanceDocument::typeLabels()) && $type !== 'supplier_payment', 422);
         abort_if(in_array($type, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! $request->user()->can('finance.manage'), 403);
         $rules = [
             'type' => ['required'], 'date' => ['required', 'date'], 'workplace_id' => ['required', 'integer', 'exists:workplaces,id'],
@@ -181,7 +184,7 @@ class FinanceController extends ReportController
 
     public function showDocument(Request $request, FinanceDocument $document): View
     {
-        $document->load('workplace', 'register', 'toRegister', 'account.bankRef', 'toAccount.bankRef', 'customer', 'manager', 'creator', 'canceller');
+        $document->load('workplace', 'register', 'toRegister', 'account.bankRef', 'toAccount.bankRef', 'customer', 'manager', 'supplier', 'creator', 'canceller');
 
         return view($request->boolean('print') ? 'finance.document-print' : 'finance.document', [
             'title' => FinanceDocument::typeLabels()[$document->type].' № '.$document->doc_no, 'doc' => $document, 'types' => FinanceDocument::typeLabels(),

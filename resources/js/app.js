@@ -19,7 +19,7 @@ const fmt = {
         if (a >= 1e3) return group(v / 1e3, 0) + ' ' + t('thousand', 'min');
         return group(Number(v), 0);
     },
-    number: (v) => (v == null ? '—' : group(Number(v), 0)),
+    number: (v, digits = 0) => (v == null ? '—' : group(Number(v), digits)),
     pct: (v) => (v == null ? '—' : group(v * 100, 1) + ' %'),
 };
 window.fmt = fmt;

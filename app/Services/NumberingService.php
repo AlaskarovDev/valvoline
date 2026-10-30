@@ -34,7 +34,11 @@ class NumberingService
         'fin_cash_transfer' => ['finance', 'finance_documents', 'doc_no', 'KT-{SEQ:6}', 'auto', 'never', 32],
         'fin_bank_opening' => ['finance', 'finance_documents', 'doc_no', 'BA-{SEQ:6}', 'auto', 'never', 32],
         'fin_bank_transfer' => ['finance', 'finance_documents', 'doc_no', 'BT-{SEQ:6}', 'auto', 'never', 32],
+        'purchase_receipt' => ['purchase', 'purchase_documents', 'doc_no', 'MD-{SEQ:6}', 'auto', 'never', 32],
+        'purchase_return' => ['purchase', 'purchase_documents', 'doc_no', 'TQ-{SEQ:6}', 'auto', 'never', 32],
+        'fin_supplier_payment' => ['finance', 'finance_documents', 'doc_no', 'TO-{SEQ:6}', 'auto', 'never', 32],
         'product' => ['codes', 'products', 'code', 'M{SEQ:5}', 'manual', 'never', 64],
+        'supplier' => ['codes', 'suppliers', 'code', 'T{SEQ:4}', 'auto_editable', 'never', 64],
         'customer' => ['codes', 'customers', 'code', 'C{SEQ:5}', 'manual', 'never', 64],
         'sales_rep' => ['codes', 'managers', 'code', 'SN-{SEQ:3}', 'auto_editable', 'never', 16],
         'cash_register' => ['codes', 'cash_registers', 'code', 'KS-{SEQ:3}', 'auto_editable', 'never', 16],
@@ -54,7 +58,8 @@ class NumberingService
             'stock_doc_production_loss' => __('İstehsal itkisi sənədi'), 'stock_doc_consumption' => __('Sərf sənədi'),
             'fin_cash_opening' => __('Kassa açılış sənədi'), 'fin_cash_receipt' => __('Kassa mədaxili (müştəri ödənişi)'), 'fin_cash_transfer' => __('Kassa transfer sənədi'),
             'fin_bank_opening' => __('Bank açılış sənədi'), 'fin_bank_transfer' => __('Banklar arası transfer sənədi'),
-            'product' => __('Mal kodu'), 'customer' => __('Müştəri kodu'), 'sales_rep' => __('Satış nümayəndəsi kodu'), 'cash_register' => __('Kassa kodu'),
+            'purchase_receipt' => __('Mədaxil qaiməsi'), 'purchase_return' => __('Təchizatçıya qaytarma'), 'fin_supplier_payment' => __('Təchizatçıya ödəniş'),
+            'product' => __('Mal kodu'), 'customer' => __('Müştəri kodu'), 'supplier' => __('Təchizatçı kodu'), 'sales_rep' => __('Satış nümayəndəsi kodu'), 'cash_register' => __('Kassa kodu'),
         ];
     }
 

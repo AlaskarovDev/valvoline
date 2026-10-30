@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
  */
 class AuditLabels
 {
-    private const DOCUMENTS = ['orders', 'deliveries', 'invoices', 'stock-docs', 'write-offs', 'finance.documents'];
+    private const DOCUMENTS = ['orders', 'deliveries', 'invoices', 'stock-docs', 'write-offs', 'finance.documents', 'purchase-docs'];
 
     /**
      * Marşrut prefiksi → obyekt (ən uzun prefiks qalib gəlir).
@@ -33,6 +33,7 @@ class AuditLabels
             'stock-docs' => __('Stok sənədi'), 'write-offs' => __('Silinmə aktı'), 'transfers' => __('Anbar transferi'),
             'batches' => __('Partiya / son istifadə tarixi'), 'warehouses' => __('Anbar'),
             'customers' => __('Müştəri'), 'aliases' => __('Uyğunlaşdırma'),
+            'suppliers' => __('Təchizatçı'), 'purchase-docs' => __('Alış sənədi'),
             'finance.documents' => __('Maliyyə sənədi'), 'finance.registers' => __('Kassa'), 'finance.banks' => __('Bank'), 'finance.accounts' => __('Bank hesabı'),
             'bank' => __('Bank hesabı'), 'bank.tx' => __('Bank əməliyyatı'),
             'accounting' => __('Mühasibat'), 'pnl' => __('Mənfəət və zərər'), 'categories' => __('Xərc kateqoriyası'),
@@ -88,7 +89,7 @@ class AuditLabels
             class_basename(SalesOrder::class) => 'orders.show', class_basename(DeliveryNote::class) => 'deliveries.show',
             class_basename(SalesInvoice::class) => 'invoices.show', class_basename(StockDocument::class) => 'stock-docs.show',
             class_basename(StockWriteOff::class) => 'write-offs.show', class_basename(FinanceDocument::class) => 'finance.documents.show',
-            class_basename(WarehouseTransfer::class) => 'transfers.show', 'Product' => 'products.show', 'Customer' => 'customers.show', 'Campaign' => 'campaigns.show',
+            class_basename(WarehouseTransfer::class) => 'transfers.show', 'Product' => 'products.show', 'Customer' => 'customers.show', 'Campaign' => 'campaigns.show', 'PurchaseDocument' => 'purchase-docs.show', 'Supplier' => 'suppliers.show',
         ];
 
         return isset($routes[$type]) ? route($routes[$type], $id) : null;

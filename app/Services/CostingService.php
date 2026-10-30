@@ -287,12 +287,12 @@ class CostingService
         };
 
         foreach (DB::table('purchase_lines')->whereNotNull('product_id')->orderBy('id')
-            ->get(['id', 'date', 'product_id', 'qty', 'unit_cost', 'batch_no']) as $row) {
+            ->get(['id', 'date', 'product_id', 'qty', 'unit_cost', 'batch_no', 'warehouse_id', 'doc_no', 'purchase_document_id']) as $row) {
             $push([
                 'date' => (string) $row->date, 'source_order' => 1, 'source_id' => $row->id, 'product_id' => $row->product_id,
-                'warehouse_id' => $mainWarehouse, 'type' => (int) $row->batch_no === 0 ? 'opening' : 'purchase',
+                'warehouse_id' => $row->warehouse_id ?? $mainWarehouse, 'type' => (int) $row->batch_no === 0 && ! $row->purchase_document_id ? 'opening' : 'purchase',
                 'qty' => (float) $row->qty, 'unit_cost' => (float) $row->unit_cost, 'source_type' => 'purchase_line',
-                'doc_no' => 'P-'.$row->batch_no,
+                'doc_no' => $row->doc_no ?? 'P-'.$row->batch_no,
             ]);
         }
 

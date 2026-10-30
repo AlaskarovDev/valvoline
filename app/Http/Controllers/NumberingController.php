@@ -36,7 +36,7 @@ class NumberingController extends Controller
 
         return view('numbering.index', [
             'title' => __('Nömrələmə servisi'),
-            'groups' => ['sales' => __('Satış sənədləri'), 'stock' => __('Anbar və stok sənədləri'), 'finance' => __('Kassa və bank sənədləri'), 'codes' => __('Kodlar')],
+            'groups' => ['sales' => __('Satış sənədləri'), 'stock' => __('Anbar və stok sənədləri'), 'purchase' => __('Alış sənədləri'), 'finance' => __('Kassa və bank sənədləri'), 'codes' => __('Kodlar')],
             'rules' => $rules, 'tokens' => NumberingService::tokenLabels(), 'sample' => $sample,
             'modes' => self::modes(), 'resets' => self::resets(),
         ]);

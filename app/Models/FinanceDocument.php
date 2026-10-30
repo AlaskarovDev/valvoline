@@ -10,7 +10,7 @@ class FinanceDocument extends Model
 {
     use Cancellable;
 
-    public const PREFIXES = ['cash_opening' => 'KA-', 'cash_receipt' => 'KM-', 'cash_transfer' => 'KT-', 'bank_opening' => 'BA-', 'bank_transfer' => 'BT-'];
+    public const PREFIXES = ['cash_opening' => 'KA-', 'cash_receipt' => 'KM-', 'cash_transfer' => 'KT-', 'bank_opening' => 'BA-', 'bank_transfer' => 'BT-', 'supplier_payment' => 'TO-'];
 
     protected $table = 'finance_documents';
 
@@ -28,7 +28,7 @@ class FinanceDocument extends Model
     {
         return [
             'cash_opening' => __('Kassa açılış sənədi'), 'cash_receipt' => __('Kassa mədaxili (müştəri ödənişi)'), 'cash_transfer' => __('Kassa transfer sənədi'),
-            'bank_opening' => __('Bank açılış sənədi'), 'bank_transfer' => __('Banklar arası transfer sənədi'),
+            'bank_opening' => __('Bank açılış sənədi'), 'bank_transfer' => __('Banklar arası transfer sənədi'), 'supplier_payment' => __('Təchizatçıya ödəniş'),
         ];
     }
 
@@ -65,6 +65,11 @@ class FinanceDocument extends Model
     public function manager(): BelongsTo
     {
         return $this->belongsTo(Manager::class);
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function creator(): BelongsTo

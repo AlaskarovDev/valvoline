@@ -23,6 +23,7 @@ class Permissions
             'customers' => [__('Müştərilər'), __('Müştəri bazası, kart yaratmaq və düzəliş')],
             'products' => [__('Məhsullar (baxış)'), __('Məhsul kartları, qiymət siyahısı')],
             'products.manage' => [__('Məhsul idarəetməsi'), __('Məhsul kartı, qiymət kartları, parametrlər')],
+            'purchases' => [__('Alış'), __('Təchizatçılar, mədaxil qaimələri, qaytarma, təchizatçı borcu və ödənişi')],
             'stock' => [__('Anbar'), __('Qalıq, hərəkətlər, transferlər, stok sənədləri')],
             'stock.manage' => [__('Anbar: idarəetmə'), __('Silinmə aktı, partiyalar, anbarlar, stok sənədini ləğv')],
             'finance' => [__('Kassa'), __('Kassalar, müştəri ödənişi, kassa transferi')],
@@ -50,9 +51,9 @@ class Permissions
     public static function defaults(): array
     {
         return [
-            'rehber' => ['reports', 'sales', 'sales.manage', 'customers', 'products', 'stock', 'finance', 'accounting'],
-            'muhasib' => ['reports', 'customers', 'products', 'stock', 'finance', 'finance.manage', 'accounting', 'data'],
-            'anbardar' => ['products', 'stock', 'stock.manage'],
+            'rehber' => ['reports', 'sales', 'sales.manage', 'customers', 'products', 'purchases', 'stock', 'finance', 'accounting'],
+            'muhasib' => ['reports', 'customers', 'products', 'purchases', 'stock', 'finance', 'finance.manage', 'accounting', 'data'],
+            'anbardar' => ['products', 'purchases', 'stock', 'stock.manage'],
             'kassir' => ['customers', 'finance'],
             // əvvəlki davranış: menecer admin bölmələrindən başqa hər yerə girir (öz məlumatı ilə)
             'menecer' => ['reports', 'sales', 'customers', 'products', 'stock', 'finance'],
