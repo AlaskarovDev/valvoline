@@ -48,6 +48,13 @@
         @csrf
         <input type="hidden" name="type" value="{{ $type }}">
         @if ($original)<input type="hidden" name="original_document_id" value="{{ $original->id }}">@endif
+        @if ($order)
+            <input type="hidden" name="purchase_order_id" value="{{ $order->id }}">
+            <div class="card border-l-4 px-4 py-3 text-sm" style="border-left-color: var(--primary)">
+                {{ __('Alış sifarişi № :no əsasında: sətirlərdə hələ qəbul olunmamış qalıq var — faktiki gələn miqdarı yazın.', ['no' => $order->doc_no]) }}
+                <a href="{{ route('purchase-orders.show', $order) }}" class="text-primary-text hover:underline">{{ $order->doc_no }}</a>
+            </div>
+        @endif
         @if ($einvoice)
             <input type="hidden" name="incoming_einvoice_id" value="{{ $einvoice->id }}">
             <div class="card border-l-4 px-4 py-3 text-sm" style="border-left-color: var(--primary)">

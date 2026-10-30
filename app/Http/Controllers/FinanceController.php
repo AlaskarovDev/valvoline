@@ -8,6 +8,7 @@ use App\Models\FinanceDocument;
 use App\Models\Workplace;
 use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
+use App\Services\CashExpenseService;
 use App\Services\FinanceService;
 use App\Services\NumberingService;
 use App\Support\Fmt;
@@ -104,6 +105,9 @@ class FinanceController extends ReportController
         if ($request->query('type') === 'supplier_payment') {
             return redirect()->route('supplier-payments.create');
         }
+        if (in_array($request->query('type'), CashExpenseController::TYPES, true)) {
+            return redirect()->route('cash-expenses.create', ['type' => $request->query('type')]);
+        }
         $type = array_key_exists((string) $request->query('type'), $types) ? $request->query('type') : 'cash_receipt';
         $user = $request->user();
         $restricted = $user->restrictedManagerId();
@@ -126,7 +130,7 @@ class FinanceController extends ReportController
     public function storeDocument(Request $request): RedirectResponse
     {
         $type = $request->input('type');
-        abort_unless(array_key_exists((string) $type, FinanceDocument::typeLabels()) && $type !== 'supplier_payment', 422);
+        abort_unless(array_key_exists((string) $type, FinanceDocument::typeLabels()) && $type !== 'supplier_payment' && ! in_array($type, CashExpenseController::TYPES, true), 422);
         abort_if(in_array($type, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! $request->user()->can('finance.manage'), 403);
         $rules = [
             'type' => ['required'], 'date' => ['required', 'date'], 'workplace_id' => ['required', 'integer', 'exists:workplaces,id'],
@@ -184,10 +188,11 @@ class FinanceController extends ReportController
 
     public function showDocument(Request $request, FinanceDocument $document): View
     {
-        $document->load('workplace', 'register', 'toRegister', 'account.bankRef', 'toAccount.bankRef', 'customer', 'manager', 'supplier', 'creator', 'canceller');
+        $document->load('workplace', 'register', 'toRegister', 'account.bankRef', 'toAccount.bankRef', 'customer', 'manager', 'supplier', 'creator', 'canceller', 'employee', 'expenseCategory');
 
         return view($request->boolean('print') ? 'finance.document-print' : 'finance.document', [
             'title' => FinanceDocument::typeLabels()[$document->type].' № '.$document->doc_no, 'doc' => $document, 'types' => FinanceDocument::typeLabels(),
+            'expenseLines' => $document->type === 'advance_report' ? app(CashExpenseService::class)->lines($document) : collect(),
         ]);
     }
 

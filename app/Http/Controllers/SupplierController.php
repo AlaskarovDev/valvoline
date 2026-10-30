@@ -65,7 +65,7 @@ class SupplierController extends ReportController
             ->source(collect($statement))->perPage(100)->withoutSearch()
             ->subtitle(__('Məbləğlər :cur ilə', ['cur' => $supplier->currency]));
 
-        return view('suppliers.show', ['title' => $supplier->name, 'supplier' => $supplier, 'balance' => $ledger->balances([$supplier->id])[$supplier->id] ?? null,
+        return view('suppliers.show', ['title' => $supplier->name, 'supplier' => $supplier, 'balance' => $ledger->balances([$supplier->id])[$supplier->id] ?? null, 'fx' => $ledger->fx($supplier),
             'table' => $table, 'rows' => $table->resolve($request)]);
     }
 
@@ -130,6 +130,7 @@ class SupplierController extends ReportController
             'address' => ['nullable', 'string', 'max:255'],
             'contact_person' => ['nullable', 'string', 'max:255'],
             'payment_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'lead_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'note' => ['nullable', 'string', 'max:2000'],
         ], [], ['name' => __('Ad'), 'currency' => __('Valyuta')]);
         $data['is_active'] = $request->boolean('is_active', true);

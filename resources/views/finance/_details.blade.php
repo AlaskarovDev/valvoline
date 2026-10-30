@@ -12,7 +12,15 @@
         @if ($d->supplier->currency !== $d->currency)<dt class="muted text-muted">{{ __('Borcdan silinən məbləğ') }}</dt><dd>{{ Fmt::number($d->to_amount, 2) }} {{ $d->supplier->currency }}</dd>@endif
     @endif
     @if ($d->manager)<dt class="muted text-muted">{{ __('Satış nümayəndəsi') }}</dt><dd>{{ $d->manager->name }}</dd>@endif
-    <dt class="muted text-muted">{{ in_array($d->type, ['cash_opening', 'bank_opening'], true) ? __('İlkin qalıq') : __('Məbləğ') }}</dt><dd class="text-lg font-semibold">{{ Fmt::number($d->amount, 2) }} {{ $d->currency }}</dd>
+    @if ($d->employee)<dt class="muted text-muted">{{ __('İşçi (təhtəlhesab şəxs)') }}</dt><dd>{{ $d->employee->name }}</dd>@endif
+    @if ($d->expenseCategory)<dt class="muted text-muted">{{ __('Xərc maddəsi') }}</dt><dd>{{ $d->expenseCategory->name }}</dd>@endif
+    @if ($d->type === 'advance_report')
+        @foreach ($expenseLines ?? [] as $l)
+            <dt class="muted text-muted">{{ $l->category_name }}</dt><dd>{{ Fmt::number($l->expense, 2) }} {{ $d->currency }}@if ($l->description) <span class="text-muted">— {{ $l->description }}</span>@endif</dd>
+        @endforeach
+        <dt class="muted text-muted">{{ __('Kassaya qaytarılan') }}</dt><dd>{{ Fmt::number($d->to_amount ?? 0, 2) }} {{ $d->currency }}</dd>
+    @endif
+    <dt class="muted text-muted">{{ in_array($d->type, ['cash_opening', 'bank_opening'], true) ? __('İlkin qalıq') : ($d->type === 'advance_report' ? __('Xərc cəmi') : __('Məbləğ')) }}</dt><dd class="text-lg font-semibold">{{ Fmt::number($d->amount, 2) }} {{ $d->currency }}</dd>
     @if ($d->type === 'bank_transfer' && $d->to_amount && $d->toAccount && $d->toAccount->currency !== $d->currency)
         <dt class="muted text-muted">{{ __('Qəbul edilən məbləğ') }}</dt><dd>{{ Fmt::number($d->to_amount, 2) }} {{ $d->toAccount->currency }} · {{ __('məzənnə') }} {{ Fmt::number($d->rate, 4) }}</dd>
     @endif

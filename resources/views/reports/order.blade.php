@@ -14,10 +14,14 @@
         @if ($order->workplace)<span class="badge">{{ __('İş yeri') }}: {{ $order->workplace->name }}</span>@endif
         @if ($order->source === 'manual')
             @include('orders._status', ['status' => $order->status])
+            @if ($order->approval_status)
+                <a href="{{ route('approvals.index', ['status' => $order->approval_status === 'pending' ? 'pending' : $order->approval_status]) }}" @class(['badge', 'badge-warn' => $order->approval_status === 'pending', 'badge-pos' => $order->approval_status === 'approved', 'badge-neg' => $order->approval_status === 'rejected'])>{{ \App\Services\ApprovalService::statusLabels()[$order->approval_status] }}</a>
+            @endif
             @foreach ($deliveries as $d)<a href="{{ route('deliveries.show', $d->id) }}" @class(['badge', 'badge-primary' => ! $d->cancelled_at, 'line-through' => $d->cancelled_at]) @if($d->cancelled_at) title="{{ __('Ləğv edilib') }}" @endif><x-icon name="truck" size="11"/> {{ $d->doc_no }}</a>@endforeach
             @foreach ($invoices as $inv)<a href="{{ route('invoices.show', $inv->id) }}" @class(['badge', 'badge-primary' => ! $inv->cancelled_at, 'line-through' => $inv->cancelled_at]) @if($inv->cancelled_at) title="{{ __('Ləğv edilib') }}" @endif><x-icon name="invoice" size="11"/> {{ $inv->doc_no }}</a>@endforeach
             <div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
                 <a href="{{ route('orders.print', $order) }}" target="_blank" rel="noopener" class="btn btn-sm"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
+                @if ($order->status === 'open')<a href="{{ route('orders.picking', ['orders' => [$order->id]]) }}" target="_blank" rel="noopener" class="btn btn-sm"><x-icon name="stock" size="14"/> {{ __('Yığım vərəqi') }}</a>@endif
                 @if ($order->status === 'open')
                     <a href="{{ route('orders.edit', $order) }}" class="btn btn-sm"><x-icon name="edit" size="14"/> {{ __('Düzəliş et') }}</a>
                     <x-cancel-button :action="route('orders.destroy', $order)" :confirm="__('Sifariş ləğv edilsin? Rezerv azad olunacaq.')"/>

@@ -76,7 +76,7 @@ class ChartLedgerService
         $add('211', __('Müştəri borcları (:n müştəri)', ['n' => $debtors]), $receivable, route('debts.index'));
         $add('542', __('Müştərilərin avansları / artıq ödənişləri (:n müştəri)', ['n' => $creditors]), $advances, route('debts.index', ['tab' => 'advances']));
 
-        $add('221', __('Kassa qalığı (08 faylı)'), (float) DB::table('cash_transactions')->where('date', '<=', $date->toDateString())->sum(DB::raw('income - expense')), route('cash.index'));
+        $add('221', __('Kassa qalığı (08 faylı)'), (float) DB::table('cash_transactions')->whereNull('finance_document_id')->where('date', '<=', $date->toDateString())->sum(DB::raw('income - expense')), route('cash.index'));
 
         return $out;
     }
@@ -259,7 +259,7 @@ class ChartLedgerService
                     'foot' => [__('Cəmi'), (float) $rows->sum('sales'), (float) $rows->sum('returns'), (float) $rows->sum('payments'), (float) abs($rows->sum('balance'))],
                 ];
             case '221':
-                $months = DB::table('cash_transactions')->where('date', '<=', $day)->groupBy('period')->orderBy('period')
+                $months = DB::table('cash_transactions')->whereNull('finance_document_id')->where('date', '<=', $day)->groupBy('period')->orderBy('period')
                     ->selectRaw('period, SUM(income) AS income, SUM(expense) AS expense')->get();
                 $running = 0.0;
                 $rows = $months->map(function ($m) use (&$running) {

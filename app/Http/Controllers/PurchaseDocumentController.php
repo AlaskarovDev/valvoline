@@ -6,6 +6,7 @@ use App\Http\Controllers\Reports\ReportController;
 use App\Jobs\RebuildAnalytics;
 use App\Models\IncomingEInvoice;
 use App\Models\PurchaseDocument;
+use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\Warehouse;
 use App\Models\Workplace;
@@ -13,6 +14,7 @@ use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
 use App\Services\CurrencyRates;
 use App\Services\EInvoiceService;
+use App\Services\PurchaseOrderService;
 use App\Services\PurchaseService;
 use App\Support\Fmt;
 use App\Support\Vat;
@@ -72,22 +74,24 @@ class PurchaseDocumentController extends ReportController
                 'last' => isset($lastCost[$p->id]) ? (float) $lastCost[$p->id] : null])->values();
         // daxil olan e-qaimədən: təchizatçı, seriya, tarix və uyğunlaşdırılmış sətirlər (qiymət ƏDV-siz)
         $einvoice = $type === 'receipt' && is_numeric($request->query('einvoice')) ? IncomingEInvoice::query()->find((int) $request->query('einvoice')) : null;
-        $lines = old('lines', $einvoice ? app(EInvoiceService::class)->purchaseLines($einvoice)->all() : ($original ? DB::table('purchase_document_lines')->where('purchase_document_id', $original->id)->orderBy('row_no')
-            ->get(['product_id', 'qty', 'price'])->map(fn ($l) => ['product_id' => $l->product_id, 'qty' => (float) $l->qty, 'price' => (float) $l->price])->all() : []));
+        // alış sifarişindən: təchizatçı, anbar və hələ qəbul olunmamış qalıq
+        $order = $type === 'receipt' && is_numeric($request->query('order')) ? PurchaseOrder::query()->active()->whereNull('closed_at')->find((int) $request->query('order')) : null;
+        $lines = old('lines', $order ? app(PurchaseOrderService::class)->remainingLines($order) : ($einvoice ? app(EInvoiceService::class)->purchaseLines($einvoice)->all() : ($original ? DB::table('purchase_document_lines')->where('purchase_document_id', $original->id)->orderBy('row_no')
+            ->get(['product_id', 'qty', 'price'])->map(fn ($l) => ['product_id' => $l->product_id, 'qty' => (float) $l->qty, 'price' => (float) $l->price])->all() : [])));
         $suppliers = Supplier::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'currency', 'payment_days']);
         $warehouses = Warehouse::query()->where('is_active', true)->where('type', '<>', 'transit')->orderByDesc('is_main')->orderBy('name')->get(['id', 'name']);
 
         return view('purchases.form', [
-            'title' => PurchaseDocument::typeLabels()[$type], 'type' => $type, 'original' => $original, 'warehouses' => $warehouses, 'einvoice' => $einvoice,
+            'title' => PurchaseDocument::typeLabels()[$type], 'type' => $type, 'original' => $original, 'warehouses' => $warehouses, 'einvoice' => $einvoice, 'order' => $order,
             'workplaces' => Workplace::query()->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']),
             'config' => [
                 'type' => $type, 'products' => $products, 'suppliers' => $suppliers, 'lines' => $lines,
-                'supplier' => (int) old('supplier_id', $original->supplier_id ?? $einvoice->supplier_id ?? $request->integer('supplier')) ?: null,
+                'supplier' => (int) old('supplier_id', $original->supplier_id ?? $order->supplier_id ?? $einvoice->supplier_id ?? $request->integer('supplier')) ?: null,
                 'rate' => old('rate', $original?->rate), 'vatIncluded' => (bool) old('vat_included', $original->vat_included ?? false),
                 'costs' => ['customs' => old('customs_cost', ''), 'transport' => old('transport_cost', ''), 'other' => old('other_cost', '')],
                 'date' => old('date', $einvoice?->issued_at && $einvoice->issued_at->lte(now()) ? $einvoice->issued_at->toDateString() : now()->toDateString()), 'rateUrl' => route('purchase-docs.rate'),
             ],
-            'values' => ['warehouse_id' => (int) old('warehouse_id', $original->warehouse_id ?? $warehouses->first()?->id), 'workplace_id' => (int) old('workplace_id', Workplace::defaultIdFor($request->user()))],
+            'values' => ['warehouse_id' => (int) old('warehouse_id', $original->warehouse_id ?? $order->warehouse_id ?? $warehouses->first()?->id), 'workplace_id' => (int) old('workplace_id', Workplace::defaultIdFor($request->user()))],
         ]);
     }
 
@@ -101,6 +105,7 @@ class PurchaseDocumentController extends ReportController
             'workplace_id' => ['nullable', 'integer', 'exists:workplaces,id'],
             'original_document_id' => ['nullable', 'integer', 'exists:purchase_documents,id'],
             'incoming_einvoice_id' => ['nullable', 'integer', 'exists:incoming_einvoices,id'],
+            'purchase_order_id' => ['nullable', 'integer', Rule::exists('purchase_orders', 'id')->whereNull('cancelled_at')->where('supplier_id', $request->integer('supplier_id'))],
             'rate' => ['nullable', 'numeric', 'gt:0', 'max:100000'],
             'vat_included' => ['nullable', 'boolean'],
             'supplier_invoice_no' => ['nullable', 'string', 'max:64'],

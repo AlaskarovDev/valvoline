@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Supplier;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -41,6 +42,42 @@ class SupplierLedger
         }
 
         return $out;
+    }
+
+    /**
+     * Valyutalı təchizatçıda məzənnə fərqi (AZN):
+     *  - mədaxillər sənəd kursu ilə qiymətləndirilir → orta kurs;
+     *  - reallaşmış fərq: ödənişdə verilən AZN − silinən valyuta borcu × orta kurs (müsbət = zərər, çox ödədik);
+     *  - reallaşmamış fərq: açıq borc × (bugünkü Mərkəzi Bank kursu − orta kurs) (müsbət = borcumuz AZN-lə artıb).
+     *
+     * @return array{avg_rate: float, current_rate: float|null, realized: float, unrealized: float|null, paid_azn: float}|null
+     */
+    public function fx(Supplier $supplier): ?array
+    {
+        if ($supplier->currency === 'AZN') {
+            return null;
+        }
+        $docs = DB::table('purchase_documents')->whereNull('cancelled_at')->where('supplier_id', $supplier->id)->where('type', 'receipt')
+            ->selectRaw('SUM(total_amount) AS amount, SUM(total_amount * rate) AS azn')->first();
+        if ((float) $docs->amount <= 0) {
+            return null;
+        }
+        $avg = (float) $docs->azn / (float) $docs->amount;
+        $rates = app(CurrencyRates::class);
+        $realized = 0.0;
+        $paidAzn = 0.0;
+        foreach (DB::table('finance_documents')->whereNull('cancelled_at')->where('type', 'supplier_payment')->where('supplier_id', $supplier->id)
+            ->get(['date', 'currency', 'amount', 'to_amount']) as $p) {
+            // ödəniş AZN hesabdandırsa məbləğ AZN-dir, valyuta hesabından — ödəniş gününün kursu ilə
+            $azn = $p->currency === 'AZN' ? (float) $p->amount : (float) $p->amount * (float) ($rates->rate($p->currency, substr((string) $p->date, 0, 10)) ?? $avg);
+            $paidAzn += $azn;
+            $realized += $azn - (float) ($p->to_amount ?? $p->amount) * $avg;
+        }
+        $balance = $this->balances([$supplier->id])[$supplier->id]['balance'] ?? 0.0;
+        $current = $rates->rate($supplier->currency, now()->toDateString());
+
+        return ['avg_rate' => round($avg, 4), 'current_rate' => $current, 'realized' => round($realized, 2), 'paid_azn' => round($paidAzn, 2),
+            'unrealized' => $current !== null ? round($balance * ($current - $avg), 2) : null];
     }
 
     /**

@@ -8,6 +8,7 @@
         @if ($cur !== 'AZN')<span class="badge">1 {{ $cur }} = {{ rtrim(rtrim(number_format($doc->rate, 6, ',', ' '), '0'), ',') }} ₼</span>@endif
         @if ($doc->supplier_invoice_no)<span class="badge">{{ __('Təchizatçı qaiməsi') }}: {{ $doc->supplier_invoice_no }}@if ($doc->supplier_invoice_date) · {{ Fmt::date($doc->supplier_invoice_date) }}@endif</span>@endif
         @if ($doc->due_date)<span class="badge">{{ __('Ödəniş tarixi') }}: {{ Fmt::date($doc->due_date) }}</span>@endif
+        @if ($doc->purchase_order_id)<a href="{{ route('purchase-orders.show', $doc->purchase_order_id) }}" class="badge badge-primary">{{ __('Alış sifarişi') }}</a>@endif
         @if ($doc->original)<a href="{{ route('purchase-docs.show', $doc->original) }}" class="badge badge-primary">{{ __('Əsas mədaxil') }}: {{ $doc->original->doc_no }}</a>@endif
         @foreach ($returns as $r)<a href="{{ route('purchase-docs.show', $r->id) }}" @class(['badge', 'badge-warn' => ! $r->cancelled_at, 'line-through' => $r->cancelled_at])>{{ __('Qaytarma') }}: {{ $r->doc_no }}</a>@endforeach
         <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">

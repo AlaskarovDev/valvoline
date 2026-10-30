@@ -12,6 +12,7 @@ use App\Models\SalesOrder;
 use App\Models\Warehouse;
 use App\Models\Workplace;
 use App\Services\AnalyticsRebuilder;
+use App\Services\ApprovalService;
 use App\Services\CampaignEngine;
 use App\Services\CreditControl;
 use App\Services\NumberingService;
@@ -40,6 +41,7 @@ class OrderEntryController extends Controller
     public function store(StoreOrderRequest $request): RedirectResponse
     {
         $order = DB::transaction(fn () => $this->save($request, new SalesOrder(['source' => 'manual', 'status' => 'open', 'created_by' => $request->user()->id])));
+        app(ApprovalService::class)->sync($order, $request->approvalReasons, $request->saleAmount, $request->user()->id);
         $created = [[__('Sifariş'), $order->order_no, route('orders.show', $order)]];
 
         return $this->afterSave($request, $order, $created);
@@ -56,6 +58,7 @@ class OrderEntryController extends Controller
     {
         $this->authorizeManual($request, $order, true);
         DB::transaction(fn () => $this->save($request, $order));
+        app(ApprovalService::class)->sync($order, $request->approvalReasons, $request->saleAmount, $request->user()->id);
 
         return $this->afterSave($request, $order, [], __('Sifariş № :no yeniləndi.', ['no' => $order->order_no]));
     }

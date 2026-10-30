@@ -48,6 +48,7 @@ class SalesDocumentService
     public function deliver(SalesOrder $order, ?int $userId, ?Carbon $date = null): DeliveryNote
     {
         $order->assertNotCancelled();
+        ApprovalService::assertCleared($order);
         if ($order->status !== 'open') {
             throw new RuntimeException(__('Sifariş artıq təhvil verilib.'));
         }
@@ -87,6 +88,7 @@ class SalesDocumentService
     public function invoice(SalesOrder $order, ?int $userId, ?Carbon $date = null): array
     {
         $order->assertNotCancelled();
+        ApprovalService::assertCleared($order);
         if ($order->status === 'invoiced') {
             throw new RuntimeException(__('Sifariş artıq fakturalanıb.'));
         }

@@ -68,6 +68,18 @@ class AlertService
                 (int) $over->n, route('debts.index', ['debts_sort' => 'balance', 'debts_dir' => 'desc']));
         }
 
+        if ($can('approvals.index')) {
+            $waiting = DB::table('approval_requests')->where('status', 'pending')->count();
+            $add('approvals_pending', 'warn', __('Təsdiq gözləyən sifarişlər'), __(':count sifariş limit aşdığı üçün sizin qərarınızı gözləyir', ['count' => $waiting]),
+                $waiting, route('approvals.index'));
+        }
+
+        if ($user->can('sales.manage') && $can('campaigns.index')) {
+            $pending = DB::table('campaigns')->where('status', 'pending')->count();
+            $add('campaigns_pending', 'warn', __('Təsdiq gözləyən kampaniyalar'), __(':count kampaniya sizin təsdiqinizi gözləyir', ['count' => $pending]),
+                $pending, route('campaigns.index', ['status' => 'pending']));
+        }
+
         if ($can('suppliers.index')) {
             $late = collect(app(SupplierLedger::class)->balances())->filter(fn ($b) => $b['overdue'] > 0.005);
             $add('supplier_overdue', 'danger', __('Təchizatçıya gecikmiş ödəniş'),

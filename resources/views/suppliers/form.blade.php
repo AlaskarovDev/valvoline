@@ -14,6 +14,7 @@
                     <datalist id="s-countries">@foreach (['Azərbaycan', 'Türkiyə', 'Rusiya', 'BƏƏ', 'Niderland', 'Almaniya', 'ABŞ', 'Çin'] as $c)<option value="{{ $c }}">@endforeach</datalist></div>
                 <div><label class="label" for="s-cur">{{ __('Valyuta') }}</label><select id="s-cur" name="currency" class="select">@foreach ($currencies as $c)<option value="{{ $c }}" @selected($v('currency', 'AZN') === $c)>{{ $c }}</option>@endforeach</select></div>
                 <div><label class="label" for="s-days">{{ __('Ödəniş müddəti (gün)') }}</label><input id="s-days" name="payment_days" type="number" min="0" max="365" class="input" value="{{ $v('payment_days') }}"></div>
+                <div><label class="label" for="s-lead">{{ __('Çatdırılma müddəti (gün)') }}</label><input id="s-lead" name="lead_days" type="number" min="0" max="365" class="input" value="{{ $v('lead_days') }}" placeholder="30"></div>
                 <div><label class="label" for="s-contact">{{ __('Əlaqə şəxsi') }}</label><input id="s-contact" name="contact_person" maxlength="255" class="input" value="{{ $v('contact_person') }}"></div>
                 <div><label class="label" for="s-phone">{{ __('Telefon') }}</label><input id="s-phone" name="phone" type="tel" maxlength="32" class="input" value="{{ $v('phone') }}"></div>
                 <div><label class="label" for="s-email">{{ __('E-poçt') }}</label><input id="s-email" name="email" type="email" maxlength="255" class="input" value="{{ $v('email') }}"></div>

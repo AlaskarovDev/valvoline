@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\AlertService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -48,6 +49,12 @@ class NotificationTest extends TestCase
         $this->get(route('deliveries.index', ['preset' => 'all', 'only' => 'uninvoiced']))->assertOk()->assertSee($delivery);
         $this->get(route('dashboard'))->assertSee(route('notifications.index'), false);
 
+        // təsdiq gözləyən kampaniya yalnız təsdiq hüququ olana görünür
+        DB::table('campaigns')->insert(['code' => 'K1', 'name' => 'Payız', 'kind' => 'discount', 'status' => 'pending', 'begin_date' => now()->toDateString(),
+            'end_date' => now()->addMonth()->toDateString(), 'created_at' => now(), 'updated_at' => now()]);
+        AlertService::touch();
+        $this->assertContains('campaigns_pending', $keys());
+
         // anbardar yalnız anbar bildirişlərini görür
         $this->actingAs(User::factory()->create(['role' => 'anbardar']));
         $this->assertSame(['expired'], array_values(array_intersect($keys(), ['overdue_debt', 'uninvoiced', 'expired'])));
@@ -55,7 +62,7 @@ class NotificationTest extends TestCase
         // başqa menecerin nümayəndəsi Rasimin müştərisinin borcunu görmür
         $other = DB::table('managers')->insertGetId(['name' => 'Əkbər', 'created_at' => now(), 'updated_at' => now()]);
         $this->actingAs(User::factory()->create(['role' => 'menecer', 'manager_id' => $other]));
-        $this->assertEmpty(array_intersect($keys(), ['overdue_debt', 'uninvoiced']));
+        $this->assertEmpty(array_intersect($keys(), ['overdue_debt', 'uninvoiced', 'campaigns_pending']));
 
         // borc ödənəndə bildiriş (keşə baxmayaraq) yox olur
         $this->actingAs($admin);

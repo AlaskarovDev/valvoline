@@ -21,6 +21,18 @@
         <x-kpi :label="__('Mədaxil')" :value="Fmt::number($balance['received'] ?? 0, 2).' '.$cur" :meta="__('qaytarma').': '.Fmt::number($balance['returned'] ?? 0, 2)"/>
         <x-kpi :label="__('Ödənilib')" :value="Fmt::number($balance['paid'] ?? 0, 2).' '.$cur" :meta="$s->payment_days ? __('ödəniş müddəti: :n gün', ['n' => $s->payment_days]) : null"/>
     </div>
+    @if ($fx)
+        <section class="card">
+            <div class="card-head"><div><h2 class="card-title">{{ __('Məzənnə fərqi (AZN)') }}</h2>
+                <div class="card-sub">{{ __('Mədaxillərin orta kursu ilə ödəniş günündəki kurs arasındakı fərq. Müsbət — AZN ilə çox ödənilib (zərər), mənfi — gəlir.') }}</div></div></div>
+            <div class="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
+                <x-kpi :label="__('Mədaxillərin orta kursu')" :value="Fmt::number($fx['avg_rate'], 4)" :meta="'1 '.$cur.' = … AZN'"/>
+                <x-kpi :label="__('Bugünkü kurs (Mərkəzi Bank)')" :value="$fx['current_rate'] !== null ? Fmt::number($fx['current_rate'], 4) : '—'"/>
+                <x-kpi :label="__('Reallaşmış fərq')" :value="Fmt::money($fx['realized'])" :tone="$fx['realized'] > 0.005 ? 'neg' : ($fx['realized'] < -0.005 ? 'pos' : null)" :meta="__('ödənilib: :azn', ['azn' => Fmt::money($fx['paid_azn'])])"/>
+                <x-kpi :label="__('Reallaşmamış fərq (açıq borc)')" :value="$fx['unrealized'] !== null ? Fmt::money($fx['unrealized']) : '—'" :tone="($fx['unrealized'] ?? 0) > 0.005 ? 'neg' : (($fx['unrealized'] ?? 0) < -0.005 ? 'pos' : null)"/>
+            </div>
+        </section>
+    @endif
     @if ($s->address || $s->email || $s->note)
         <div class="card px-4 py-3 text-sm text-muted">{{ $s->address }}@if ($s->email) · {{ $s->email }}@endif @if ($s->note)<div class="mt-1 text-ink">{{ $s->note }}</div>@endif</div>
     @endif

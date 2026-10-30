@@ -202,7 +202,7 @@
                             <div class="warn font-semibold" x-show="customer().overdue > 0" x-text="@js(__('Gecikmiş borc')) + ': ' + money(customer().overdue) + ' (' + customer().overdue_days + ' ' + @js(__('gün')) + ')'"></div>
                             @can('sales.manage')
                                 <label class="flex items-center gap-1.5 text-ink" x-show="customer().limit !== null && creditLeft() < 0" x-cloak>
-                                    <input type="checkbox" name="credit_override" value="1" class="size-4" @checked(old('credit_override'))> {{ __('Limiti aşmağa icazə verirəm (admin)') }}
+                                    <input type="checkbox" name="credit_override" value="1" class="size-4" @checked(old('credit_override'))> {{ __('Limitləri aşmağa icazə verirəm (kredit, endirim, minimum qiymət)') }}
                                 </label>
                             @endcan
                         </div>
@@ -377,6 +377,11 @@
                 <button type="button" class="btn btn-sm" @click="addLine()"><x-icon name="plus" size="14"/> {{ __('Məhsul əlavə et') }}</button>
                 <div class="flex flex-wrap items-center justify-end gap-2">
                     <a href="{{ $order ? route('orders.show', $order) : route('orders.index') }}" class="btn">{{ __('Ləğv et') }}</a>
+                    @cannot('sales.manage')
+                        <label class="flex items-center gap-1.5 text-sm" title="{{ __('Kredit limiti, maksimum endirim və ya minimum qiymət aşılırsa, sifariş rədd edilmir — rəhbərin təsdiqini gözləyir.') }}">
+                            <input type="checkbox" name="request_approval" value="1" class="size-4" @checked(old('request_approval', $errors->any()))> {{ __('Limit aşılırsa rəhbərin təsdiqinə göndər') }}
+                        </label>
+                    @endcannot
                     <button class="btn" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading">{{ $order ? __('Yadda saxla') : __('Sifarişi yarat') }}</button>
                     <button name="then" value="send" class="btn" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading" title="{{ __('Sifarişi saxla və təhvil-təslim sənədi yarat') }}"><x-icon name="send" size="14"/> {{ __('Sifarişi göndər') }}</button>
                     <button name="then" value="invoice" class="btn btn-primary" :disabled="!customer_id || lines.some((l) => !l.product_id) || campaignLoading" title="{{ __('Sifarişi saxla, təhvil-təslim və satış fakturası yarat') }}"><x-icon name="invoice" size="14"/> {{ __('Fakturala') }}</button>

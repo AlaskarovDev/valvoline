@@ -67,6 +67,7 @@ class PurchaseService
                 'doc_no' => app(NumberingService::class)->next('purchase_'.$type, ['date' => $date, 'warehouse_id' => $header['warehouse_id'], 'workplace_id' => $header['workplace_id'] ?? null]),
                 'type' => $type, 'date' => $date->toDateString(), 'supplier_id' => $supplier->id, 'warehouse_id' => $header['warehouse_id'],
                 'workplace_id' => $header['workplace_id'] ?? null, 'original_document_id' => $header['original_document_id'] ?? null,
+                'purchase_order_id' => $type === 'receipt' ? ($header['purchase_order_id'] ?? null) : null,
                 'currency' => $currency, 'rate' => $rate, 'vat_included' => $vatIncluded,
                 'supplier_invoice_no' => $header['supplier_invoice_no'] ?? null, 'supplier_invoice_date' => $header['supplier_invoice_date'] ?? null,
                 'due_date' => $type === 'receipt' ? $date->copy()->addDays((int) $supplier->payment_days)->toDateString() : null,

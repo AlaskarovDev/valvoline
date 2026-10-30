@@ -100,7 +100,7 @@ class DashboardController extends ReportController
         $accountingCash = (float) $accounts->filter(fn ($rows, $account) => $isCash((string) $account))->sum(fn ($rows) => (float) $rows->first()->amount);
         $cashDate = min($filters->toDate(), now()->toDateString());
         $checkpoint = DB::table('cash_checkpoints')->where('date', '<=', $cashDate)->orderByDesc('date')->orderByDesc('id')->first();
-        $computedCash = (float) DB::table('cash_transactions')->where('date', '<=', $checkpoint->date ?? $cashDate)->sum(DB::raw('income - expense'));
+        $computedCash = (float) DB::table('cash_transactions')->whereNull('finance_document_id')->where('date', '<=', $checkpoint->date ?? $cashDate)->sum(DB::raw('income - expense'));
 
         return [
             'summary' => $summary,

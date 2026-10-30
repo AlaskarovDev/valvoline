@@ -17,6 +17,15 @@ use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
 {
+    /**
+     * Rəhbərin təsdiqinə göndərilən (yumşaq) qayda pozuntuları: kredit limiti, maksimum endirim, minimum qiymət.
+     *
+     * @var list<string>
+     */
+    public array $approvalReasons = [];
+
+    public float $saleAmount = 0.0;
+
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -52,6 +61,7 @@ class StoreOrderRequest extends FormRequest
             'excluded_campaigns.*' => ['integer'],
             'then' => ['nullable', Rule::in(['send', 'invoice'])],
             'credit_override' => ['nullable', 'boolean'],
+            'request_approval' => ['nullable', 'boolean'],
         ];
     }
 
@@ -67,15 +77,20 @@ class StoreOrderRequest extends FormRequest
             if ($restricted !== null && Customer::query()->whereKey($this->integer('customer_id'))->value('manager_id') !== $restricted) {
                 $validator->errors()->add('customer_id', __('Bu müştəri sizə bağlı deyil.'));
             }
-            // kredit nəzarəti: bloklu müştəri, kredit limiti (admin «limiti aş» ilə keçə bilər)
+            // kredit nəzarəti: bloklu müştəri — həmişə qadağa; kredit limiti — rəhbər keçə bilər və ya təsdiqə göndərilir
+            $soft = [];
             $customer = Customer::query()->find($this->integer('customer_id'));
             if ($customer) {
                 $amount = collect(OrderEntryController::toBaseUnits(collect($this->input('lines', []))
                     ->filter(fn ($l) => is_numeric($l['qty'] ?? null) && is_numeric($l['price'] ?? null) && ($l['op_type'] ?? 'sale') === 'sale')->all()))
                     ->sum(fn ($l) => (float) $l['qty'] * (float) $l['price'] * (1 - (float) ($l['discount'] ?? 0) / 100));
-                $override = $this->user()->can('sales.manage') && $this->boolean('credit_override');
-                foreach (app(CreditControl::class)->violations($customer, round($amount, 2), $this->route('order')?->id, $override) as $message) {
+                $this->saleAmount = round($amount, 2);
+                $hard = app(CreditControl::class)->violations($customer, $this->saleAmount, $this->route('order')?->id, true);
+                foreach ($hard as $message) {
                     $validator->errors()->add('customer_id', $message);
+                }
+                foreach (array_diff(app(CreditControl::class)->violations($customer, $this->saleAmount, $this->route('order')?->id), $hard) as $message) {
+                    $soft[] = ['customer_id', $message];
                 }
             }
             // qiymət nəzarəti: məhsul kartındakı minimum qiymət və maksimum endirim
@@ -97,10 +112,20 @@ class StoreOrderRequest extends FormRequest
                 $discount = (float) ($line['discount'] ?? 0);
                 $unit = (float) ($line['price'] ?? 0) * (1 - $discount / 100);
                 if ($p && $p->max_discount_pct !== null && $discount > (float) $p->max_discount_pct + 1e-9) {
-                    $validator->errors()->add("lines.{$i}.discount", __(':code: endirim ən çox :max % ola bilər.', ['code' => $p->code, 'max' => rtrim(rtrim(number_format((float) $p->max_discount_pct, 2, ',', ''), '0'), ',')]));
+                    $soft[] = ["lines.{$i}.discount", __(':code: endirim ən çox :max % ola bilər.', ['code' => $p->code, 'max' => rtrim(rtrim(number_format((float) $p->max_discount_pct, 2, ',', ''), '0'), ',')])];
                 }
                 if ($p && $p->min_price !== null && $unit + 1e-6 < (float) $p->min_price) {
-                    $validator->errors()->add("lines.{$i}.price", __(':code: qiymət minimum satış qiymətindən (:min) aşağıdır.', ['code' => $p->code, 'min' => Fmt::money($p->min_price)]));
+                    $soft[] = ["lines.{$i}.price", __(':code: qiymət minimum satış qiymətindən (:min) aşağıdır.', ['code' => $p->code, 'min' => Fmt::money($p->min_price)])];
+                }
+            }
+            // yumşaq qaydalar: rəhbər «icazə verirəm» ilə keçir, digərləri sifarişi təsdiqə göndərə bilər
+            if ($soft && ! ($this->user()->can('sales.manage') && $this->boolean('credit_override'))) {
+                if ($this->boolean('request_approval')) {
+                    $this->approvalReasons = array_column($soft, 1);
+                } else {
+                    foreach ($soft as [$key, $message]) {
+                        $validator->errors()->add($key, $message);
+                    }
                 }
             }
         }];

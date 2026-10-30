@@ -29,12 +29,23 @@ class FinanceDocument extends Model
         return [
             'cash_opening' => __('Kassa açılış sənədi'), 'cash_receipt' => __('Kassa mədaxili (müştəri ödənişi)'), 'cash_transfer' => __('Kassa transfer sənədi'),
             'bank_opening' => __('Bank açılış sənədi'), 'bank_transfer' => __('Banklar arası transfer sənədi'), 'supplier_payment' => __('Təchizatçıya ödəniş'),
+            'cash_expense' => __('Kassa məxarici (xərc)'), 'cash_advance' => __('Avans (təhtəlhesab)'), 'advance_report' => __('Avans hesabatı'),
         ];
     }
 
     public function workplace(): BelongsTo
     {
         return $this->belongsTo(Workplace::class);
+    }
+
+    public function expenseCategory(): BelongsTo
+    {
+        return $this->belongsTo(ExpenseCategory::class);
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'employee_id');
     }
 
     public function register(): BelongsTo

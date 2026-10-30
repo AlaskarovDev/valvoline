@@ -39,11 +39,21 @@ class FinanceService
         $docs = $after(DB::table('finance_documents as d')->leftJoin('customers as c', 'c.id', '=', 'd.customer_id')
             ->leftJoin('cash_registers as r1', 'r1.id', '=', 'd.cash_register_id')->leftJoin('cash_registers as r2', 'r2.id', '=', 'd.to_cash_register_id')
             ->leftJoin('suppliers as s', 's.id', '=', 'd.supplier_id')
-            ->whereIn('d.type', ['cash_receipt', 'cash_transfer', 'supplier_payment'])->whereNull('d.cancelled_at')
+            ->leftJoin('users as u', 'u.id', '=', 'd.employee_id')->leftJoin('expense_categories as ec', 'ec.id', '=', 'd.expense_category_id')
+            ->whereIn('d.type', ['cash_receipt', 'cash_transfer', 'supplier_payment', 'cash_expense', 'cash_advance', 'advance_report'])->whereNull('d.cancelled_at')
             ->where(fn ($q) => $q->where('d.cash_register_id', $registerId)->orWhere('d.to_cash_register_id', $registerId)), 'd.date')
-            ->get(['d.*', 'c.name as customer_name', 'r1.code as from_code', 'r2.code as to_code', 's.name as supplier_name']);
+            ->get(['d.*', 'c.name as customer_name', 'r1.code as from_code', 'r2.code as to_code', 's.name as supplier_name', 'u.name as employee_name', 'ec.name as category_name']);
         foreach ($docs as $d) {
-            if ($d->type === 'supplier_payment') {
+            if ($d->type === 'cash_expense') {
+                $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'expense', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Xərc').': '.$d->category_name, 'in' => 0.0, 'out' => (float) $d->amount]);
+            } elseif ($d->type === 'cash_advance') {
+                $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'advance', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Avans').': '.$d->employee_name, 'in' => 0.0, 'out' => (float) $d->amount]);
+            } elseif ($d->type === 'advance_report') {
+                // avans hesabatı kassaya yalnız qaytarılan pulu gətirir (xərclər avans verilərkən kassadan çıxıb)
+                if ((float) $d->to_amount > 0) {
+                    $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'advance_return', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Avans qaytarıldı').': '.$d->employee_name, 'in' => (float) $d->to_amount, 'out' => 0.0]);
+                }
+            } elseif ($d->type === 'supplier_payment') {
                 $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'supplier', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Təchizatçıya ödəniş').': '.$d->supplier_name, 'in' => 0.0, 'out' => (float) $d->amount]);
             } elseif ($d->type === 'cash_receipt') {
                 $rows->push((object) ['date' => substr((string) $d->date, 0, 10), 'kind' => 'receipt', 'doc_no' => $d->doc_no, 'doc_id' => $d->id, 'text' => __('Müştəri ödənişi').': '.$d->customer_name, 'in' => (float) $d->amount, 'out' => 0.0]);
@@ -161,6 +171,7 @@ class FinanceService
         DB::transaction(function () use ($doc, $userId, $reason) {
             DB::table('payments')->where('finance_document_id', $doc->id)->delete();
             DB::table('bank_transactions')->where('finance_document_id', $doc->id)->delete();
+            DB::table('cash_transactions')->where('finance_document_id', $doc->id)->delete();
             $doc->markCancelled($userId, $reason);
         });
     }

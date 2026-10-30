@@ -123,6 +123,12 @@ class PurchasingTest extends TestCase
         $this->post(route('supplier-payments.store'), $pay + ['to_amount' => 50])->assertSessionHas('popup', fn ($p) => $p['docs'][0]['no'] === 'TO-000001');
         $this->assertSame(50.0, app(SupplierLedger::class)->balances()[$usd->id]['balance']);
         $this->assertSame(85.0, (float) DB::table('bank_transactions')->where('bank_account_id', $account)->sum('amount_out'));
+        // məzənnə fərqi: mədaxil 1,7 ilə, 50 USD üçün 85 ₼ ödənilib → reallaşmış 0; bu gün kurs 1,75 → açıq 50 USD üçün +2,50 ₼
+        DB::table('currency_rates')->updateOrInsert(['code' => 'USD', 'date' => now()->toDateString()], ['rate' => 1.75, 'created_at' => now(), 'updated_at' => now()]);
+        $fx = app(SupplierLedger::class)->fx($usd);
+        $this->assertEquals([1.7, 0.0, 2.5, 85.0], [$fx['avg_rate'], $fx['realized'], $fx['unrealized'], $fx['paid_azn']]);
+        $this->get(route('suppliers.show', $usd))->assertSee('Məzənnə fərqi (AZN)');
+        $this->assertNull(app(SupplierLedger::class)->fx($local));
 
         // kassadan: kifayət qədər pul olmalıdır
         $register = (int) DB::table('cash_registers')->where('code', 'KS-001')->value('id');
