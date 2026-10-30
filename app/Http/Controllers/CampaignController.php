@@ -29,7 +29,7 @@ class CampaignController extends Controller
         $q = trim((string) $request->query('q'));
         $user = $request->user();
         $campaigns = Campaign::query()->with('creator')
-            ->when(! $user->isAdmin(), fn ($query) => $query->where(fn ($w) => $w->where('status', 'approved')->orWhere('created_by', $user->id)))
+            ->when(! $user->can('sales.manage'), fn ($query) => $query->where(fn ($w) => $w->where('status', 'approved')->orWhere('created_by', $user->id)))
             ->when($status, fn ($query) => $query->whereIn('status', explode(',', $status)))
             ->when($q !== '', fn ($query) => $query->where(fn ($w) => $w->where('code', 'like', "%{$q}%")->orWhere('name', 'like', "%{$q}%")))
             ->when($request->query('from'), fn ($query, $from) => $query->whereDate('end_date', '>=', $from))
@@ -63,7 +63,7 @@ class CampaignController extends Controller
         $campaign = new Campaign(['created_by' => $request->user()->id]);
         $this->fillFrom($campaign, $request);
         // adminin kampaniyası dərhal təsdiqlənir, menecerinki admin təsdiqinə düşür
-        $request->user()->isAdmin()
+        $request->user()->can('sales.manage')
             ? $campaign->fill(['status' => 'approved', 'approved_by' => $request->user()->id, 'approved_at' => now()])
             : $campaign->status = 'pending';
         $campaign->save();
@@ -105,7 +105,7 @@ class CampaignController extends Controller
         $this->authorizeEdit($request, $campaign);
         $this->fillFrom($campaign, $request);
         // menecer rədd edilmiş / ləğv edilmiş kampaniyanı düzəldib yenidən göndərir
-        if (! $request->user()->isAdmin() && in_array($campaign->status, ['rejected', 'cancelled'], true)) {
+        if (! $request->user()->can('sales.manage') && in_array($campaign->status, ['rejected', 'cancelled'], true)) {
             $campaign->fill(['status' => 'pending', 'rejection_reason' => null]);
         }
         $campaign->save();
@@ -119,9 +119,9 @@ class CampaignController extends Controller
         $user = $request->user();
         $action = $data['action'];
         if (in_array($action, ['approve', 'reject', 'activate', 'deactivate'], true)) {
-            abort_unless($user->isAdmin(), 403);
+            abort_unless($user->can('sales.manage'), 403);
         } else {
-            abort_unless($user->isAdmin() || ($campaign->created_by === $user->id && $campaign->status === 'pending'), 403);
+            abort_unless($user->can('sales.manage') || ($campaign->created_by === $user->id && $campaign->status === 'pending'), 403);
         }
         if ($action === 'reject' && blank($data['reason'] ?? null)) {
             return back()->withErrors(['reason' => __('Rədd səbəbini yazın.')]);
@@ -143,7 +143,7 @@ class CampaignController extends Controller
 
     public function destroy(Request $request, Campaign $campaign): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('sales.manage'), 403);
         if ($this->orderIds($campaign->id) !== []) {
             return back()->with('error', __('Kampaniya sifarişlərdə istifadə olunub — silmək olmaz, dayandırın.'));
         }
@@ -372,12 +372,12 @@ class CampaignController extends Controller
     private function authorizeView(Request $request, Campaign $campaign): void
     {
         $user = $request->user();
-        abort_unless($user->isAdmin() || $campaign->status === 'approved' || $campaign->created_by === $user->id, 403);
+        abort_unless($user->can('sales.manage') || $campaign->status === 'approved' || $campaign->created_by === $user->id, 403);
     }
 
     private function authorizeEdit(Request $request, Campaign $campaign): void
     {
         $user = $request->user();
-        abort_unless($user->isAdmin() || ($campaign->created_by === $user->id && $campaign->status !== 'approved'), 403);
+        abort_unless($user->can('sales.manage') || ($campaign->created_by === $user->id && $campaign->status !== 'approved'), 403);
     }
 }

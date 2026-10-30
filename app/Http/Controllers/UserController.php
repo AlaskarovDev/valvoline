@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Manager;
 use App\Models\User;
+use App\Support\Permissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -27,7 +28,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', Password::min(10)],
-            'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_MANAGER])],
+            'role' => ['required', Rule::in(array_keys(Permissions::roles()))],
             'manager_id' => ['nullable', 'required_if:role,'.User::ROLE_MANAGER, 'exists:managers,id'],
         ]);
         User::query()->create($data + ['is_active' => true]);
@@ -38,7 +39,7 @@ class UserController extends Controller
     public function update(Request $request, User $user): RedirectResponse
     {
         $data = $request->validate([
-            'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_MANAGER])],
+            'role' => ['required', Rule::in(array_keys(Permissions::roles()))],
             'manager_id' => ['nullable', 'required_if:role,'.User::ROLE_MANAGER, 'exists:managers,id'],
             'is_active' => ['required', 'boolean'],
             'password' => ['nullable', Password::min(10)],

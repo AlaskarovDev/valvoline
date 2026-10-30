@@ -9,7 +9,7 @@
         @if ($doc->purpose)<span class="badge">{{ __('Məqsəd') }}: {{ $doc->purpose }}</span>@endif
         <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
             <a href="{{ route('stock-docs.show', [$doc, 'print' => 1]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
-            @if (auth()->user()->isAdmin() && ! $doc->cancelled_at)
+            @if (auth()->user()->can('stock.manage') && ! $doc->cancelled_at)
                 <x-cancel-button :action="route('stock-docs.destroy', $doc)" :confirm="__('Sənəd ləğv edilsin? Stok əvvəlki vəziyyətə qayıdacaq.')"/>
             @endif
         </div>

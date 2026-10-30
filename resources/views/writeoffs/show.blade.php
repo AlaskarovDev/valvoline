@@ -9,7 +9,7 @@
         @if ($transfer)<a href="{{ route('transfers.show', $transfer->id) }}" class="badge badge-primary">{{ __('Anbar transferi') }} {{ $transfer->doc_no }}</a>@endif
         <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
             <a href="{{ route('write-offs.show', [$doc, 'print' => 1]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
-            @if (auth()->user()->isAdmin() && ! $doc->cancelled_at)
+            @if (auth()->user()->can('stock.manage') && ! $doc->cancelled_at)
                 <x-cancel-button :action="route('write-offs.destroy', $doc)" :confirm="__('Silinmə aktı ləğv edilsin? Mal stoka qaytarılacaq.')"/>
             @endif
         </div>

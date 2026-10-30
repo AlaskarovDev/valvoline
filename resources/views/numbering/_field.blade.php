@@ -14,5 +14,5 @@
                @if ($mode === 'manual' && ! $editing) placeholder="{{ __('məs.') }} {{ $preview }}" @endif>
         @if ($mode === 'auto_editable' && ! $editing)<input type="hidden" name="{{ $name }}_offered" value="{{ $preview }}">@endif
     @endif
-    @if (auth()->user()?->isAdmin())<a href="{{ route('numbering.index') }}#{{ $key }}" class="mt-1 inline-block text-[11px] text-muted hover:underline">{{ __('Nömrələmə qaydası') }}</a>@endif
+    @if (auth()->user()?->can('settings'))<a href="{{ route('numbering.index') }}#{{ $key }}" class="mt-1 inline-block text-[11px] text-muted hover:underline">{{ __('Nömrələmə qaydası') }}</a>@endif
 </div>

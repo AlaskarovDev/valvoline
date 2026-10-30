@@ -77,7 +77,7 @@ class BatchController extends ReportController
 
     public function store(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('stock.manage'), 403);
         $data = $request->validate([
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'batch_no' => ['required', 'string', 'max:64', Rule::unique('product_batches', 'batch_no')->where('product_id', $request->integer('product_id'))],
@@ -100,7 +100,7 @@ class BatchController extends ReportController
      */
     public function import(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('stock.manage'), 403);
         $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240']]);
         $path = tempnam(sys_get_temp_dir(), 'bat').'.'.strtolower($request->file('file')->getClientOriginalExtension());
         copy($request->file('file')->getRealPath(), $path);
@@ -134,7 +134,7 @@ class BatchController extends ReportController
 
     public function destroy(Request $request, int $batch): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('stock.manage'), 403);
         if (DB::table('stock_write_off_lines')->where('product_batch_id', $batch)->exists()) {
             return back()->with('error', __('Partiya silinmə aktında istifadə olunub.'));
         }
@@ -148,7 +148,7 @@ class BatchController extends ReportController
      */
     public function writeOff(Request $request, BatchService $batches, StockWriteOffService $writeOffs): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('stock.manage'), 403);
         $data = $request->validate([
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
             'items' => ['required', 'array', 'min:1'],

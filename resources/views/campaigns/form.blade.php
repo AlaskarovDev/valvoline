@@ -75,7 +75,7 @@
 
         <div class="flex flex-wrap items-center gap-2">
             <a href="{{ $campaign ? route('campaigns.show', $campaign) : route('campaigns.index') }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Geri') }}</a>
-            @unless (auth()->user()->isAdmin())<span class="text-xs text-muted">{{ __('Kampaniya admin təsdiqindən sonra aktiv olacaq.') }}</span>@endunless
+            @unless (auth()->user()->can('sales.manage'))<span class="text-xs text-muted">{{ __('Kampaniya admin təsdiqindən sonra aktiv olacaq.') }}</span>@endunless
         </div>
 
         {{-- 1. Əsas məlumat --}}

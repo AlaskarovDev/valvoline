@@ -200,7 +200,7 @@
                                     · {{ __('sərbəst') }}: <span class="tabular-nums font-semibold" :class="creditLeft() < 0 ? 'neg' : 'pos'" x-text="money(creditLeft())"></span></span></template>
                             </div>
                             <div class="warn font-semibold" x-show="customer().overdue > 0" x-text="@js(__('Gecikmiş borc')) + ': ' + money(customer().overdue) + ' (' + customer().overdue_days + ' ' + @js(__('gün')) + ')'"></div>
-                            @can('admin')
+                            @can('sales.manage')
                                 <label class="flex items-center gap-1.5 text-ink" x-show="customer().limit !== null && creditLeft() < 0" x-cloak>
                                     <input type="checkbox" name="credit_override" value="1" class="size-4" @checked(old('credit_override'))> {{ __('Limiti aşmağa icazə verirəm (admin)') }}
                                 </label>

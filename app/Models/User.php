@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Permissions;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -44,12 +45,25 @@ class User extends Authenticatable
     }
 
     /**
-     * Menecer rolunda olan istifadəçi yalnız öz menecer_id-sinin məlumatını görür.
-     * Admin üçün null qaytarır (məhdudiyyət yoxdur).
+     * Rolun bölməyə icazəsi (Tənzimləmələr → Rollar və icazələr). Admin həmişə icazəlidir.
+     */
+    public function hasPermission(string $area): bool
+    {
+        return Permissions::allows($this->role, $area);
+    }
+
+    public function roleLabel(): string
+    {
+        return Permissions::roles()[$this->role] ?? $this->role;
+    }
+
+    /**
+     * Satış nümayəndəsi (menecer) yalnız öz menecer_id-sinin məlumatını görür.
+     * Digər rollar üçün null qaytarır (icazəli bölmələrdə bütün məlumat).
      */
     public function restrictedManagerId(): ?int
     {
-        if ($this->isAdmin()) {
+        if ($this->role !== self::ROLE_MANAGER) {
             return null;
         }
 

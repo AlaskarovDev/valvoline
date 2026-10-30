@@ -55,7 +55,7 @@ class WriteOffController extends ReportController
 
     public function store(Request $request, StockWriteOffService $service): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('stock.manage'), 403);
         $data = $request->validate([
             'date' => ['required', 'date', 'before_or_equal:today'],
             'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
@@ -89,7 +89,7 @@ class WriteOffController extends ReportController
 
     public function destroy(Request $request, StockWriteOff $writeOff, StockWriteOffService $service): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('stock.manage'), 403);
         $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
         $no = $writeOff->doc_no;
         $service->cancel($writeOff, $request->user()->id, $reason);

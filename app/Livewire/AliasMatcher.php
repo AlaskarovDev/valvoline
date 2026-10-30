@@ -35,7 +35,7 @@ class AliasMatcher extends Component
 
     public function match(int $customerId): void
     {
-        abort_unless(auth()->user()?->isAdmin(), 403);
+        abort_unless(auth()->user()?->can('data'), 403);
         if ($this->selected === null || trim($this->selected) === '') {
             return;
         }

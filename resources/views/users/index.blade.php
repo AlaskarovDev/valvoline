@@ -1,13 +1,13 @@
 <x-layouts.app :title="$title">
     <section class="card">
-        <div class="card-head"><div><h2 class="card-title">{{ __('Yeni istifadəçi') }}</h2><div class="card-sub">{{ __('Menecer rolu yalnız öz müştəri və satışlarını görür') }}</div></div></div>
+        <div class="card-head"><div><h2 class="card-title">{{ __('Yeni istifadəçi') }}</h2><div class="card-sub">{{ __('Satış nümayəndəsi (menecer) yalnız öz müştəri və satışlarını görür. Rolların icazələri «Rollar və icazələr» səhifəsindədir.') }} <a href="{{ route('roles.index') }}" class="text-primary-text hover:underline">{{ __('Rollar və icazələr') }}</a></div></div></div>
         <form method="POST" action="{{ route('users.store') }}" class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
             @csrf
             <div><label class="label" for="u-name">{{ __('Ad') }}</label><input id="u-name" name="name" value="{{ old('name') }}" required class="input"></div>
             <div><label class="label" for="u-email">{{ __('E-poçt') }}</label><input id="u-email" name="email" type="email" value="{{ old('email') }}" required class="input"></div>
             <div><label class="label" for="u-pass">Parol (min. 10)</label><input id="u-pass" name="password" type="password" required class="input" autocomplete="new-password"></div>
             <div><label class="label" for="u-role">{{ __('Rol') }}</label>
-                <select id="u-role" name="role" class="select"><option value="menecer">{{ __('Menecer') }}</option><option value="admin">{{ __('Admin') }}</option></select></div>
+                <select id="u-role" name="role" class="select">@foreach (\App\Support\Permissions::roles() as $key => $label)<option value="{{ $key }}" @selected(old('role', 'menecer') === $key)>{{ $label }}</option>@endforeach</select></div>
             <div><label class="label" for="u-mgr">{{ __('Menecer (satışlardakı ad)') }}</label>
                 <select id="u-mgr" name="manager_id" class="select"><option value="">—</option>
                     @foreach ($managers as $m)<option value="{{ $m->id }}">{{ $m->name }}</option>@endforeach</select></div>
@@ -24,9 +24,8 @@
                     <div class="truncate text-muted">{{ $u->email }}</div>
                     <form method="POST" action="{{ route('users.update', $u) }}" class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
                         @csrf @method('PUT')
-                        <select name="role" class="select h-[34px] text-xs sm:w-28" aria-label="{{ __('Rol') }}">
-                            <option value="admin" @selected($u->role === 'admin')>{{ __('Admin') }}</option>
-                            <option value="menecer" @selected($u->role === 'menecer')>{{ __('Menecer') }}</option>
+                        <select name="role" class="select h-[34px] text-xs sm:w-44" aria-label="{{ __('Rol') }}">
+                            @foreach (\App\Support\Permissions::roles() as $key => $label)<option value="{{ $key }}" @selected($u->role === $key)>{{ $label }}</option>@endforeach
                         </select>
                         <select name="is_active" class="select h-[34px] text-xs sm:w-24" aria-label="{{ __('Status') }}">
                             <option value="1" @selected($u->is_active)>{{ __('Aktiv') }}</option>

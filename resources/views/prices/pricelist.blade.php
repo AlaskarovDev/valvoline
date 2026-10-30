@@ -1,4 +1,4 @@
-@php $isAdmin = auth()->user()->isAdmin(); @endphp
+@php $isAdmin = auth()->user()->can('products.manage'); @endphp
 <x-layouts.app :title="$title">
     <section class="card">
         <form method="GET" class="flex flex-wrap items-end gap-2 px-4 py-3">

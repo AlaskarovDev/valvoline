@@ -21,7 +21,14 @@
 <body class="min-h-screen font-sans antialiased" x-data="{ nav: false }">
 @php
     $user = auth()->user();
-    $isAdmin = $user?->isAdmin();
+    // menyu bəndi yalnız marşrutun perm:… icazəsi varsa görünür (marşrut və menyu eyni qaydanı işlədir)
+    $canRoute = function (string $name) use ($user): bool {
+        $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName($name) ?? \Illuminate\Support\Facades\Route::getRoutes()->getByName('stock-docs.index');
+        $areas = collect($route?->gatherMiddleware() ?? [])->filter(fn ($m) => is_string($m) && str_starts_with($m, 'perm:'))
+            ->flatMap(fn ($m) => explode(',', substr($m, 5)));
+
+        return $user !== null && ($areas->isEmpty() || $areas->contains(fn ($a) => $user->hasPermission($a)));
+    };
     $menu = [
         __('Hesabatlar') => [
             ['dashboard', __('İdarə paneli'), 'dashboard', true],
@@ -35,15 +42,15 @@
             ['invoices.index', __('Satış fakturaları'), 'invoice', true],
             ['returns.index', __('Qaytarmalar'), 'returns', true],
             ['campaigns.index', __('Kampaniyalar'), 'tag', true],
-            ['reps.index', __('Satış nümayəndələri'), 'users', $isAdmin],
+            ['reps.index', __('Satış nümayəndələri'), 'users', true],
         ],
         __('Məhsul idarəetməsi') => [
             ['_sub', __('Əsas məlumat')],
             ['products.index', __('Məhsullar'), 'stock', true],
-            ['prices.index', __('Qiymət kartları'), 'tag', $isAdmin],
-            ['customer-prices.index', __('Müştəriyə özəl qiymətlər'), 'users', $isAdmin],
+            ['prices.index', __('Qiymət kartları'), 'tag', true],
+            ['customer-prices.index', __('Müştəriyə özəl qiymətlər'), 'users', true],
             ['prices.list', __('Qiymət siyahısı'), 'invoice', true],
-            ['product-settings.index', __('Məhsul parametrləri'), 'filter', $isAdmin],
+            ['product-settings.index', __('Məhsul parametrləri'), 'filter', true],
             ['_sub', __('Sənədlər')],
             ['stock-docs.index', __('Bütün stok sənədləri'), 'invoice', true],
             ['stock-docs.opening', __('Açılış sənədləri'), 'plus', true],
@@ -64,38 +71,39 @@
             ['batches.index', __('Son istifadə tarixləri'), 'warning', true],
             ['write-offs.index', __('Silinmə aktları'), 'trash', true],
             ['warehouses.index', __('Anbarlar'), 'stock', true],
-            ['purchases.index', __('İdxal partiyaları'), 'truck', $isAdmin],
+            ['purchases.index', __('İdxal partiyaları'), 'truck', true],
         ],
         __('Maliyyə') => [
-            ['expenses.index', __('Xərclər'), 'expenses', $isAdmin],
-            ['pnl.index', __('Mənfəət-zərər (P&L)'), 'pnl', $isAdmin],
-            ['flowsheet.index', __('Cash Flow (idarəetmə)'), 'cash', $isAdmin],
+            ['expenses.index', __('Xərclər'), 'expenses', true],
+            ['pnl.index', __('Mənfəət-zərər (P&L)'), 'pnl', true],
+            ['flowsheet.index', __('Cash Flow (idarəetmə)'), 'cash', true],
             ['finance.registers', __('Kassalar'), 'cash', true],
             ['finance.documents', __('Maliyyə sənədləri'), 'invoice', true],
-            ['finance.banks', __('Banklar'), 'payments', $isAdmin],
-            ['cash.index', __('Kassa jurnalı (fayl)'), 'cash', $isAdmin],
+            ['finance.banks', __('Banklar'), 'payments', true],
+            ['cash.index', __('Kassa jurnalı (fayl)'), 'cash', true],
         ],
         __('Mühasibat') => [
-            ['accounting.chart', __('Hesablar planı'), 'tag', $isAdmin],
-            ['accounting.balance', __('Balans'), 'pnl', $isAdmin],
-            ['accounting.pl', __('Mənfəət-zərər (vergi)'), 'expenses', $isAdmin],
-            ['accounting.cashflow', __('Cash Flow (bank)'), 'cash', $isAdmin],
-            ['bank.index', __('Bank hesabları'), 'payments', $isAdmin],
-            ['accounting.overview', __('İllər üzrə müqayisə'), 'up', $isAdmin],
-            ['accounting.reconcile', __('Tutuşdurma'), 'quality', $isAdmin],
+            ['accounting.chart', __('Hesablar planı'), 'tag', true],
+            ['accounting.balance', __('Balans'), 'pnl', true],
+            ['accounting.pl', __('Mənfəət-zərər (vergi)'), 'expenses', true],
+            ['accounting.cashflow', __('Cash Flow (bank)'), 'cash', true],
+            ['bank.index', __('Bank hesabları'), 'payments', true],
+            ['accounting.overview', __('İllər üzrə müqayisə'), 'up', true],
+            ['accounting.reconcile', __('Tutuşdurma'), 'quality', true],
         ],
         __('Məlumat') => [
-            ['quality.index', __('Məlumat keyfiyyəti'), 'quality', $isAdmin],
-            ['import.index', __('Import'), 'import', $isAdmin],
-            ['aliases.index', __('Ad uyğunlaşdırma'), 'link', $isAdmin],
+            ['quality.index', __('Məlumat keyfiyyəti'), 'quality', true],
+            ['import.index', __('Import'), 'import', true],
+            ['aliases.index', __('Ad uyğunlaşdırma'), 'link', true],
         ],
         __('Tənzimləmələr') => [
-            ['numbering.index', __('Nömrələmə servisi'), 'filter', $isAdmin],
-            ['period-lock.index', __('Dövr bağlama'), 'info', $isAdmin],
-            ['audit.index', __('Audit jurnalı'), 'quality', $isAdmin],
-            ['workplaces.index', __('İş yerləri'), 'dashboard', $isAdmin],
-            ['users.index', __('İstifadəçilər'), 'users', $isAdmin],
-            ['categories.index', __('Xərc kateqoriyaları'), 'tag', $isAdmin],
+            ['numbering.index', __('Nömrələmə servisi'), 'filter', true],
+            ['period-lock.index', __('Dövr bağlama'), 'info', true],
+            ['audit.index', __('Audit jurnalı'), 'quality', true],
+            ['workplaces.index', __('İş yerləri'), 'dashboard', true],
+            ['users.index', __('İstifadəçilər'), 'users', true],
+            ['roles.index', __('Rollar və icazələr'), 'users', true],
+            ['categories.index', __('Xərc kateqoriyaları'), 'tag', true],
         ],
     ];
 @endphp
@@ -146,7 +154,7 @@
 
                             continue;
                         }
-                        if (! $i[3]) {
+                        if (! $i[3] || ! $canRoute($i[0])) {
                             continue;
                         }
                         [$route, $label, $icon] = $i;
@@ -219,7 +227,7 @@
                 @if ($user)
                     <div class="hidden text-right text-xs leading-tight sm:block">
                         <div class="font-medium">{{ $user->name }}</div>
-                        <div class="text-muted">{{ $user->isAdmin() ? __('Admin') : __('Menecer') }}</div>
+                        <div class="text-muted">{{ $user->roleLabel() }}</div>
                     </div>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf

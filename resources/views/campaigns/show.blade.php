@@ -1,4 +1,4 @@
-@php use App\Support\Fmt; $c = $campaign; $isAdmin = auth()->user()->isAdmin(); @endphp
+@php use App\Support\Fmt; $c = $campaign; $isAdmin = auth()->user()->can('sales.manage'); @endphp
 <x-layouts.app :title="$title">
     <div class="flex flex-wrap items-center gap-2">
         <a href="{{ route('campaigns.index') }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Geri') }}</a>

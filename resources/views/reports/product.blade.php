@@ -35,7 +35,7 @@
                         <div><div class="label">{{ __('Tarix / partiya') }}</div>{{ Fmt::date($line->date) }} · №{{ $line->batch_no }}</div>
                         <div><div class="label">{{ __('Miqdar') }}</div><span class="num">{{ Fmt::qty($line->qty) }}</span></div>
                         <div class="min-w-0 flex-1"><div class="label">{{ __('Qeyd') }}</div><span class="text-muted">{{ $line->note }}</span></div>
-                        @can('admin')
+                        @can('products.manage')
                             <div>
                                 <label class="label" for="cost-{{ $line->id }}">{{ __('Vahid maya, ₼') }}</label>
                                 <input id="cost-{{ $line->id }}" name="unit_cost" type="number" step="0.0001" min="0" value="{{ (float) $line->unit_cost }}" class="input w-36 num">

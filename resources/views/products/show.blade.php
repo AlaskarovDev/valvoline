@@ -1,7 +1,7 @@
 @php
     use App\Support\Fmt;
     $p = $product;
-    $isAdmin = auth()->user()->isAdmin();
+    $isAdmin = auth()->user()->can('products.manage');
     $vatModes = ['standard' => __('ƏDV-yə cəlb edilən'), 'zero' => __('ƏDV 0 dərəcə'), 'exempt' => __('ƏDV-dən azad'), 'not_subject' => __('ƏDV-yə cəlb olunmayan')];
     $totalQty = $stock->sum('qty');
     $reserved = $stock->sum('reserved');

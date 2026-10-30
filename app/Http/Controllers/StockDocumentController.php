@@ -129,7 +129,7 @@ class StockDocumentController extends ReportController
 
     public function destroy(Request $request, StockDocument $stockDocument, StockDocumentService $service): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('stock.manage'), 403);
         $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
         $no = $stockDocument->doc_no;
         $type = StockDocument::typeLabels()[$stockDocument->type];

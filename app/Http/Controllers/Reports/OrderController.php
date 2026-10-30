@@ -112,7 +112,7 @@ class OrderController extends ReportController
     public function show(Request $request, SalesOrder $order): View|Response
     {
         $user = $request->user();
-        abort_if(! $user->isAdmin() && $order->manager_id !== $user->manager_id, 403);
+        abort_if($user->restrictedManagerId() !== null && $order->manager_id !== $user->restrictedManagerId(), 403);
 
         $manual = $order->source === 'manual';
         // «Sifarişlər» bölməsindən açılanda maya və qazanc göstərilmir; «Sifarişlər və qazanc» hesabatından — göstərilir

@@ -77,7 +77,7 @@ class CustomerController extends ReportController
     public function show(Request $request, Customer $customer, CustomerBalanceService $balances): View|Response
     {
         $user = $request->user();
-        abort_if(! $user->isAdmin() && $customer->manager_id !== $user->manager_id, 403);
+        abort_if($user->restrictedManagerId() !== null && $customer->manager_id !== $user->restrictedManagerId(), 403);
 
         $filters = ReportFilters::fromRequest($request, 'all');
         $from = $filters->preset === 'all' ? null : $filters->fromDate();
@@ -147,7 +147,7 @@ class CustomerController extends ReportController
             'customer' => $customer->load('manager', 'aliases'),
             'balance' => $customer->balance,
             'credit' => app(CreditControl::class)->snapshot($customer),
-            'canEdit' => $user->isAdmin() || $customer->manager_id === $user->manager_id,
+            'canEdit' => $user->can('customers') && ($user->restrictedManagerId() === null || $customer->manager_id === $user->restrictedManagerId()),
             'filters' => $filters,
             'statementTable' => $statementTable,
             'statementRows' => $statementTable->resolve($request),

@@ -140,7 +140,7 @@ class TransferController extends ReportController
     public function send(Request $request, WarehouseTransfer $transfer): RedirectResponse
     {
         try {
-            $this->service->send($transfer, $request->user()->id, null, $request->user()->isAdmin() && $request->boolean('allow_negative'));
+            $this->service->send($transfer, $request->user()->id, null, $request->user()->can('stock.manage') && $request->boolean('allow_negative'));
             if ($request->boolean('receive')) {
                 $this->service->receive($transfer->refresh(), $request->user()->id);
             }

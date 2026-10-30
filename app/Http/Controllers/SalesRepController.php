@@ -90,7 +90,7 @@ class SalesRepController extends Controller
      */
     private function validated(Request $request, ?Manager $manager): array
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('settings'), 403);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('managers', 'name')->ignore($manager?->id)],
             'code' => ['nullable', 'string', 'max:16', Rule::unique('managers', 'code')->ignore($manager?->id)],

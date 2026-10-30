@@ -1,4 +1,4 @@
-@php use App\Support\Fmt; $isAdmin = auth()->user()->isAdmin(); @endphp
+@php use App\Support\Fmt; $isAdmin = auth()->user()->can('finance.manage'); @endphp
 <x-layouts.app :title="$title">
     <div class="flex flex-wrap gap-2">
         <a href="{{ route('finance.documents.create', ['type' => 'cash_receipt']) }}" class="btn btn-sm btn-primary"><x-icon name="plus" size="14"/> {{ __('Müştəri ödənişi (mədaxil)') }}</a>

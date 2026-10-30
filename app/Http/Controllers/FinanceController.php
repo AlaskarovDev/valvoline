@@ -44,7 +44,7 @@ class FinanceController extends ReportController
 
     public function storeRegister(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('finance.manage'), 403);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:cash_registers,name'],
             'code' => ['nullable', 'string', 'max:16', 'unique:cash_registers,code'],
@@ -124,7 +124,7 @@ class FinanceController extends ReportController
     {
         $type = $request->input('type');
         abort_unless(array_key_exists((string) $type, FinanceDocument::typeLabels()), 422);
-        abort_if(in_array($type, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! $request->user()->isAdmin(), 403);
+        abort_if(in_array($type, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! $request->user()->can('finance.manage'), 403);
         $rules = [
             'type' => ['required'], 'date' => ['required', 'date'], 'workplace_id' => ['required', 'integer', 'exists:workplaces,id'],
             'note' => ['nullable', 'string', 'max:1000'],
@@ -190,7 +190,7 @@ class FinanceController extends ReportController
 
     public function destroyDocument(Request $request, FinanceDocument $document): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('finance.manage'), 403);
         $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
         $no = $document->doc_no;
         $type = FinanceDocument::typeLabels()[$document->type];
@@ -222,7 +222,7 @@ class FinanceController extends ReportController
 
     public function storeBank(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('finance.manage'), 403);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:banks,name'], 'code' => ['nullable', 'string', 'max:32'],
             'swift' => ['nullable', 'string', 'max:16'], 'voen' => ['nullable', 'string', 'max:16'], 'correspondent_account' => ['nullable', 'string', 'max:64'],
@@ -234,7 +234,7 @@ class FinanceController extends ReportController
 
     public function storeAccount(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('finance.manage'), 403);
         $data = $request->validate([
             'bank_id' => ['required', 'integer', 'exists:banks,id'],
             'currency' => ['required', Rule::in(['AZN', 'USD', 'EUR', 'RUB', 'TRY', 'GBP'])],

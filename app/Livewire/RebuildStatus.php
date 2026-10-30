@@ -14,7 +14,7 @@ class RebuildStatus extends Component
 {
     public function rebuild(): void
     {
-        abort_unless(auth()->user()?->isAdmin(), 403);
+        abort_unless(auth()->user()?->can('data'), 403);
         $status = AnalyticsRebuilder::status();
         if (in_array($status['status'] ?? null, ['running', 'queued'], true)) {
             return;

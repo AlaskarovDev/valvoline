@@ -1,4 +1,4 @@
-@php use App\Support\Fmt; $isAdmin = auth()->user()->isAdmin(); @endphp
+@php use App\Support\Fmt; $isAdmin = auth()->user()->can('stock.manage'); @endphp
 <x-layouts.app :title="$title">
     @if ($isAdmin)
         <section class="card" x-data="{ open: false }">

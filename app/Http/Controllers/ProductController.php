@@ -156,7 +156,7 @@ class ProductController extends ReportController
 
     public function toggle(Request $request, Product $product): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('products.manage'), 403);
         $product->forceFill(['is_active' => ! $product->is_active])->save();
 
         return back()->with('status', $product->is_active ? __('Məhsul aktivləşdirildi.') : __('Məhsul passiv edildi — yeni sifarişlərdə görünməyəcək.'));

@@ -91,7 +91,7 @@ class PriceCardController extends ReportController
 
     public function update(Request $request, PriceCard $card): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('products.manage'), 403);
         $data = $request->validate([
             'action' => ['required', Rule::in(['close', 'activate', 'deactivate'])],
             'valid_to' => ['nullable', 'date'],
@@ -108,7 +108,7 @@ class PriceCardController extends ReportController
 
     public function destroy(Request $request, PriceCard $card): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('products.manage'), 403);
         $card->delete();
 
         return back()->with('status', __('Qiymət kartı silindi.'));
@@ -119,7 +119,7 @@ class PriceCardController extends ReportController
      */
     public function bulk(Request $request, PriceService $prices): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('products.manage'), 403);
         $data = $request->validate([
             'price_list_id' => ['required', 'integer', 'exists:price_lists,id'],
             'method' => ['required', Rule::in(['percent', 'markup', 'fixed'])],
@@ -171,7 +171,7 @@ class PriceCardController extends ReportController
      */
     public function import(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('products.manage'), 403);
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
             'price_list_id' => ['required', 'integer', 'exists:price_lists,id'],
@@ -284,7 +284,7 @@ class PriceCardController extends ReportController
      */
     public function assignList(Request $request, Customer $customer): RedirectResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('products.manage'), 403);
         $data = $request->validate(['price_list_id' => ['nullable', 'integer', 'exists:price_lists,id']]);
         $customer->forceFill(['price_list_id' => $data['price_list_id'] ?? null])->save();
 
@@ -296,7 +296,7 @@ class PriceCardController extends ReportController
      */
     private function validated(Request $request): array
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        abort_unless($request->user()->can('products.manage'), 403);
 
         return $request->validate([
             'product_id' => ['required', 'integer', 'exists:products,id'],

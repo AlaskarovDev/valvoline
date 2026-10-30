@@ -9,7 +9,7 @@
 @if ($logs->isNotEmpty())
     <section class="card overflow-hidden no-print">
         <div class="card-head"><h2 class="card-title">{{ __('Tarixçə') }}</h2>
-            @can('admin')<a href="{{ route('audit.index', ['q' => $no, 'preset' => 'all']) }}" class="btn btn-sm">{{ __('Audit jurnalı') }}</a>@endcan
+            @can('settings')<a href="{{ route('audit.index', ['q' => $no, 'preset' => 'all']) }}" class="btn btn-sm">{{ __('Audit jurnalı') }}</a>@endcan
         </div>
         <ul class="divide-y divide-line text-sm">
             @foreach ($logs as $log)

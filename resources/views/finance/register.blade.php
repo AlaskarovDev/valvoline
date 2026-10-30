@@ -8,7 +8,7 @@
         <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
             <a href="{{ route('finance.documents.create', ['type' => 'cash_receipt', 'register' => $r->id]) }}" class="btn btn-sm btn-primary"><x-icon name="plus" size="14"/> {{ __('Müştəri ödənişi') }}</a>
             <a href="{{ route('finance.documents.create', ['type' => 'cash_transfer', 'register' => $r->id]) }}" class="btn btn-sm"><x-icon name="refresh" size="14"/> {{ __('Transfer') }}</a>
-            @if (auth()->user()->isAdmin())<a href="{{ route('finance.documents.create', ['type' => 'cash_opening', 'register' => $r->id]) }}" class="btn btn-sm">{{ __('Açılış') }}</a>@endif
+            @if (auth()->user()->can('finance.manage'))<a href="{{ route('finance.documents.create', ['type' => 'cash_opening', 'register' => $r->id]) }}" class="btn btn-sm">{{ __('Açılış') }}</a>@endif
         </div>
     </div>
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">

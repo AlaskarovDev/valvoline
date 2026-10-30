@@ -1,4 +1,4 @@
-@php use App\Support\Fmt; $isAdmin = auth()->user()->isAdmin(); @endphp
+@php use App\Support\Fmt; $isAdmin = auth()->user()->can('stock.manage'); @endphp
 <x-layouts.app :title="$title">
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-kpi :label="__('Vaxtı bitmiş')" :value="Fmt::qty($kpi['expired_qty'])" :tone="$kpi['expired_qty'] > 0 ? 'neg' : null"

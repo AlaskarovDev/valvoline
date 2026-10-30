@@ -1,7 +1,7 @@
 <x-layouts.app :title="$title">
     <div class="flex flex-wrap gap-2">
         @foreach ($types as $key => $label)
-            @continue(in_array($key, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! auth()->user()->isAdmin())
+            @continue(in_array($key, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! auth()->user()->can('finance.manage'))
             <a href="{{ route('finance.documents.create', ['type' => $key]) }}" class="btn btn-sm"><x-icon name="plus" size="14"/> {{ $label }}</a>
         @endforeach
     </div>

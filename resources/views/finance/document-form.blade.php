@@ -33,7 +33,7 @@
         <div class="flex flex-wrap gap-2">
             <a href="{{ $isCash ? route('finance.registers') : route('finance.banks') }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Geri') }}</a>
             @foreach ($types as $key => $label)
-                @continue(in_array($key, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! auth()->user()->isAdmin())
+                @continue(in_array($key, ['cash_opening', 'bank_opening', 'bank_transfer'], true) && ! auth()->user()->can('finance.manage'))
                 <a href="{{ route('finance.documents.create', ['type' => $key]) }}" @class(['btn btn-sm', 'btn-primary' => $key === $type])>{{ $label }}</a>
             @endforeach
         </div>

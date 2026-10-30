@@ -18,7 +18,7 @@ class DashboardController extends ReportController
     public function __invoke(Request $request): View
     {
         $filters = $this->filters($request, 'this_month', 'VALVO');
-        $isAdmin = $request->user()->isAdmin();
+        $isAdmin = $request->user()->can('accounting');
 
         $current = SalesSummaryQuery::totals($filters);
         $previous = SalesSummaryQuery::totals(SalesSummaryQuery::previousYear($filters));

@@ -1,5 +1,5 @@
 <x-layouts.app :title="$title">
-    @if (auth()->user()->isAdmin())
+    @if (auth()->user()->can('stock.manage'))
         <section class="card" x-data="{ open: false, lines: [{ key: 1, product_id: '', qty: 1 }] }">
             <div class="card-head">
                 <div><h2 class="card-title">{{ __('Yeni silinmə aktı') }}</h2><div class="card-sub">{{ __('Zədələnmiş, itmiş və ya vaxtı bitmiş mal. Vaxtı bitmiş partiyalar üçün «Son istifadə tarixləri» səhifəsindən istifadə edin.') }}</div></div>

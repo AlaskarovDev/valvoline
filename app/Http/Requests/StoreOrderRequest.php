@@ -73,7 +73,7 @@ class StoreOrderRequest extends FormRequest
                 $amount = collect(OrderEntryController::toBaseUnits(collect($this->input('lines', []))
                     ->filter(fn ($l) => is_numeric($l['qty'] ?? null) && is_numeric($l['price'] ?? null) && ($l['op_type'] ?? 'sale') === 'sale')->all()))
                     ->sum(fn ($l) => (float) $l['qty'] * (float) $l['price'] * (1 - (float) ($l['discount'] ?? 0) / 100));
-                $override = $this->user()->isAdmin() && $this->boolean('credit_override');
+                $override = $this->user()->can('sales.manage') && $this->boolean('credit_override');
                 foreach (app(CreditControl::class)->violations($customer, round($amount, 2), $this->route('order')?->id, $override) as $message) {
                     $validator->errors()->add('customer_id', $message);
                 }

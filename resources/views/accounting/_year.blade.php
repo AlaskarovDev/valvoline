@@ -13,6 +13,6 @@
 @if ($year === null)
     <div class="card px-4 py-10 text-center text-sm text-muted">
         {{ __('Mühasibat faylı hələ yüklənməyib. Import səhifəsindən «Balans / MZ / Cash Flow» faylını (.xls və ya .xlsx) yükləyin.') }}
-        @can('admin')<div class="mt-3"><a href="{{ route('import.index') }}" class="btn btn-sm btn-primary">{{ __('Import') }}</a></div>@endcan
+        @can('data')<div class="mt-3"><a href="{{ route('import.index') }}" class="btn btn-sm btn-primary">{{ __('Import') }}</a></div>@endcan
     </div>
 @endif

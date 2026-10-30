@@ -1,4 +1,4 @@
-@php use App\Support\Fmt; $isAdmin = auth()->user()->isAdmin(); @endphp
+@php use App\Support\Fmt; $isAdmin = auth()->user()->can('products.manage'); @endphp
 <x-layouts.app :title="$title">
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-kpi :label="__('Aktiv məhsul')" :value="Fmt::number($kpi['count'])" :meta="__(':n passiv', ['n' => $kpi['passive']])"/>
