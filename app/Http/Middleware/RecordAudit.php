@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\AuditLog;
+use App\Services\AlertService;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -40,6 +41,8 @@ class RecordAudit
         $before = $subject ? $this->attributes($subject) : null;
 
         $response = $next($request);
+        // hər yazı əməliyyatından sonra bildirişlər yenidən hesablansın
+        AlertService::touch();
 
         try {
             $this->record($request, $response, $action, $actor, $subjectType, $subjectId, $subject, $before);

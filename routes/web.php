@@ -13,6 +13,7 @@ use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\NumberingController;
 use App\Http\Controllers\OrderEntryController;
 use App\Http\Controllers\PeriodLockController;
@@ -63,6 +64,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
     Route::get('/', DashboardController::class)->name('dashboard');
+    Route::get('/bildirisler', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/bildirisler/qisa', [NotificationController::class, 'summary'])->name('notifications.summary');
     Route::get('/sifarisler', [OrderController::class, 'index'])->name('orders.index')->middleware('perm:sales');
     Route::get('/hesabat/sifarisler-ve-qazanc', [OrderController::class, 'profit'])->name('order-profit.index')->middleware('perm:reports');
     Route::get('/sifarisler/yeni', [OrderEntryController::class, 'create'])->name('orders.create')->middleware('perm:sales');

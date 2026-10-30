@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\User;
+use Illuminate\Support\Facades\Route;
+
 /**
  * Rollar və icazələr: hər rolun hansı bölmələrə girişi var. Admin həmişə hər şeyə icazəlidir.
  * Standart cədvəl aşağıdadır; admin «Rollar və icazələr» səhifəsində dəyişə bilər (app_settings.role_permissions).
@@ -79,5 +82,21 @@ class Permissions
     public static function allows(?string $role, string $area): bool
     {
         return $role === 'admin' || in_array($area, self::matrix()[$role] ?? [], true);
+    }
+
+    /**
+     * İstifadəçi adlı marşruta girə bilərmi: marşrutun perm:… middleware-indəki bölmələrdən biri kifayətdir
+     * (menyu və bildirişlər eyni qaydanı işlədir).
+     */
+    public static function canRoute(?User $user, string $name): bool
+    {
+        $route = Route::getRoutes()->getByName($name);
+        if ($user === null || $route === null) {
+            return false;
+        }
+        $areas = collect($route->gatherMiddleware())->filter(fn ($m) => is_string($m) && str_starts_with($m, 'perm:'))
+            ->flatMap(fn ($m) => explode(',', substr($m, 5)));
+
+        return $areas->isEmpty() || $areas->contains(fn ($a) => $user->hasPermission($a));
     }
 }

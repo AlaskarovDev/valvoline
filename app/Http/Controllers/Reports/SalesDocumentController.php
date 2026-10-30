@@ -34,6 +34,7 @@ class SalesDocumentController extends ReportController
             ->leftJoin('sales_invoices as i', fn ($j) => $j->on('i.delivery_note_id', '=', 'd.id')->whereNull('i.cancelled_at'))
             ->whereBetween('d.date', [$filters->fromDate(), $filters->toDate()])
             ->when($filters->customerId, fn ($q) => $q->where('d.customer_id', $filters->customerId))
+            ->when($request->query('only') === 'uninvoiced', fn ($q) => $q->whereNull('i.id'))
             ->select('d.id', 'd.date', 'd.doc_no', 'd.customer_id', 'd.customer_name', 'd.total_qty', 'd.total_amount', 'd.total_cogs',
                 'o.id as order_id', 'o.order_no', 'w.name as warehouse_name', 'i.id as invoice_id', 'i.doc_no as invoice_no');
 

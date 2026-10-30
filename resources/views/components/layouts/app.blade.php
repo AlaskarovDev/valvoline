@@ -22,13 +22,8 @@
 @php
     $user = auth()->user();
     // menyu bəndi yalnız marşrutun perm:… icazəsi varsa görünür (marşrut və menyu eyni qaydanı işlədir)
-    $canRoute = function (string $name) use ($user): bool {
-        $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName($name) ?? \Illuminate\Support\Facades\Route::getRoutes()->getByName('stock-docs.index');
-        $areas = collect($route?->gatherMiddleware() ?? [])->filter(fn ($m) => is_string($m) && str_starts_with($m, 'perm:'))
-            ->flatMap(fn ($m) => explode(',', substr($m, 5)));
-
-        return $user !== null && ($areas->isEmpty() || $areas->contains(fn ($a) => $user->hasPermission($a)));
-    };
+    // stock-docs.<növ> bəndləri stok sənədləri siyahısının süzgəcidir (ayrıca marşrut deyil)
+    $canRoute = fn (string $name): bool => \App\Support\Permissions::canRoute($user, str_starts_with($name, 'stock-docs.') ? 'stock-docs.index' : $name);
     $menu = [
         __('Hesabatlar') => [
             ['dashboard', __('İdarə paneli'), 'dashboard', true],
@@ -227,6 +222,7 @@
                 <h1 class="truncate text-[15px] font-semibold">{{ $title ?? '' }}</h1>
             </div>
             <div class="ml-auto flex items-center gap-1.5">
+                @if ($user)<x-notification-bell/>@endif
                 <x-locale-switch/>
                 <button type="button" class="btn btn-sm" onclick="toggleTheme()" aria-label="{{ __('Qaranlıq / işıqlı rejim') }}" title="{{ __('Qaranlıq / işıqlı rejim') }}">
                     <x-icon name="moon" size="16" class="dark:hidden"/><x-icon name="sun" size="16" class="hidden dark:block"/>

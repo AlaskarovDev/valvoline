@@ -91,6 +91,7 @@ class AnalyticsRebuilder
             DB::transaction(fn () => $this->balances->rebuild());
 
             $result = $stats + ['pending' => $pending, 'seconds' => round(microtime(true) - $started, 1)];
+            AlertService::touch();
             Cache::put(self::CACHE_KEY, ['status' => 'done', 'step' => __('Hazırdır'), 'pct' => 100, 'finished_at' => now()->toIso8601String(), 'result' => $result], 86400 * 30);
             Cache::put('analytics.version', now()->timestamp, 86400 * 365);
 
