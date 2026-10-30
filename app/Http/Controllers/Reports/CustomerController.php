@@ -74,6 +74,19 @@ class CustomerController extends ReportController
         ]);
     }
 
+    /**
+     * Üzləşmə aktı (çap forması): dövrün əvvəlinə qalıq, əməliyyatlar, son qalıq, iki tərəfin imzası.
+     */
+    public function akt(Request $request, Customer $customer, CustomerBalanceService $balances): View
+    {
+        $user = $request->user();
+        abort_if($user->restrictedManagerId() !== null && $customer->manager_id !== $user->restrictedManagerId(), 403);
+        $from = $request->date('from')?->toDateString() ?? now()->startOfYear()->toDateString();
+        $to = $request->date('to')?->toDateString() ?? now()->toDateString();
+
+        return view('customers.akt', ['customer' => $customer, 'from' => $from, 'to' => $to, 'statement' => $balances->statement($customer->id, $from, $to)]);
+    }
+
     public function show(Request $request, Customer $customer, CustomerBalanceService $balances): View|Response
     {
         $user = $request->user();

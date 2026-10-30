@@ -11,6 +11,7 @@
         @if ($customer->contact_person)<span class="badge">{{ $customer->contact_person }}</span>@endif
         @if ($canEdit)
             <div class="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+                <a href="{{ route('customers.akt', [$customer, 'from' => $filters->preset === 'all' ? now()->startOfYear()->toDateString() : $filters->fromDate(), 'to' => $filters->preset === 'all' ? now()->toDateString() : $filters->toDate()]) }}" target="_blank" rel="noopener" class="btn btn-sm"><x-icon name="print" size="14"/> {{ __('Üzləşmə aktı') }}</a>
                 <a href="{{ route('customers.edit', $customer) }}" class="btn btn-sm"><x-icon name="edit" size="14"/> {{ __('Kartı düzəlt') }}</a>
                 <a href="{{ route('orders.create', ['customer' => $customer->id]) }}" class="btn btn-sm btn-primary"><x-icon name="plus" size="14"/> {{ __('Sifariş əlavə et') }}</a>
             </div>

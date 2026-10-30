@@ -8,7 +8,9 @@ use App\Models\SalesInvoice;
 use App\Models\SalesOrder;
 use App\Reports\Table;
 use App\Services\AnalyticsRebuilder;
+use App\Services\InvoicePaymentStatus;
 use App\Services\SalesDocumentService;
+use App\Support\Fmt;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,6 +71,9 @@ class SalesDocumentController extends ReportController
             ->select('i.id', 'i.date', 'i.due_date', 'i.doc_no', 'i.customer_id', 'i.customer_name', 'i.gross_amount', 'i.discount_amount', 'i.total_amount', 'i.amount_ex_vat', 'i.vat_amount',
                 'o.id as order_id', 'o.order_no', 'd.id as delivery_id', 'd.doc_no as delivery_no', 'm.name as manager_name');
 
+        // ödəniş vəziyyəti (FIFO): siyahıdakı fakturaların müştəriləri üzrə
+        $status = app(InvoicePaymentStatus::class)->forCustomers((clone $query)->pluck('i.customer_id')->filter()->unique()->map(fn ($id) => (int) $id)->values()->all());
+        $labels = InvoicePaymentStatus::labels();
         $table = Table::make('invoices', __('Satış fakturaları'))
             ->column('date', __('Tarix'), 'date', ['sql' => 'i.date'])
             ->column('doc_no', __('Faktura №'), 'text', ['sql' => 'i.doc_no', 'link' => fn ($r) => route('invoices.show', $r->id)])
@@ -82,6 +87,18 @@ class SalesDocumentController extends ReportController
             ->column('vat_amount', __('ƏDV'), 'money', ['sql' => 'i.vat_amount', 'mobile' => false])
             ->column('total_amount', __('Yekun'), 'money', ['sql' => 'i.total_amount', 'class' => fn () => 'font-semibold'])
             ->column('due_date', __('Ödəniş tarixi'), 'date', ['sql' => 'i.due_date', 'mobile' => false])
+            ->column('payment', __('Ödəniş'), 'text', ['sortable' => false, 'format' => function ($v, $r) use ($status, $labels) {
+                $s = $status[$r->id] ?? null;
+                if (! $s) {
+                    return '—';
+                }
+                $late = $s['status'] !== 'paid' && $r->due_date && substr((string) $r->due_date, 0, 10) < now()->toDateString();
+                $badge = '<span class="badge '.match ($s['status']) {
+                    'paid' => 'badge-pos', 'partial' => 'badge-warn', default => $late ? 'badge-neg' : ''
+                }.'">'.e($labels[$s['status']]).'</span>';
+
+                return $badge.($s['status'] !== 'paid' ? ' <span class="text-xs text-muted">'.e(__('qalıq')).' '.e(Fmt::money($s['open'])).'</span>' : '');
+            }])
             ->source($query)->sortBy('date', 'desc')->footer(auto: true)
             ->subtitle(__('Faktura müştəri borcuna və satış gəlirinə yazılır.'));
 
@@ -133,6 +150,7 @@ class SalesDocumentController extends ReportController
                 $invoice->deliveryNote ? [__('Təhvil-təslim sənədi'), $invoice->deliveryNote->doc_no, route('deliveries.show', $invoice->deliveryNote)] : null,
             ]),
             'canCancel' => ! $invoice->isCancelled(),
+            'payment' => $invoice->isCancelled() ? null : (app(InvoicePaymentStatus::class)->forCustomers(array_filter([(int) $invoice->customer_id]))[$invoice->id] ?? null),
             'history' => ['SalesInvoice', $invoice->id, $invoice->doc_no],
             'totals' => ['qty' => $lines->sum('qty'), 'gross' => (float) $invoice->gross_amount, 'discount' => (float) $invoice->discount_amount, 'amount' => (float) $invoice->total_amount, 'cogs' => $lines->sum('cogs')],
         ]);

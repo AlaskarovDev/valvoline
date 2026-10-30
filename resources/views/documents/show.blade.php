@@ -9,6 +9,9 @@
     <div class="flex flex-wrap items-center gap-2">
         <a href="{{ route($listRoute) }}" class="btn btn-sm"><x-icon name="back" size="14"/> {{ __('Geri') }}</a>
         <span class="badge">{{ Fmt::date($doc->date) }}</span>
+        @if ($isInvoice && ! empty($payment))
+            <span @class(['badge', 'badge-pos' => $payment['status'] === 'paid', 'badge-warn' => $payment['status'] === 'partial'])>{{ \App\Services\InvoicePaymentStatus::labels()[$payment['status']] }}@if ($payment['status'] !== 'paid') · {{ __('qalıq') }} {{ Fmt::money($payment['open']) }}@endif</span>
+        @endif
         @if ($isInvoice && $doc->due_date)<span @class(['badge', 'badge-neg' => ! $doc->cancelled_at && $doc->due_date < now()->toDateString()])>{{ __('Ödəniş tarixi') }}: {{ Fmt::date($doc->due_date) }}</span>@endif
         @if ($doc->customer)
             <a href="{{ route('customers.show', $doc->customer) }}" class="badge badge-primary">{{ $doc->customer->name }} · {{ $doc->customer->code }}</a>
@@ -23,6 +26,9 @@
         @endforeach
         <div class="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
             <a href="{{ route($showRoute, [$doc, 'print' => 1]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-primary"><x-icon name="print" size="14"/> {{ __('Çap et') }}</a>
+            @if ($isInvoice && ! $doc->cancelled_at)
+                <a href="{{ route('sales-returns.create', ['invoice' => $doc->id]) }}" class="btn btn-sm"><x-icon name="returns" size="14"/> {{ __('Qaytarma yarat') }}</a>
+            @endif
             @if ($canCancel)
                 <x-cancel-button :action="route($isInvoice ? 'invoices.destroy' : 'deliveries.destroy', $doc)"
                                  :confirm="$isInvoice ? __('Faktura ləğv edilsin? Məbləğ müştəri borcundan çıxarılacaq.') : __('Təhvil-təslim ləğv edilsin? Mal anbara qaytarılacaq, sifariş yenidən rezervə düşəcək.')"/>

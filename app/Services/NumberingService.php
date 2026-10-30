@@ -21,6 +21,7 @@ class NumberingService
         'sales_order' => ['sales', 'sales_orders', 'order_no', '{SEQ}', 'auto_editable', 'never', 64],
         'delivery_note' => ['sales', 'delivery_notes', 'doc_no', 'TT-{SEQ:6}', 'auto', 'never', 32],
         'sales_invoice' => ['sales', 'sales_invoices', 'doc_no', 'SF-{SEQ:6}', 'auto', 'never', 32],
+        'sales_return' => ['sales', 'sales_return_documents', 'doc_no', 'QQ-{SEQ:6}', 'auto', 'never', 32],
         'campaign' => ['sales', 'campaigns', 'code', 'KMP.{YYYY}{MM}.{SEQ:4}', 'auto_editable', 'prefix', 30],
         'warehouse_transfer' => ['stock', 'warehouse_transfers', 'doc_no', 'AT-{SEQ:6}', 'auto', 'never', 32],
         'stock_write_off' => ['stock', 'stock_write_offs', 'doc_no', 'SA-{SEQ:6}', 'auto', 'never', 32],
@@ -52,7 +53,7 @@ class NumberingService
     public static function labels(): array
     {
         return [
-            'sales_order' => __('Sifariş'), 'delivery_note' => __('Təhvil-təslim sənədi'), 'sales_invoice' => __('Satış fakturası'),
+            'sales_order' => __('Sifariş'), 'delivery_note' => __('Təhvil-təslim sənədi'), 'sales_invoice' => __('Satış fakturası'), 'sales_return' => __('Qaytarma qaiməsi'),
             'campaign' => __('Kampaniya kodu'), 'warehouse_transfer' => __('Anbar transferi'), 'stock_write_off' => __('Silinmə aktı'),
             'stock_doc_opening' => __('Açılış sənədi'), 'stock_doc_count_surplus' => __('Sayım artığı sənədi'), 'stock_doc_count_shortage' => __('Sayım əskiyi sənədi'),
             'stock_doc_production_loss' => __('İstehsal itkisi sənədi'), 'stock_doc_consumption' => __('Sərf sənədi'),

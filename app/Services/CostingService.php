@@ -297,10 +297,10 @@ class CostingService
         }
 
         foreach (DB::table('sales_returns')->whereNotNull('product_id')->orderBy('id')
-            ->get(['id', 'date', 'product_id', 'qty', 'customer_id', 'return_no']) as $row) {
+            ->get(['id', 'date', 'product_id', 'qty', 'customer_id', 'return_no', 'warehouse_id']) as $row) {
             $push([
                 'date' => (string) $row->date, 'source_order' => 2, 'source_id' => $row->id, 'product_id' => $row->product_id,
-                'warehouse_id' => $mainWarehouse, 'type' => 'return', 'qty' => abs((float) $row->qty),
+                'warehouse_id' => $row->warehouse_id ?? $mainWarehouse, 'type' => 'return', 'qty' => abs((float) $row->qty),
                 'source_type' => 'sales_return', 'customer_id' => $row->customer_id, 'doc_no' => $row->return_no,
             ]);
         }

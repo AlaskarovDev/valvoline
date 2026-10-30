@@ -41,6 +41,7 @@ use App\Http\Controllers\Reports\SalesDocumentController;
 use App\Http\Controllers\Reports\StockController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SalesRepController;
+use App\Http\Controllers\SalesReturnController;
 use App\Http\Controllers\StockDocumentController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierPaymentController;
@@ -80,6 +81,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/sifarisler/{order}/duzelis', [OrderEntryController::class, 'edit'])->name('orders.edit')->middleware('perm:sales');
     Route::put('/sifarisler/{order}', [OrderEntryController::class, 'update'])->name('orders.update')->middleware('perm:sales');
     Route::delete('/sifarisler/{order}', [OrderEntryController::class, 'destroy'])->name('orders.destroy')->middleware('perm:sales');
+    Route::get('/qaytarma-qaimeleri', [SalesReturnController::class, 'index'])->name('sales-returns.index')->middleware('perm:sales');
+    Route::get('/qaytarma-qaimeleri/yeni', [SalesReturnController::class, 'create'])->name('sales-returns.create')->middleware('perm:sales');
+    Route::post('/qaytarma-qaimeleri', [SalesReturnController::class, 'store'])->name('sales-returns.store')->middleware('perm:sales');
+    Route::get('/qaytarma-qaimeleri/{salesReturn}', [SalesReturnController::class, 'show'])->whereNumber('salesReturn')->name('sales-returns.show')->middleware('perm:sales');
+    Route::delete('/qaytarma-qaimeleri/{salesReturn}', [SalesReturnController::class, 'destroy'])->name('sales-returns.destroy')->middleware('perm:sales');
     Route::get('/kampaniyalar', [CampaignController::class, 'index'])->name('campaigns.index')->middleware('perm:sales');
     Route::get('/kampaniyalar/yeni', [CampaignController::class, 'create'])->name('campaigns.create')->middleware('perm:sales');
     Route::post('/kampaniyalar', [CampaignController::class, 'store'])->name('campaigns.store')->middleware('perm:sales');
@@ -126,6 +132,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/musteriler/yeni', [CustomerCardController::class, 'create'])->name('customers.create')->middleware('perm:customers');
     Route::post('/musteriler', [CustomerCardController::class, 'store'])->name('customers.store')->middleware('perm:customers');
     Route::get('/musteriler/{customer}', [CustomerController::class, 'show'])->whereNumber('customer')->name('customers.show')->middleware('perm:customers');
+    Route::get('/musteriler/{customer}/akt', [CustomerController::class, 'akt'])->name('customers.akt')->middleware('perm:customers');
     Route::get('/musteriler/{customer}/duzelis', [CustomerCardController::class, 'edit'])->name('customers.edit')->middleware('perm:customers');
     Route::put('/musteriler/{customer}', [CustomerCardController::class, 'update'])->name('customers.update')->middleware('perm:customers');
     Route::get('/techizatcilar', [SupplierController::class, 'index'])->name('suppliers.index')->middleware('perm:purchases');
